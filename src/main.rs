@@ -13,8 +13,8 @@ use opengl_graphics::{ GlGraphics, OpenGL, Texture, TextureSettings };
 
 mod raytracer;
 
-const WIDTH: u32 = 200;
-const HEIGHT: u32 = 100;
+const WIDTH: u32 = 600;
+const HEIGHT: u32 = 300;
 
 pub struct App {
     gl: GlGraphics,    // OpenGL drawing backend.

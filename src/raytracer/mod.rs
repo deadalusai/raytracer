@@ -44,8 +44,10 @@ fn color (ray: &Ray) -> Rgb {
     // Hit a sphere?
     let sphere_center = Vec3::new(0.0, 0.0, -1.0);
     let sphere_radius = 0.5;
-    if test_hit_sphere(&sphere_center, sphere_radius, ray) {
-        return Rgb::new(255, 0, 0);
+    if let Some(t) = test_hit_sphere(&sphere_center, sphere_radius, ray) {
+        let n = ray.point_at_parameter(t).sub(&Vec3::new(0.0, 0.0, -1.0));
+        let c = Vec3::new(n.x + 1.0, n.y + 1.0, n.z + 1.0).mul_f(0.55);
+        return vec3_to_rgb(&c);
     }
 
     let unit_direction = ray.direction.unit_vector();
@@ -57,13 +59,17 @@ fn color (ray: &Ray) -> Rgb {
     vec3_to_rgb(&v)
 }
 
-fn test_hit_sphere (sphere_center: &Vec3, radius: f32, ray: &Ray) -> bool {
+fn test_hit_sphere (sphere_center: &Vec3, radius: f32, ray: &Ray) -> Option<f32> {
     let oc = ray.origin.sub(sphere_center);
     let a = vec3_dot(&ray.direction, &ray.direction);
     let b = 2.0 * vec3_dot(&oc, &ray.direction);
     let c = vec3_dot(&oc, &oc) - radius * radius;
     let discriminant = b * b - 4.0 * a * c;
-    return discriminant > 0.0;
+    if discriminant < 0.0 {
+        return None
+    }
+    let v = (-b - discriminant.sqrt()) / (2.0 * a);
+    Some(v)
 }
 
 pub fn cast_rays (buffer: &mut RgbaImage) {
@@ -85,7 +91,7 @@ pub fn cast_rays (buffer: &mut RgbaImage) {
             let u = x as f32 / width as f32;
             let v = (height - y) as f32 / height as f32;
             let r = Ray::new(origin.clone(), lower_left_corner.add(&horizontal.mul_f(u).add(&vertical.mul_f(v))));
-            let col = color(&r);
+            let mut col = color(&r);
             set_pixel(buffer, (x, y), &col);
         }
     }
