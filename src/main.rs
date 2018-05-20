@@ -2,46 +2,45 @@ extern crate piston;
 extern crate graphics;
 extern crate glutin_window;
 extern crate opengl_graphics;
+extern crate image;
 
+use image::RgbaImage;
 use piston::window::WindowSettings;
 use piston::event_loop::*;
 use piston::input::*;
 use glutin_window::GlutinWindow as Window;
-use opengl_graphics::{ GlGraphics, OpenGL };
+use opengl_graphics::{ GlGraphics, OpenGL, Texture, TextureSettings };
+
+mod raytracer;
+
+const WIDTH: u32 = 800;
+const HEIGHT: u32 = 600;
 
 pub struct App {
     gl: GlGraphics, // OpenGL drawing backend.
-    rotation: f64   // Rotation for the square.
+    buffer: RgbaImage // Buffer
 }
 
 impl App {
     fn render(&mut self, args: &RenderArgs) {
         use graphics::*;
 
-        const GREEN: [f32; 4] = [0.0, 1.0, 0.0, 1.0];
-        const RED:   [f32; 4] = [1.0, 0.0, 0.0, 1.0];
+        const BLACK: [f32; 4] = [0.0, 0.0, 0.0, 1.0];
 
-        let square = rectangle::square(0.0, 0.0, 50.0);
-        let rotation = self.rotation;
-        let x = (args.width / 2) as f64;
-        let y = (args.height / 2) as f64;
-
-        self.gl.draw(args.viewport(), |c, gl| {
+        let settings = TextureSettings::new();
+        let texture = Texture::from_image(&self.buffer, &settings);
+        
+        self.gl.draw(args.viewport(), |ctx, gl| {
             // Clear the screen.
-            clear(GREEN, gl);
-
-            let transform = c.transform.trans(x, y)
-                                       .rot_rad(rotation)
-                                       .trans(-25.0, -25.0);
-
-            // Draw a box rotating around the middle of the screen.
-            rectangle(RED, square, transform, gl);
+            clear(BLACK, gl);
+            
+            // Draw the buffer texture
+            image(&texture, ctx.transform, gl);
         });
     }
 
-    fn update(&mut self, args: &UpdateArgs) {
-        // Rotate 2 radians per second.
-        self.rotation += 2.0 * args.dt;
+    fn update(&mut self, _args: &UpdateArgs) {
+
     }
 }
 
@@ -51,7 +50,7 @@ fn main() {
 
     // Create an Glutin window.
     let mut window: Window =
-        WindowSettings::new("spinning-square", [200, 200])
+        WindowSettings::new("spinning-square", [WIDTH, HEIGHT])
             .opengl(opengl)
             .exit_on_esc(true)
             .build()
@@ -60,8 +59,10 @@ fn main() {
     // Create a new game and run it.
     let mut app = App {
         gl: GlGraphics::new(opengl),
-        rotation: 0.0
+        buffer: RgbaImage::new(WIDTH, HEIGHT)
     };
+
+    raytracer::draw_gradient(&mut app.buffer);
 
     let mut events = Events::new(EventSettings::new());
     while let Some(e) = events.next(&mut window) {
