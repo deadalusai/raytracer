@@ -13,8 +13,8 @@ use opengl_graphics::{ GlGraphics, OpenGL, Texture, TextureSettings };
 
 mod raytracer;
 
-const WIDTH: u32 = 600;
-const HEIGHT: u32 = 300;
+const WIDTH: u32 = 1200;
+const HEIGHT: u32 = 600;
 
 pub struct App {
     gl: GlGraphics,    // OpenGL drawing backend.
@@ -28,11 +28,21 @@ impl App {
 
         let settings = TextureSettings::new();
         let texture = Texture::from_image(&self.buffer, &settings);
+
+        // let rot_rads = self.rot;
+        // let rot_offset_x = args.width as f64 / 2.0;
+        // let rot_offset_y = args.height as f64 / 2.0;
         
         self.gl.draw(args.viewport(), |ctx, gl| {
-            // Clear the screen.
-        
+            // Clear screen
+            clear([0.0; 4], gl);
+            
+            // Apply rotation
             let transform = ctx.transform;
+            //let transform = ctx.transform
+            //    .trans(rot_offset_x, rot_offset_y)
+            //    .rot_rad(rot_rads)
+            //    .trans(-rot_offset_x, -rot_offset_y);
 
             // Draw the buffer texture
             image(&texture, transform, gl);
@@ -65,6 +75,9 @@ fn main() {
     };
 
     raytracer::cast_rays(&mut app.buffer);
+
+    // HAX
+    app.buffer.save("test.png").unwrap();
 
     let mut events = Events::new(EventSettings::new());
     while let Some(e) = events.next(&mut window) {

@@ -90,7 +90,7 @@ pub fn cast_rays (buffer: &mut RgbaImage) {
         for y in 0..height {
             let u = x as f32 / width as f32;
             let v = (height - y) as f32 / height as f32;
-            let r = Ray::new(origin.clone(), lower_left_corner.add(&horizontal.mul_f(u).add(&vertical.mul_f(v))));
+            let r = Ray::new(origin.clone(), lower_left_corner.add(&horizontal.mul_f(u)).add(&vertical.mul_f(v)));
             let mut col = color(&r);
             set_pixel(buffer, (x, y), &col);
         }
