@@ -26,24 +26,13 @@ impl App {
     fn render(&mut self, args: &RenderArgs) {
         use graphics::*;
 
-        const BLACK: [f32; 4] = [0.0, 0.0, 0.0, 1.0];
-
         let settings = TextureSettings::new();
         let texture = Texture::from_image(&self.buffer, &settings);
         
-        let rot_rad = self.rot;
-        let center_x = (args.width / 2) as f64;
-        let center_y = (args.height / 2) as f64;
-        
         self.gl.draw(args.viewport(), |ctx, gl| {
             // Clear the screen.
-            clear(BLACK, gl);
         
-            // Rotate the texture from the center..
-            let transform = ctx.transform
-                .trans(center_x, center_y)
-                .rot_rad(rot_rad)
-                .trans(-center_x, -center_y);
+            let transform = ctx.transform;
 
             // Draw the buffer texture
             image(&texture, transform, gl);
