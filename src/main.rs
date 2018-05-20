@@ -13,8 +13,8 @@ use opengl_graphics::{ GlGraphics, OpenGL, Texture, TextureSettings };
 
 mod raytracer;
 
-const WIDTH: u32 = 800;
-const HEIGHT: u32 = 600;
+const WIDTH: u32 = 200;
+const HEIGHT: u32 = 100;
 
 pub struct App {
     gl: GlGraphics,    // OpenGL drawing backend.
@@ -51,7 +51,7 @@ fn main() {
 
     // Create an Glutin window.
     let mut window: Window =
-        WindowSettings::new("spinning-square", [WIDTH, HEIGHT])
+        WindowSettings::new("raytracer", [WIDTH, HEIGHT])
             .opengl(opengl)
             .exit_on_esc(true)
             .build()
@@ -64,7 +64,7 @@ fn main() {
         rot: 0 as f64
     };
 
-    raytracer::draw_gradient(&mut app.buffer);
+    raytracer::cast_rays(&mut app.buffer);
 
     let mut events = Events::new(EventSettings::new());
     while let Some(e) = events.next(&mut window) {
