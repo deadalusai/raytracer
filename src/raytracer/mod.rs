@@ -39,15 +39,15 @@ fn vec3_to_rgb (v: &Vec3) -> Rgb {
         (255.0 * v.z) as u8
     )
 }
+
 fn color (ray: &Ray) -> Rgb {
-    /*
-    The color(ray) function linearly blends white and blue depending on the up/downess of the y
-    coordinate. I first made it a unit vector so -1.0 < y < 1.0. I then did a standard graphics trick of
-    scaling that to 0.0 < t < 1.0. When t=1.0 I want blue. When t = 0.0 I want white. In between, I
-    want a blend. This forms a “linear blend”, or “linear interpolation”, or “lerp” for short, between two
-    things. A lerp is always of the form: blended_value = (1-t)*start_value + t*end_value, with t
-    going from zero to one.
-    */
+    // Hit a sphere?
+    let sphere_center = Vec3::new(0.0, 0.0, -1.0);
+    let sphere_radius = 0.5;
+    if test_hit_sphere(&sphere_center, sphere_radius, ray) {
+        return Rgb::new(255, 0, 0);
+    }
+
     let unit_direction = ray.direction.unit_vector();
     let t = 0.5 * (unit_direction.y + 1.0);
     // HACK use Vec3 for multiplication
@@ -55,6 +55,15 @@ fn color (ray: &Ray) -> Rgb {
     let sky_blue = Vec3::new(0.5, 0.7, 1.0);
     let v = white.mul_f(1.0 - t).add(&sky_blue.mul_f(t));
     vec3_to_rgb(&v)
+}
+
+fn test_hit_sphere (sphere_center: &Vec3, radius: f32, ray: &Ray) -> bool {
+    let oc = ray.origin.sub(sphere_center);
+    let a = vec3_dot(&ray.direction, &ray.direction);
+    let b = 2.0 * vec3_dot(&oc, &ray.direction);
+    let c = vec3_dot(&oc, &oc) - radius * radius;
+    let discriminant = b * b - 4.0 * a * c;
+    return discriminant > 0.0;
 }
 
 pub fn cast_rays (buffer: &mut RgbaImage) {

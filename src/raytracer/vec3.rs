@@ -76,18 +76,6 @@ impl Vec3 {
         }
     }
 
-    pub fn dot (&self, other: &Vec3) -> f32 {
-        self.x * other.x + self.y * other.y + self.z * other.z
-    }
-
-    pub fn cross (&self, other: &Vec3) -> Vec3 {
-        Vec3 {
-            x: self.y * other.z - self.z * other.y,
-            y: self.x * other.z - self.z * other.x,
-            z: self.y * other.x - self.x * other.y
-        }
-    }
-
     pub fn negate (&self) -> Vec3 {
         Vec3 {
             x: -self.x,
@@ -106,5 +94,17 @@ impl Vec3 {
 
     pub fn length_squared (&self) -> f32 {
         ((self.x * self.x) + (self.y * self.y) + (self.z * self.z)).sqrt()
+    }
+}
+
+pub fn vec3_dot (a: &Vec3, b: &Vec3) -> f32 {
+    a.x * b.x + a.y * b.y + a.z * b.z
+}
+
+pub fn vec3_cross (a: &Vec3, b: &Vec3) -> Vec3 {
+    Vec3 {
+        x: a.y * b.z - a.z * b.y,
+        y: a.x * b.z - a.z * b.x,
+        z: a.y * b.x - a.x * b.y
     }
 }
