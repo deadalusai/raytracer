@@ -17,8 +17,9 @@ const WIDTH: u32 = 800;
 const HEIGHT: u32 = 600;
 
 pub struct App {
-    gl: GlGraphics, // OpenGL drawing backend.
-    buffer: RgbaImage // Buffer
+    gl: GlGraphics,    // OpenGL drawing backend.
+    buffer: RgbaImage, // Buffer
+    rot: f64           // Rotation
 }
 
 impl App {
@@ -30,17 +31,28 @@ impl App {
         let settings = TextureSettings::new();
         let texture = Texture::from_image(&self.buffer, &settings);
         
+        let rot_rad = self.rot;
+        let center_x = (args.width / 2) as f64;
+        let center_y = (args.height / 2) as f64;
+        
         self.gl.draw(args.viewport(), |ctx, gl| {
             // Clear the screen.
             clear(BLACK, gl);
-            
+        
+            // Rotate the texture from the center..
+            let transform = ctx.transform
+                .trans(center_x, center_y)
+                .rot_rad(rot_rad)
+                .trans(-center_x, -center_y);
+
             // Draw the buffer texture
-            image(&texture, ctx.transform, gl);
+            image(&texture, transform, gl);
         });
     }
 
-    fn update(&mut self, _args: &UpdateArgs) {
-
+    fn update(&mut self, args: &UpdateArgs) {
+        // Rotate 2 radians per second.
+        self.rot += 2.0 * args.dt;
     }
 }
 
@@ -59,7 +71,8 @@ fn main() {
     // Create a new game and run it.
     let mut app = App {
         gl: GlGraphics::new(opengl),
-        buffer: RgbaImage::new(WIDTH, HEIGHT)
+        buffer: RgbaImage::new(WIDTH, HEIGHT),
+        rot: 0 as f64
     };
 
     raytracer::draw_gradient(&mut app.buffer);
