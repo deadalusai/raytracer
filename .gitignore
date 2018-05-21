@@ -5,4 +5,4 @@
 # Lockfile ignored for bin project
 cargo.lock
 
-test.png
+*.png

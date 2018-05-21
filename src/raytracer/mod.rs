@@ -5,20 +5,12 @@ mod ray;
 
 use std;
 
-use raytracer::rgb::*;
-use raytracer::vec3::*;
-use raytracer::ray::*;
+use raytracer::rgb::{ Rgb };
+use raytracer::vec3::{ Vec3, vec3_dot };
+use raytracer::ray::{ Ray };
 
 use image::{ RgbaImage };
 use rand::{ Rng, thread_rng };
-
-fn vec3_to_rgb (v: &Vec3) -> Rgb {
-    Rgb::new(
-        (255.0 * v.x) as u8,
-        (255.0 * v.y) as u8,
-        (255.0 * v.z) as u8
-    )
-}
 
 struct HitRecord {
     t: f32,
@@ -121,26 +113,49 @@ impl Camera {
     }
 }
 
+fn random_point_in_unit_sphere () -> Vec3 {
+    let unit = Vec3::new(1.0, 1.0, 1.0);
+    let mut rng = thread_rng();
+    loop {
+        let random_point = Vec3::new(rng.next_f32(), rng.next_f32(), rng.next_f32());
+        let p = random_point.mul_f(2.0).sub(&unit);
+        // Inside our sphere?
+        if p.length_squared() < 1.0 {
+            return p;
+        }
+    }
+}
+
 fn color (ray: &Ray, world: &World) -> Vec3 {
     // Hit the world?
-    if let Some(record) = world.hit(ray, 0.0, std::f32::MAX) {
-        let n = record.normal;
-        return Vec3::new(n.x + 1.0, n.y + 1.0, n.z + 1.0).mul_f(0.5);
+    if let Some(rec) = world.hit(ray, 0.001, std::f32::MAX) {
+        // let n = record.normal;
+        // return Vec3::new(n.x + 1.0, n.y + 1.0, n.z + 1.0).mul_f(0.5);
+        let target = rec.p.add(&rec.normal).add(&random_point_in_unit_sphere());
+        let new_ray = Ray::new(rec.p.clone(), target.sub(&rec.p));
+        return color(&new_ray, &world).mul_f(0.5);
     }
 
     // Hit the sky instead...
     let unit_direction = ray.direction.unit_vector();
     let t = 0.5 * (unit_direction.y + 1.0);
-    // HACK use Vec3 for multiplication
     let white = Vec3::new(1.0, 1.0, 1.0);
     let sky_blue = Vec3::new(0.5, 0.7, 1.0);
     white.mul_f(1.0 - t).add(&sky_blue.mul_f(t))
 }
 
+fn vec3_to_rgb (v: &Vec3) -> Rgb {
+    Rgb::new(
+        (255.0 * v.x.sqrt()) as u8,
+        (255.0 * v.y.sqrt()) as u8,
+        (255.0 * v.z.sqrt()) as u8
+    )
+}
+
 pub fn cast_rays (buffer: &mut RgbaImage) {
     let width = buffer.width();
     let height = buffer.height();
-    let samples = 100;
+    let samples = 10;
 
     // NOTE:
     //   Y-axis goes up
@@ -151,7 +166,7 @@ pub fn cast_rays (buffer: &mut RgbaImage) {
     let mut world = World::new();
     let mut rng = thread_rng();
 
-    world.add_thing(Sphere::new(Vec3::new(0.0, 0.0, -1.0), 0.5));
+    world.add_thing(Sphere::new(Vec3::new(0.0, 0.2, -1.0), 0.5));
     world.add_thing(Sphere::new(Vec3::new(0.0, -100.5, -1.0), 100.0));
 
     for (x, y, pixel) in buffer.enumerate_pixels_mut() {
