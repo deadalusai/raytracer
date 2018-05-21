@@ -68,12 +68,20 @@ impl Vec3 {
         }
     }
 
+    pub fn mul_f_mut (&mut self, f: f32) {
+        *self = self.mul_f(f);
+    }
+
     pub fn div_f (&self, f: f32) -> Vec3 {
         Vec3 {
             x: self.x / f,
             y: self.y / f,
             z: self.z / f
         }
+    }
+
+    pub fn div_f_mut (&mut self, f: f32) {
+        *self = self.div_f(f);
     }
 
     pub fn negate (&self) -> Vec3 {

@@ -10,6 +10,7 @@ use raytracer::vec3::*;
 use raytracer::ray::*;
 
 use image::{ RgbaImage };
+use rand::{ Rng, thread_rng };
 
 fn vec3_to_rgb (v: &Vec3) -> Rgb {
     Rgb::new(
@@ -96,12 +97,35 @@ impl Hitable for World {
     }
 }
 
-fn color (ray: &Ray, world: &World) -> Rgb {
+struct Camera {
+    lower_left_corner: Vec3,
+    horizontal: Vec3,
+    vertical: Vec3,
+    origin: Vec3,
+}
+
+impl Camera {
+    fn new () -> Camera {
+        Camera {
+            lower_left_corner: Vec3::new(-2.0, -1.0, -1.0),
+            horizontal: Vec3::new(4.0, 0.0, 0.0),
+            vertical: Vec3::new(0.0, 2.0, 0.0),
+            origin: Vec3::new(0.0, 0.0, 0.0),
+        }
+    }
+
+    fn get_ray (&self, u: f32, v: f32) -> Ray {
+        let origin = self.origin.clone();
+        let direction = self.lower_left_corner.add(&self.horizontal.mul_f(u)).add(&self.vertical.mul_f(v));
+        Ray::new(origin, direction)
+    }
+}
+
+fn color (ray: &Ray, world: &World) -> Vec3 {
     // Hit the world?
     if let Some(record) = world.hit(ray, 0.0, std::f32::MAX) {
         let n = record.normal;
-        let t = Vec3::new(n.x + 1.0, n.y + 1.0, n.z + 1.0).mul_f(0.5);
-        return vec3_to_rgb(&t);
+        return Vec3::new(n.x + 1.0, n.y + 1.0, n.z + 1.0).mul_f(0.5);
     }
 
     // Hit the sky instead...
@@ -110,40 +134,36 @@ fn color (ray: &Ray, world: &World) -> Rgb {
     // HACK use Vec3 for multiplication
     let white = Vec3::new(1.0, 1.0, 1.0);
     let sky_blue = Vec3::new(0.5, 0.7, 1.0);
-    let v = white.mul_f(1.0 - t).add(&sky_blue.mul_f(t));
-    vec3_to_rgb(&v)
-}
-
-fn set_pixel (image: &mut RgbaImage, pos: (u32, u32), value: &Rgb) {
-    image.get_pixel_mut(pos.0, pos.1).data = [value.r, value.g, value.b, 255];
+    white.mul_f(1.0 - t).add(&sky_blue.mul_f(t))
 }
 
 pub fn cast_rays (buffer: &mut RgbaImage) {
     let width = buffer.width();
     let height = buffer.height();
+    let samples = 100;
 
     // NOTE:
     //   Y-axis goes up
     //   X-axis goes right
     //   Z-axis goes towards the camera (negative into the screen)
 
-    let lower_left_corner = Vec3::new(-2.0, -1.0, -1.0);
-    let horizontal = Vec3::new(4.0, 0.0, 0.0);
-    let vertical = Vec3::new(0.0, 2.0, 0.0);
-    let origin = Vec3::new(0.0, 0.0, 0.0);
-
+    let camera = Camera::new();
     let mut world = World::new();
+    let mut rng = thread_rng();
 
     world.add_thing(Sphere::new(Vec3::new(0.0, 0.0, -1.0), 0.5));
     world.add_thing(Sphere::new(Vec3::new(0.0, -100.5, -1.0), 100.0));
 
-    for x in 0..width {
-        for y in 0..height {
-            let u = x as f32 / width as f32;
-            let v = (height - y) as f32 / height as f32;
-            let r = Ray::new(origin.clone(), lower_left_corner.add(&horizontal.mul_f(u)).add(&vertical.mul_f(v)));
-            let mut col = color(&r, &world);
-            set_pixel(buffer, (x, y), &col);
+    for (x, y, pixel) in buffer.enumerate_pixels_mut() {
+        let mut col = Vec3::new(0.0, 0.0, 0.0);
+        for _ in 0..samples {
+            let u = (x as f32 + rng.next_f32()) / width as f32;
+            let v = ((height - y) as f32 + rng.next_f32()) / height as f32;
+            let ray = camera.get_ray(u, v);
+            col.add_mut(&color(&ray, &world));
         }
+        col.div_f_mut(samples as f32);
+        let col = vec3_to_rgb(&col);
+        pixel.data = [col.r, col.g, col.b, 255];
     }
 }

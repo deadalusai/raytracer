@@ -3,13 +3,14 @@ extern crate graphics;
 extern crate glutin_window;
 extern crate opengl_graphics;
 extern crate image;
+extern crate rand;
 
-use image::RgbaImage;
 use piston::window::WindowSettings;
 use piston::event_loop::*;
 use piston::input::*;
 use glutin_window::GlutinWindow as Window;
 use opengl_graphics::{ GlGraphics, OpenGL, Texture, TextureSettings };
+use image::RgbaImage;
 
 mod raytracer;
 
