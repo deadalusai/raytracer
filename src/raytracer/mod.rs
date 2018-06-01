@@ -121,8 +121,8 @@ impl Material for MatDielectric {
                 (hit_record.normal.clone(), 1.0 / self.ref_index, -dot / ray.direction.length())
             };
 
-        // If rand >= prob value, reflect
-        // If rand < prob value, refract
+        // If prob value <= rand, reflect
+        // If prob value > rand, refract
         let reflect_prob = schlick_reflect_prob(cosine, self.ref_index);
 
         let direction =
@@ -227,11 +227,14 @@ struct Camera {
 }
 
 impl Camera {
-    fn new () -> Camera {
+    fn new_with_fov_and_aspect_ratio (v_fov: f32, aspect_ratio: f32) -> Camera {
+        let theta = v_fov * std::f32::consts::PI / 180.0;
+        let half_height = (theta / 2.0).tan();
+        let half_width = aspect_ratio * half_height;
         Camera {
-            lower_left_corner: Vec3::new(-2.0, -1.0, -1.0),
-            horizontal: Vec3::new(4.0, 0.0, 0.0),
-            vertical: Vec3::new(0.0, 2.0, 0.0),
+            lower_left_corner: Vec3::new(-half_width, -half_height, -1.0),
+            horizontal: Vec3::new(2.0 * half_width, 0.0, 0.0),
+            vertical: Vec3::new(0.0, 2.0 * half_height, 0.0),
             origin: Vec3::new(0.0, 0.0, 0.0),
         }
     }
@@ -283,16 +286,14 @@ pub fn cast_rays (buffer: &mut RgbaImage) {
     //   X-axis goes right
     //   Z-axis goes towards the camera (negative into the screen)
 
-    let camera = Camera::new();
+    let camera = Camera::new_with_fov_and_aspect_ratio(90.0, width as f32 / height as f32);
     let mut world = World::new();
     let mut rng = thread_rng();
 
-    world.add_thing(Sphere::new(Vec3::new(0.0, 0.0, -1.0),    0.5,   MatLambertian::with_albedo(Vec3::new(0.8, 0.3, 0.3))));
-    world.add_thing(Sphere::new(Vec3::new(0.0, -100.5, -1.0), 100.0, MatLambertian::with_albedo(Vec3::new(0.8, 0.8, 0.0))));
-    world.add_thing(Sphere::new(Vec3::new(1.0, 0.0, -1.0),    0.5,   MatMetal::with_albedo_and_fuzz(Vec3::new(0.8, 0.6, 0.2), 0.0)));
-    world.add_thing(Sphere::new(Vec3::new(-1.0, 0.0, -1.0),   0.5,   MatDielectric::with_refractive_index(1.5)));
-    // Negative radius allows us to simulate a hollow glass sphere
-    world.add_thing(Sphere::new(Vec3::new(-1.0, 0.0, -1.0),   -0.45, MatDielectric::with_refractive_index(1.5)));
+    let r = (std::f32::consts::PI / 4.0).cos();
+
+    world.add_thing(Sphere::new(Vec3::new(-r, 0.0, -1.0), r, MatLambertian::with_albedo(Vec3::new(0.0, 0.0, 1.0))));
+    world.add_thing(Sphere::new(Vec3::new( r, 0.0, -1.0), r, MatLambertian::with_albedo(Vec3::new(1.0, 0.0, 0.0))));
 
     for (x, y, pixel) in buffer.enumerate_pixels_mut() {
         let mut col = Vec3::new(0.0, 0.0, 0.0);
