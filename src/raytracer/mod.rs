@@ -101,24 +101,36 @@ fn refract (v: &Vec3, n: &Vec3, ni_over_nt: f32) -> Option<Vec3> {
         return Some(refracted);
     }
     None
- }
+}
+
+fn schlick_reflect_prob (cosine: f32, ref_idx: f32) -> f32 {
+    let mut r0 = (1.0 - ref_idx) / (1.0 + ref_idx);
+    r0 *= r0;
+    r0 + (1.0 - r0) * (1.0 - cosine).powf(5.0)
+}
 
 impl Material for MatDielectric {
     fn scatter (&self, ray: &Ray, hit_record: &HitRecord) -> Option<MatRecord> {
-        let (outward_normal, ni_over_nt) =
-            if vec3_dot(&ray.direction, &hit_record.normal) > 0.0 {
-                (hit_record.normal.negate(), self.ref_index)
+        let mut rng = thread_rng();
+
+        let dot = vec3_dot(&ray.direction, &hit_record.normal);
+        let (outward_normal, ni_over_nt, cosine) =
+            if dot > 0.0 {
+                (hit_record.normal.negate(), self.ref_index, self.ref_index * dot / ray.direction.length())
             } else {
-                (hit_record.normal.clone(), 1.0 / self.ref_index)
+                (hit_record.normal.clone(), 1.0 / self.ref_index, -dot / ray.direction.length())
             };
 
-        let scattered =
-            if let Some(refracted) = refract(&ray.direction, &outward_normal, ni_over_nt) {
-                Ray::new(hit_record.p.clone(), refracted)
-            } else {
-                let reflected = reflect(&ray.direction, &hit_record.normal);
-                Ray::new(hit_record.p.clone(), reflected)
-            };
+        // If rand >= prob value, reflect
+        // If rand < prob value, refract
+        let reflect_prob = schlick_reflect_prob(cosine, self.ref_index);
+
+        let direction =
+            refract(&ray.direction, &outward_normal, ni_over_nt)
+                .filter(|_| reflect_prob < rng.next_f32())
+                .unwrap_or_else(|| reflect(&ray.direction, &hit_record.normal));
+        
+        let scattered = Ray::new(hit_record.p.clone(), direction);
         
         // NOTE: Attenuation is always 1 (glass absorbs nothing)
         // Using 1,1,0 klls the blue channel which fixes a subtle color bug
@@ -279,6 +291,8 @@ pub fn cast_rays (buffer: &mut RgbaImage) {
     world.add_thing(Sphere::new(Vec3::new(0.0, -100.5, -1.0), 100.0, MatLambertian::with_albedo(Vec3::new(0.8, 0.8, 0.0))));
     world.add_thing(Sphere::new(Vec3::new(1.0, 0.0, -1.0),    0.5,   MatMetal::with_albedo_and_fuzz(Vec3::new(0.8, 0.6, 0.2), 0.0)));
     world.add_thing(Sphere::new(Vec3::new(-1.0, 0.0, -1.0),   0.5,   MatDielectric::with_refractive_index(1.5)));
+    // Negative radius allows us to simulate a hollow glass sphere
+    world.add_thing(Sphere::new(Vec3::new(-1.0, 0.0, -1.0),   -0.45, MatDielectric::with_refractive_index(1.5)));
 
     for (x, y, pixel) in buffer.enumerate_pixels_mut() {
         let mut col = Vec3::new(0.0, 0.0, 0.0);
