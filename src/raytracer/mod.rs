@@ -82,6 +82,52 @@ impl Material for MatMetal {
     }
 }
 
+struct MatDielectric {
+    ref_index: f32,
+}
+
+impl MatDielectric {
+    fn with_refractive_index (ref_index: f32) -> Box<MatDielectric> {
+        Box::new(MatDielectric { ref_index: ref_index })
+    }
+}
+
+fn refract (v: &Vec3, n: &Vec3, ni_over_nt: f32) -> Option<Vec3> {
+    let uv = v.unit_vector();
+    let dt = vec3_dot(&uv, n);
+    let discriminant = 1.0 - ni_over_nt * ni_over_nt * (1.0 - dt * dt);
+    if discriminant > 0.0 {
+        let refracted = uv.sub(&n.mul_f(dt)).mul_f(ni_over_nt).sub(&n.mul_f(discriminant.sqrt()));
+        return Some(refracted);
+    }
+    None
+ }
+
+impl Material for MatDielectric {
+    fn scatter (&self, ray: &Ray, hit_record: &HitRecord) -> Option<MatRecord> {
+        let (outward_normal, ni_over_nt) =
+            if vec3_dot(&ray.direction, &hit_record.normal) > 0.0 {
+                (hit_record.normal.negate(), self.ref_index)
+            } else {
+                (hit_record.normal.clone(), 1.0 / self.ref_index)
+            };
+
+        let scattered =
+            if let Some(refracted) = refract(&ray.direction, &outward_normal, ni_over_nt) {
+                Ray::new(hit_record.p.clone(), refracted)
+            } else {
+                // TODO: Apparently this is a deliberate bug
+                return None;
+                // let reflected = reflect(&ray.direction, &hit_record.normal);
+                // Ray::new(hit_record.p.clone(), reflected)
+            };
+        
+        // NOTE: Attenuation is always 1 (glass absorbs nothing)
+        // Using 1,1,0 klls the blue channel which fixes a subtle color bug
+        Some(MatRecord { scattered: scattered, attenuation: Vec3::new(1.0, 1.0, 1.0) })
+    }
+}
+
 // Hitables
 
 struct HitRecord<'mat> {
@@ -233,8 +279,8 @@ pub fn cast_rays (buffer: &mut RgbaImage) {
 
     world.add_thing(Sphere::new(Vec3::new(0.0, 0.0, -1.0),    0.5,   MatLambertian::with_albedo(Vec3::new(0.8, 0.3, 0.3))));
     world.add_thing(Sphere::new(Vec3::new(0.0, -100.5, -1.0), 100.0, MatLambertian::with_albedo(Vec3::new(0.8, 0.8, 0.0))));
-    world.add_thing(Sphere::new(Vec3::new(1.0, 0.0, -1.0),    0.5,   MatMetal::with_albedo_and_fuzz(Vec3::new(0.8, 0.6, 0.2), 1.0)));
-    world.add_thing(Sphere::new(Vec3::new(-1.0, 0.0, -1.0),   0.5,   MatMetal::with_albedo_and_fuzz(Vec3::new(0.8, 0.8, 0.8), 0.3)));
+    world.add_thing(Sphere::new(Vec3::new(1.0, 0.0, -1.0),    0.5,   MatMetal::with_albedo_and_fuzz(Vec3::new(0.8, 0.6, 0.2), 0.0)));
+    world.add_thing(Sphere::new(Vec3::new(-1.0, 0.0, -1.0),   0.5,   MatDielectric::with_refractive_index(1.5)));
 
     for (x, y, pixel) in buffer.enumerate_pixels_mut() {
         let mut col = Vec3::new(0.0, 0.0, 0.0);
