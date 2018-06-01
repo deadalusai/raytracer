@@ -4,7 +4,6 @@ mod vec3;
 mod ray;
 
 use std;
-use std::rc::{ Rc };
 
 use raytracer::rgb::{ Rgb };
 use raytracer::vec3::{ Vec3, vec3_dot };
@@ -29,8 +28,8 @@ struct MatLambertian {
 }
 
 impl MatLambertian {
-    fn with_albedo (albedo: Vec3) -> Rc<MatLambertian> {
-        Rc::new(MatLambertian { albedo: albedo })
+    fn with_albedo (albedo: Vec3) -> Box<MatLambertian> {
+        Box::new(MatLambertian { albedo: albedo })
     }
 }
 
@@ -62,8 +61,8 @@ struct MatMetal {
 }
 
 impl MatMetal {
-    fn with_albedo (albedo: Vec3) -> Rc<MatMetal> {
-        Rc::new(MatMetal { albedo: albedo })
+    fn with_albedo (albedo: Vec3) -> Box<MatMetal> {
+        Box::new(MatMetal { albedo: albedo })
     }
 }
 
@@ -84,31 +83,31 @@ impl Material for MatMetal {
 
 // Hitables
 
-struct HitRecord {
+struct HitRecord<'mat> {
     t: f32,
     p: Vec3,
     normal: Vec3,
-    material: Rc<Material>,
+    material: &'mat Material,
 }
 
 trait Hitable {
-    fn hit (&self, ray: &Ray, t_min: f32, t_max: f32) -> Option<HitRecord>;
+    fn hit<'a> (&'a self, ray: &Ray, t_min: f32, t_max: f32) -> Option<HitRecord<'a>>;
 }
 
 struct Sphere {
     center: Vec3,
     radius: f32,
-    material: Rc<Material>,
+    material: Box<Material>,
 }
 
 impl Sphere {
-    fn new (center: Vec3, radius: f32, material: Rc<Material>) -> Sphere {
+    fn new (center: Vec3, radius: f32, material: Box<Material>) -> Sphere {
         Sphere { center: center, radius: radius, material: material }
     }
 }
 
 impl Hitable for Sphere {
-    fn hit (&self, ray: &Ray, t_min: f32, t_max: f32) -> Option<HitRecord> {
+    fn hit<'a> (&'a self, ray: &Ray, t_min: f32, t_max: f32) -> Option<HitRecord<'a>> {
         let oc = ray.origin.sub(&self.center);
         let a = vec3_dot(&ray.direction, &ray.direction);
         let b = vec3_dot(&oc, &ray.direction);
@@ -119,13 +118,13 @@ impl Hitable for Sphere {
             if temp < t_max && temp > t_min {
                 let point = ray.point_at_parameter(temp);
                 let normal = point.sub(&self.center).div_f(self.radius);
-                return Some(HitRecord { t: temp, p: point, normal: normal, material: self.material.clone() });
+                return Some(HitRecord { t: temp, p: point, normal: normal, material: &*self.material });
             }
             let temp = (-b + (b * b - a * c).sqrt()) / a;
             if temp < t_max && temp > t_min {
                 let point = ray.point_at_parameter(temp);
                 let normal = point.sub(&self.center).div_f(self.radius);
-                return Some(HitRecord { t: temp, p: point, normal: normal, material: self.material.clone() });
+                return Some(HitRecord { t: temp, p: point, normal: normal, material: &*self.material });
             }
         }
         None
