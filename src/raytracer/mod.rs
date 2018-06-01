@@ -115,17 +115,17 @@ impl Hitable for Sphere {
         let c = vec3_dot(&oc, &oc) - self.radius * self.radius;
         let discriminant = b * b - a * c;
         if discriminant > 0.0 {
-            let temp = (-b - (b * b - a * c).sqrt()) / a;
-            if temp < t_max && temp > t_min {
-                let point = ray.point_at_parameter(temp);
+            let t = (-b - discriminant.sqrt()) / a;
+            if t < t_max && t > t_min {
+                let point = ray.point_at_parameter(t);
                 let normal = point.sub(&self.center).div_f(self.radius);
-                return Some(HitRecord { t: temp, p: point, normal: normal, material: &*self.material });
+                return Some(HitRecord { t: t, p: point, normal: normal, material: &*self.material });
             }
-            let temp = (-b + (b * b - a * c).sqrt()) / a;
-            if temp < t_max && temp > t_min {
-                let point = ray.point_at_parameter(temp);
+            let t = (-b + discriminant.sqrt()) / a;
+            if t < t_max && t > t_min {
+                let point = ray.point_at_parameter(t);
                 let normal = point.sub(&self.center).div_f(self.radius);
-                return Some(HitRecord { t: temp, p: point, normal: normal, material: &*self.material });
+                return Some(HitRecord { t: t, p: point, normal: normal, material: &*self.material });
             }
         }
         None
@@ -198,12 +198,13 @@ fn color_sky (ray: &Ray) -> Vec3 {
 fn color (ray: &Ray, world: &World, depth: i32) -> Vec3 {
     // Hit the world?
     if depth < 50 {
-        if let Some(rec) = world.hit(ray, 0.001, std::f32::MAX) {
-            if let Some(mat) = rec.material.scatter(ray, &rec) {
+        if let Some(hit_record) = world.hit(ray, 0.001, std::f32::MAX) {
+            if let Some(mat) = hit_record.material.scatter(ray, &hit_record) {
                 return color(&mat.scattered, world, depth + 1).mul(&mat.attenuation);
             }
         }
     }
+
     // Hit the sky instead...
     color_sky(ray)
 }
