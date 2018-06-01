@@ -4,6 +4,7 @@ mod vec3;
 mod ray;
 
 use std;
+use std::rc::{ Rc };
 
 use raytracer::rgb::{ Rgb };
 use raytracer::vec3::{ Vec3, vec3_dot };
@@ -12,10 +13,82 @@ use raytracer::ray::{ Ray };
 use image::{ RgbaImage };
 use rand::{ Rng, thread_rng };
 
+// Materials
+
+struct MatRecord {
+    attenuation: Vec3,
+    scattered: Ray,
+}
+
+trait Material {
+    fn scatter (&self, ray: &Ray, hit_record: &HitRecord) -> Option<MatRecord>;
+}
+
+struct MatLambertian {
+    albedo: Vec3,
+}
+
+impl MatLambertian {
+    fn with_albedo (albedo: Vec3) -> Rc<MatLambertian> {
+        Rc::new(MatLambertian { albedo: albedo })
+    }
+}
+
+fn random_point_in_unit_sphere () -> Vec3 {
+    let unit = Vec3::new(1.0, 1.0, 1.0);
+    let mut rng = thread_rng();
+    loop {
+        let random_point = Vec3::new(rng.next_f32(), rng.next_f32(), rng.next_f32());
+        let p = random_point.mul_f(2.0).sub(&unit);
+        // Inside our sphere?
+        if p.length_squared() < 1.0 {
+            return p;
+        }
+    }
+}
+
+impl Material for MatLambertian {
+    fn scatter (&self, _ray: &Ray, hit_record: &HitRecord) -> Option<MatRecord> {
+        let target = hit_record.p.add(&hit_record.normal).add(&random_point_in_unit_sphere());
+        let scattered = Ray::new(hit_record.p.clone(), target.sub(&hit_record.p));
+        Some(MatRecord { scattered: scattered, attenuation: self.albedo.clone() })
+        // TODO?
+        // We could just as well scatter with some probability p and have attenuation be albedo / p
+    }
+}
+
+struct MatMetal {
+    albedo: Vec3,
+}
+
+impl MatMetal {
+    fn with_albedo (albedo: Vec3) -> Rc<MatMetal> {
+        Rc::new(MatMetal { albedo: albedo })
+    }
+}
+
+fn reflect (v: &Vec3, n: &Vec3) -> Vec3 {
+    v.sub(&n.mul_f(vec3_dot(v, n)).mul_f(2.0))
+}
+
+impl Material for MatMetal {
+    fn scatter (&self, ray: &Ray, hit_record: &HitRecord) -> Option<MatRecord> {
+        let reflected = reflect(&ray.direction.unit_vector(), &hit_record.normal);
+        let scattered = Ray::new(hit_record.p.clone(), reflected);
+        if vec3_dot(&scattered.direction, &hit_record.normal) <= 0.0 {
+            return None;
+        }
+        Some(MatRecord { scattered: scattered, attenuation: self.albedo.clone() })
+    }
+}
+
+// Hitables
+
 struct HitRecord {
     t: f32,
     p: Vec3,
     normal: Vec3,
+    material: Rc<Material>,
 }
 
 trait Hitable {
@@ -25,11 +98,12 @@ trait Hitable {
 struct Sphere {
     center: Vec3,
     radius: f32,
+    material: Rc<Material>,
 }
 
 impl Sphere {
-    fn new (center: Vec3, radius: f32) -> Sphere {
-        Sphere { center: center, radius: radius }
+    fn new (center: Vec3, radius: f32, material: Rc<Material>) -> Sphere {
+        Sphere { center: center, radius: radius, material: material }
     }
 }
 
@@ -45,13 +119,13 @@ impl Hitable for Sphere {
             if temp < t_max && temp > t_min {
                 let point = ray.point_at_parameter(temp);
                 let normal = point.sub(&self.center).div_f(self.radius);
-                return Some(HitRecord { t: temp, p: point, normal: normal });
+                return Some(HitRecord { t: temp, p: point, normal: normal, material: self.material.clone() });
             }
             let temp = (-b + (b * b - a * c).sqrt()) / a;
             if temp < t_max && temp > t_min {
                 let point = ray.point_at_parameter(temp);
                 let normal = point.sub(&self.center).div_f(self.radius);
-                return Some(HitRecord { t: temp, p: point, normal: normal });
+                return Some(HitRecord { t: temp, p: point, normal: normal, material: self.material.clone() });
             }
         }
         None
@@ -113,25 +187,14 @@ impl Camera {
     }
 }
 
-fn random_point_in_unit_sphere () -> Vec3 {
-    let unit = Vec3::new(1.0, 1.0, 1.0);
-    let mut rng = thread_rng();
-    loop {
-        let random_point = Vec3::new(rng.next_f32(), rng.next_f32(), rng.next_f32());
-        let p = random_point.mul_f(2.0).sub(&unit);
-        // Inside our sphere?
-        if p.length_squared() < 1.0 {
-            return p;
-        }
-    }
-}
-
-fn color (ray: &Ray, world: &World) -> Vec3 {
+fn color (ray: &Ray, world: &World, depth: i32) -> Vec3 {
     // Hit the world?
     if let Some(rec) = world.hit(ray, 0.001, std::f32::MAX) {
-        let target = rec.p.add(&rec.normal).add(&random_point_in_unit_sphere());
-        let new_ray = Ray::new(rec.p.clone(), target.sub(&rec.p));
-        return color(&new_ray, &world).mul_f(0.5);
+        if depth < 50 {
+            if let Some(mat) = rec.material.scatter(ray, &rec) {
+                return color(&mat.scattered, world, depth + 1).mul(&mat.attenuation);
+            }
+        }
     }
 
     // Hit the sky instead...
@@ -153,7 +216,7 @@ fn vec3_to_rgb (v: &Vec3) -> Rgb {
 pub fn cast_rays (buffer: &mut RgbaImage) {
     let width = buffer.width();
     let height = buffer.height();
-    let samples = 10;
+    let samples = 1;
 
     // NOTE:
     //   Y-axis goes up
@@ -164,8 +227,10 @@ pub fn cast_rays (buffer: &mut RgbaImage) {
     let mut world = World::new();
     let mut rng = thread_rng();
 
-    world.add_thing(Sphere::new(Vec3::new(0.0, 0.0, -1.0), 0.5));
-    world.add_thing(Sphere::new(Vec3::new(0.0, -100.5, -1.0), 100.0));
+    world.add_thing(Sphere::new(Vec3::new(0.0, 0.0, -1.0),    0.5,   MatLambertian::with_albedo(Vec3::new(0.8, 0.3, 0.3))));
+    world.add_thing(Sphere::new(Vec3::new(0.0, -100.5, -1.0), 100.0, MatLambertian::with_albedo(Vec3::new(0.8, 0.8, 0.0))));
+    world.add_thing(Sphere::new(Vec3::new(1.0, 0.0, -1.0),    0.5,   MatMetal::with_albedo(Vec3::new(0.8, 0.6, 0.2))));
+    world.add_thing(Sphere::new(Vec3::new(-1.0, 0.0, -1.0),   0.5,   MatMetal::with_albedo(Vec3::new(0.8, 0.8, 0.8))));
 
     for (x, y, pixel) in buffer.enumerate_pixels_mut() {
         let mut col = Vec3::new(0.0, 0.0, 0.0);
@@ -173,7 +238,7 @@ pub fn cast_rays (buffer: &mut RgbaImage) {
             let u = (x as f32 + rng.next_f32()) / width as f32;
             let v = ((height - y) as f32 + rng.next_f32()) / height as f32;
             let ray = camera.get_ray(u, v);
-            col.add_mut(&color(&ray, &world));
+            col.add_mut(&color(&ray, &world, 0));
         }
         col.div_f_mut(samples as f32);
         let col = vec3_to_rgb(&col);
