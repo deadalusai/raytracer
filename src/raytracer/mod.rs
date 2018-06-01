@@ -37,18 +37,18 @@ impl Hitable for Sphere {
     fn hit (&self, ray: &Ray, t_min: f32, t_max: f32) -> Option<HitRecord> {
         let oc = ray.origin.sub(&self.center);
         let a = vec3_dot(&ray.direction, &ray.direction);
-        let b = 2.0 * vec3_dot(&oc, &ray.direction);
+        let b = vec3_dot(&oc, &ray.direction);
         let c = vec3_dot(&oc, &oc) - self.radius * self.radius;
-        let discriminant = b * b - 4.0 * a * c;
+        let discriminant = b * b - a * c;
         if discriminant > 0.0 {
             let temp = (-b - (b * b - a * c).sqrt()) / a;
-            if temp > t_min && temp < t_max {
+            if temp < t_max && temp > t_min {
                 let point = ray.point_at_parameter(temp);
                 let normal = point.sub(&self.center).div_f(self.radius);
                 return Some(HitRecord { t: temp, p: point, normal: normal });
             }
             let temp = (-b + (b * b - a * c).sqrt()) / a;
-            if temp > t_min && temp < t_max {
+            if temp < t_max && temp > t_min {
                 let point = ray.point_at_parameter(temp);
                 let normal = point.sub(&self.center).div_f(self.radius);
                 return Some(HitRecord { t: temp, p: point, normal: normal });
@@ -129,8 +129,6 @@ fn random_point_in_unit_sphere () -> Vec3 {
 fn color (ray: &Ray, world: &World) -> Vec3 {
     // Hit the world?
     if let Some(rec) = world.hit(ray, 0.001, std::f32::MAX) {
-        // let n = record.normal;
-        // return Vec3::new(n.x + 1.0, n.y + 1.0, n.z + 1.0).mul_f(0.5);
         let target = rec.p.add(&rec.normal).add(&random_point_in_unit_sphere());
         let new_ray = Ray::new(rec.p.clone(), target.sub(&rec.p));
         return color(&new_ray, &world).mul_f(0.5);
@@ -166,7 +164,7 @@ pub fn cast_rays (buffer: &mut RgbaImage) {
     let mut world = World::new();
     let mut rng = thread_rng();
 
-    world.add_thing(Sphere::new(Vec3::new(0.0, 0.2, -1.0), 0.5));
+    world.add_thing(Sphere::new(Vec3::new(0.0, 0.0, -1.0), 0.5));
     world.add_thing(Sphere::new(Vec3::new(0.0, -100.5, -1.0), 100.0));
 
     for (x, y, pixel) in buffer.enumerate_pixels_mut() {
