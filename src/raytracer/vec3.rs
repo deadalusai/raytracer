@@ -101,7 +101,7 @@ impl Vec3 {
     }
 
     pub fn length_squared (&self) -> f32 {
-        ((self.x * self.x) + (self.y * self.y) + (self.z * self.z)).sqrt()
+        (self.x * self.x) + (self.y * self.y) + (self.z * self.z)
     }
 }
 
