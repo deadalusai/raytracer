@@ -116,10 +116,8 @@ impl Material for MatDielectric {
             if let Some(refracted) = refract(&ray.direction, &outward_normal, ni_over_nt) {
                 Ray::new(hit_record.p.clone(), refracted)
             } else {
-                // TODO: Apparently this is a deliberate bug
-                return None;
-                // let reflected = reflect(&ray.direction, &hit_record.normal);
-                // Ray::new(hit_record.p.clone(), reflected)
+                let reflected = reflect(&ray.direction, &hit_record.normal);
+                Ray::new(hit_record.p.clone(), reflected)
             };
         
         // NOTE: Attenuation is always 1 (glass absorbs nothing)
