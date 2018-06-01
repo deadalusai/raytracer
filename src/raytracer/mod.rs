@@ -58,11 +58,12 @@ impl Material for MatLambertian {
 
 struct MatMetal {
     albedo: Vec3,
+    fuzz: f32,
 }
 
 impl MatMetal {
-    fn with_albedo (albedo: Vec3) -> Box<MatMetal> {
-        Box::new(MatMetal { albedo: albedo })
+    fn with_albedo_and_fuzz (albedo: Vec3, fuzz: f32) -> Box<MatMetal> {
+        Box::new(MatMetal { albedo: albedo, fuzz: fuzz })
     }
 }
 
@@ -73,11 +74,11 @@ fn reflect (v: &Vec3, n: &Vec3) -> Vec3 {
 impl Material for MatMetal {
     fn scatter (&self, ray: &Ray, hit_record: &HitRecord) -> Option<MatRecord> {
         let reflected = reflect(&ray.direction.unit_vector(), &hit_record.normal);
-        let scattered = Ray::new(hit_record.p.clone(), reflected);
-        if vec3_dot(&scattered.direction, &hit_record.normal) <= 0.0 {
-            return None;
+        let scattered = Ray::new(hit_record.p.clone(), reflected.add(&random_point_in_unit_sphere().mul_f(self.fuzz)));
+        if vec3_dot(&scattered.direction, &hit_record.normal) > 0.0 {
+            return Some(MatRecord { scattered: scattered, attenuation: self.albedo.clone() });
         }
-        Some(MatRecord { scattered: scattered, attenuation: self.albedo.clone() })
+        None
     }
 }
 
@@ -186,22 +187,25 @@ impl Camera {
     }
 }
 
-fn color (ray: &Ray, world: &World, depth: i32) -> Vec3 {
-    // Hit the world?
-    if let Some(rec) = world.hit(ray, 0.001, std::f32::MAX) {
-        if depth < 50 {
-            if let Some(mat) = rec.material.scatter(ray, &rec) {
-                return color(&mat.scattered, world, depth + 1).mul(&mat.attenuation);
-            }
-        }
-    }
-
-    // Hit the sky instead...
+fn color_sky (ray: &Ray) -> Vec3 {
     let unit_direction = ray.direction.unit_vector();
     let t = 0.5 * (unit_direction.y + 1.0);
     let white = Vec3::new(1.0, 1.0, 1.0);
     let sky_blue = Vec3::new(0.5, 0.7, 1.0);
     white.mul_f(1.0 - t).add(&sky_blue.mul_f(t))
+}
+
+fn color (ray: &Ray, world: &World, depth: i32) -> Vec3 {
+    // Hit the world?
+    if depth < 50 {
+        if let Some(rec) = world.hit(ray, 0.001, std::f32::MAX) {
+            if let Some(mat) = rec.material.scatter(ray, &rec) {
+                return color(&mat.scattered, world, depth + 1).mul(&mat.attenuation);
+            }
+        }
+    }
+    // Hit the sky instead...
+    color_sky(ray)
 }
 
 fn vec3_to_rgb (v: &Vec3) -> Rgb {
@@ -215,7 +219,7 @@ fn vec3_to_rgb (v: &Vec3) -> Rgb {
 pub fn cast_rays (buffer: &mut RgbaImage) {
     let width = buffer.width();
     let height = buffer.height();
-    let samples = 1;
+    let samples = 10;
 
     // NOTE:
     //   Y-axis goes up
@@ -228,8 +232,8 @@ pub fn cast_rays (buffer: &mut RgbaImage) {
 
     world.add_thing(Sphere::new(Vec3::new(0.0, 0.0, -1.0),    0.5,   MatLambertian::with_albedo(Vec3::new(0.8, 0.3, 0.3))));
     world.add_thing(Sphere::new(Vec3::new(0.0, -100.5, -1.0), 100.0, MatLambertian::with_albedo(Vec3::new(0.8, 0.8, 0.0))));
-    world.add_thing(Sphere::new(Vec3::new(1.0, 0.0, -1.0),    0.5,   MatMetal::with_albedo(Vec3::new(0.8, 0.6, 0.2))));
-    world.add_thing(Sphere::new(Vec3::new(-1.0, 0.0, -1.0),   0.5,   MatMetal::with_albedo(Vec3::new(0.8, 0.8, 0.8))));
+    world.add_thing(Sphere::new(Vec3::new(1.0, 0.0, -1.0),    0.5,   MatMetal::with_albedo_and_fuzz(Vec3::new(0.8, 0.6, 0.2), 1.0)));
+    world.add_thing(Sphere::new(Vec3::new(-1.0, 0.0, -1.0),   0.5,   MatMetal::with_albedo_and_fuzz(Vec3::new(0.8, 0.8, 0.8), 0.3)));
 
     for (x, y, pixel) in buffer.enumerate_pixels_mut() {
         let mut col = Vec3::new(0.0, 0.0, 0.0);
