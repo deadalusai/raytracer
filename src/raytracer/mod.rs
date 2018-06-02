@@ -6,7 +6,7 @@ mod ray;
 use std;
 
 use raytracer::rgb::{ Rgb };
-use raytracer::vec3::{ Vec3, vec3_dot };
+use raytracer::vec3::{ Vec3, vec3_dot, vec3_cross };
 use raytracer::ray::{ Ray };
 
 use image::{ RgbaImage };
@@ -227,22 +227,24 @@ struct Camera {
 }
 
 impl Camera {
-    fn new_with_fov_and_aspect_ratio (v_fov: f32, aspect_ratio: f32) -> Camera {
+    fn new (look_from: Vec3, look_at: Vec3, v_up: Vec3, v_fov: f32, aspect_ratio: f32) -> Camera {
         let theta = v_fov * std::f32::consts::PI / 180.0;
         let half_height = (theta / 2.0).tan();
         let half_width = aspect_ratio * half_height;
+        let w = (look_from.sub(&look_at)).unit_vector();
+        let u = vec3_cross(&v_up, &w).unit_vector();
+        let v = vec3_cross(&w, &u);
         Camera {
-            lower_left_corner: Vec3::new(-half_width, -half_height, -1.0),
-            horizontal: Vec3::new(2.0 * half_width, 0.0, 0.0),
-            vertical: Vec3::new(0.0, 2.0 * half_height, 0.0),
-            origin: Vec3::new(0.0, 0.0, 0.0),
+            lower_left_corner: look_from.sub(&u.mul_f(half_width)).sub(&v.mul_f(half_height)).sub(&w),
+            horizontal: u.mul_f(2.0 * half_width),
+            vertical: v.mul_f(2.0 * half_height),
+            origin: look_from,
         }
     }
 
-    fn get_ray (&self, u: f32, v: f32) -> Ray {
-        let origin = self.origin.clone();
-        let direction = self.lower_left_corner.add(&self.horizontal.mul_f(u)).add(&self.vertical.mul_f(v));
-        Ray::new(origin, direction)
+    fn get_ray (&self, s: f32, t: f32) -> Ray {
+        let direction = self.lower_left_corner.add(&self.horizontal.mul_f(s)).add(&self.vertical.mul_f(t)).sub(&self.origin);
+        Ray::new(self.origin.clone(), direction)
     }
 }
 
@@ -285,15 +287,26 @@ pub fn cast_rays (buffer: &mut RgbaImage) {
     //   Y-axis goes up
     //   X-axis goes right
     //   Z-axis goes towards the camera (negative into the screen)
+    let look_from = Vec3::new(-2.0, 2.0, 1.0);
+    let look_to = Vec3::new(0.0, 0.0, -1.0);
+    let v_up = Vec3::new(0.0, 1.0, 0.0);
+    let fov = 90.0;
+    let aspect_ratio = width as f32 / height as f32;
 
-    let camera = Camera::new_with_fov_and_aspect_ratio(90.0, width as f32 / height as f32);
+    let camera = Camera::new(look_from, look_to, v_up, fov, aspect_ratio);
     let mut world = World::new();
     let mut rng = thread_rng();
 
-    let r = (std::f32::consts::PI / 4.0).cos();
+    world.add_thing(Sphere::new(Vec3::new(0.0, 0.0, -1.0),    0.5,   MatLambertian::with_albedo(Vec3::new(0.8, 0.3, 0.3))));
+    world.add_thing(Sphere::new(Vec3::new(0.0, -100.5, -1.0), 100.0, MatLambertian::with_albedo(Vec3::new(0.8, 0.8, 0.0))));
+    world.add_thing(Sphere::new(Vec3::new(1.0, 0.0, -1.0),    0.5,   MatMetal::with_albedo_and_fuzz(Vec3::new(0.8, 0.6, 0.2), 0.0)));
+    // Negative radius allows us to simulate a hollow glass sphere
+    world.add_thing(Sphere::new(Vec3::new(-1.0, 0.0, -1.0),   0.5,   MatDielectric::with_refractive_index(1.5)));
+    world.add_thing(Sphere::new(Vec3::new(-1.0, 0.0, -1.0),   -0.45, MatDielectric::with_refractive_index(1.5)));
 
-    world.add_thing(Sphere::new(Vec3::new(-r, 0.0, -1.0), r, MatLambertian::with_albedo(Vec3::new(0.0, 0.0, 1.0))));
-    world.add_thing(Sphere::new(Vec3::new( r, 0.0, -1.0), r, MatLambertian::with_albedo(Vec3::new(1.0, 0.0, 0.0))));
+    // let r = (std::f32::consts::PI / 4.0).cos();
+    // world.add_thing(Sphere::new(Vec3::new(-r, 0.0, -1.0), r, MatLambertian::with_albedo(Vec3::new(0.0, 0.0, 1.0))));
+    // world.add_thing(Sphere::new(Vec3::new( r, 0.0, -1.0), r, MatLambertian::with_albedo(Vec3::new(1.0, 0.0, 0.0))));
 
     for (x, y, pixel) in buffer.enumerate_pixels_mut() {
         let mut col = Vec3::new(0.0, 0.0, 0.0);
