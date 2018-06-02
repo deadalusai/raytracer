@@ -16,6 +16,7 @@ mod raytracer;
 
 const WIDTH: u32 = 800;
 const HEIGHT: u32 = 400;
+const SAMPLES: u32 = 10;
 
 pub struct App {
     gl: GlGraphics,    // OpenGL drawing backend.
@@ -75,7 +76,7 @@ fn main() {
         rot: 0 as f64
     };
 
-    raytracer::cast_rays(&mut app.buffer);
+    raytracer::cast_rays(&mut app.buffer, SAMPLES);
 
     // HAX
     app.buffer.save("test.png").unwrap();

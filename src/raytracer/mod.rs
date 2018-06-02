@@ -278,10 +278,9 @@ fn vec3_to_rgb (v: &Vec3) -> Rgb {
     )
 }
 
-pub fn cast_rays (buffer: &mut RgbaImage) {
+pub fn cast_rays (buffer: &mut RgbaImage, samples: u32) {
     let width = buffer.width();
     let height = buffer.height();
-    let samples = 10;
 
     // NOTE:
     //   Y-axis goes up
