@@ -300,6 +300,46 @@ fn vec3_to_rgb (v: &Vec3) -> Rgb {
     )
 }
 
+fn random_scene () -> World {
+    let mut rng = thread_rng();
+    let mut world = World::new();
+
+    // Big sphere in center
+    world.add_thing(Sphere::new(vec3_m(0.0, -1000.0, 0.0), 1000.0, MatLambertian::with_albedo(vec3_m(0.5, 0.5, 0.5))));
+
+    for a in -11..11 {
+        for b in -11..11 {
+            let choose_mat = rng.next_f32();
+            let center = vec3_m(a as f32 + 0.9 * rng.next_f32(), 0.2, b as f32 + 0.9 * rng.next_f32());
+            if center.sub(&vec3_m(4.0, 0.2, 0.0)).length() > 0.9 {
+                let material: Box<Material> =
+                    if choose_mat < 0.8 {
+                        // Diffuse
+                        let albedo = vec3_m(rng.next_f32() * rng.next_f32(), rng.next_f32() * rng.next_f32(), rng.next_f32() * rng.next_f32());
+                        MatLambertian::with_albedo(albedo)
+                    } else if choose_mat < 0.95 {
+                        // Metal
+                        let albedo = vec3_m(0.5 * (1.0 + rng.next_f32()), 0.5 * (1.0 + rng.next_f32()), 0.5 * (1.0 + rng.next_f32()));
+                        let fuzz = 0.5 * rng.next_f32();
+                        MatMetal::with_albedo_and_fuzz(albedo, fuzz)
+                    } else {
+                        // Glass
+                        let refractive_index = 1.5;
+                        MatDielectric::with_refractive_index(refractive_index)
+                    };
+
+                world.add_thing(Sphere::new(center, 0.2, material));
+            }
+        }
+    }
+
+    world.add_thing(Sphere::new(vec3_m(-4.0, 1.0, 0.0), 1.0, MatLambertian::with_albedo(vec3_m(0.8, 0.2, 0.1))));
+    world.add_thing(Sphere::new(vec3_m(0.0, 1.0, 0.0),  1.0, MatDielectric::with_refractive_index(1.5)));
+    world.add_thing(Sphere::new(vec3_m(4.0, 1.0, 0.0),  1.0, MatMetal::with_albedo_and_fuzz(vec3_m(0.8, 0.8, 0.8), 0.0)));
+
+    world
+}
+
 pub fn cast_rays (buffer: &mut RgbaImage, samples: u32) {
     let width = buffer.width();
     let height = buffer.height();
@@ -308,27 +348,16 @@ pub fn cast_rays (buffer: &mut RgbaImage, samples: u32) {
     //   Y-axis goes up
     //   X-axis goes right
     //   Z-axis goes towards the camera (negative into the screen)
-    let look_from = vec3_m(-2.0, 2.0, 1.0);
-    let look_to = vec3_m(0.0, 0.0, -1.0);
+    let look_from = vec3_m(13.0, 2.0, 3.0);
+    let look_to = vec3_m(0.0, 0.0, 0.0);
     let v_up = vec3_m(0.0, 1.0, 0.0);
-    let fov = 90.0;
+    let fov = 20.0;
     let aspect_ratio = width as f32 / height as f32;
-    let dist_to_focus = look_from.sub(&look_to).length();
-    let aperture = 2.0;
+    let dist_to_focus = 10.0;
+    let aperture = 0.1;
 
     let camera = Camera::new(look_from, look_to, v_up, fov, aspect_ratio, aperture, dist_to_focus);
-    let mut world = World::new();
-
-    world.add_thing(Sphere::new(vec3_m(0.0, 0.0, -1.0),    0.5,   MatLambertian::with_albedo(vec3_m(0.8, 0.3, 0.3))));
-    world.add_thing(Sphere::new(vec3_m(0.0, -100.5, -1.0), 100.0, MatLambertian::with_albedo(vec3_m(0.8, 0.8, 0.0))));
-    world.add_thing(Sphere::new(vec3_m(1.0, 0.0, -1.0),    0.5,   MatMetal::with_albedo_and_fuzz(vec3_m(0.8, 0.6, 0.2), 0.0)));
-    // Negative radius allows us to simulate a hollow glass sphere
-    world.add_thing(Sphere::new(vec3_m(-1.0, 0.0, -1.0),   0.5,   MatDielectric::with_refractive_index(1.5)));
-    world.add_thing(Sphere::new(vec3_m(-1.0, 0.0, -1.0),   -0.45, MatDielectric::with_refractive_index(1.5)));
-
-    // let r = (std::f32::consts::PI / 4.0).cos();
-    // world.add_thing(Sphere::new(vec3(-r, 0.0, -1.0), r, MatLambertian::with_albedo(vec3(0.0, 0.0, 1.0))));
-    // world.add_thing(Sphere::new(vec3( r, 0.0, -1.0), r, MatLambertian::with_albedo(vec3(1.0, 0.0, 0.0))));
+    let world = random_scene();
 
     let mut rng = thread_rng();
     for (x, y, pixel) in buffer.enumerate_pixels_mut() {

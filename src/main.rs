@@ -14,9 +14,9 @@ use image::RgbaImage;
 
 mod raytracer;
 
-const WIDTH: u32 = 800;
-const HEIGHT: u32 = 400;
-const SAMPLES: u32 = 10;
+const WIDTH: u32 = 1980;
+const HEIGHT: u32 = 1080;
+const SAMPLES: u32 = 100;
 
 pub struct App {
     gl: GlGraphics,    // OpenGL drawing backend.
