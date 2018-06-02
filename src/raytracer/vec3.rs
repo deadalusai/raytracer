@@ -105,6 +105,10 @@ impl Vec3 {
     }
 }
 
+pub fn vec3_m (x: f32, y: f32, z: f32) -> Vec3 {
+    Vec3::new(x, y, z)
+}
+
 pub fn vec3_dot (a: &Vec3, b: &Vec3) -> f32 {
     a.x * b.x + a.y * b.y + a.z * b.z
 }

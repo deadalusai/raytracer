@@ -6,8 +6,8 @@ mod ray;
 use std;
 
 use raytracer::rgb::{ Rgb };
-use raytracer::vec3::{ Vec3, vec3_dot, vec3_cross };
-use raytracer::ray::{ Ray };
+use raytracer::vec3::{ Vec3, vec3_dot, vec3_cross, vec3_m };
+use raytracer::ray::{ Ray, ray_m };
 
 use image::{ RgbaImage };
 use rand::{ Rng, thread_rng };
@@ -34,10 +34,10 @@ impl MatLambertian {
 }
 
 fn random_point_in_unit_sphere () -> Vec3 {
-    let unit = Vec3::new(1.0, 1.0, 1.0);
+    let unit = vec3_m(1.0, 1.0, 1.0);
     let mut rng = thread_rng();
     loop {
-        let random_point = Vec3::new(rng.next_f32(), rng.next_f32(), rng.next_f32());
+        let random_point = vec3_m(rng.next_f32(), rng.next_f32(), rng.next_f32());
         let p = random_point.mul_f(2.0).sub(&unit);
         // Inside our sphere?
         if p.length_squared() < 1.0 {
@@ -49,7 +49,7 @@ fn random_point_in_unit_sphere () -> Vec3 {
 impl Material for MatLambertian {
     fn scatter (&self, _ray: &Ray, hit_record: &HitRecord) -> Option<MatRecord> {
         let target = hit_record.p.add(&hit_record.normal).add(&random_point_in_unit_sphere());
-        let scattered = Ray::new(hit_record.p.clone(), target.sub(&hit_record.p));
+        let scattered = ray_m(hit_record.p.clone(), target.sub(&hit_record.p));
         Some(MatRecord { scattered: scattered, attenuation: self.albedo.clone() })
         // TODO?
         // We could just as well scatter with some probability p and have attenuation be albedo / p
@@ -74,7 +74,7 @@ fn reflect (v: &Vec3, n: &Vec3) -> Vec3 {
 impl Material for MatMetal {
     fn scatter (&self, ray: &Ray, hit_record: &HitRecord) -> Option<MatRecord> {
         let reflected = reflect(&ray.direction.unit_vector(), &hit_record.normal);
-        let scattered = Ray::new(hit_record.p.clone(), reflected.add(&random_point_in_unit_sphere().mul_f(self.fuzz)));
+        let scattered = ray_m(hit_record.p.clone(), reflected.add(&random_point_in_unit_sphere().mul_f(self.fuzz)));
         if vec3_dot(&scattered.direction, &hit_record.normal) > 0.0 {
             return Some(MatRecord { scattered: scattered, attenuation: self.albedo.clone() });
         }
@@ -104,8 +104,8 @@ fn refract (v: &Vec3, n: &Vec3, ni_over_nt: f32) -> Option<Vec3> {
 }
 
 fn schlick_reflect_prob (cosine: f32, ref_idx: f32) -> f32 {
-    let mut r0 = (1.0 - ref_idx) / (1.0 + ref_idx);
-    r0 *= r0;
+    let r0 = (1.0 - ref_idx) / (1.0 + ref_idx);
+    let r0 = r0 * r0;
     r0 + (1.0 - r0) * (1.0 - cosine).powf(5.0)
 }
 
@@ -130,11 +130,11 @@ impl Material for MatDielectric {
                 .filter(|_| reflect_prob < rng.next_f32())
                 .unwrap_or_else(|| reflect(&ray.direction, &hit_record.normal));
         
-        let scattered = Ray::new(hit_record.p.clone(), direction);
+        let scattered = ray_m(hit_record.p.clone(), direction);
         
         // NOTE: Attenuation is always 1 (glass absorbs nothing)
         // Using 1,1,0 klls the blue channel which fixes a subtle color bug
-        Some(MatRecord { scattered: scattered, attenuation: Vec3::new(1.0, 1.0, 1.0) })
+        Some(MatRecord { scattered: scattered, attenuation: vec3_m(1.0, 1.0, 1.0) })
     }
 }
 
@@ -244,15 +244,15 @@ impl Camera {
 
     fn get_ray (&self, s: f32, t: f32) -> Ray {
         let direction = self.lower_left_corner.add(&self.horizontal.mul_f(s)).add(&self.vertical.mul_f(t)).sub(&self.origin);
-        Ray::new(self.origin.clone(), direction)
+        ray_m(self.origin.clone(), direction)
     }
 }
 
 fn color_sky (ray: &Ray) -> Vec3 {
     let unit_direction = ray.direction.unit_vector();
     let t = 0.5 * (unit_direction.y + 1.0);
-    let white = Vec3::new(1.0, 1.0, 1.0);
-    let sky_blue = Vec3::new(0.5, 0.7, 1.0);
+    let white = vec3_m(1.0, 1.0, 1.0);
+    let sky_blue = vec3_m(0.5, 0.7, 1.0);
     white.mul_f(1.0 - t).add(&sky_blue.mul_f(t))
 }
 
@@ -287,9 +287,9 @@ pub fn cast_rays (buffer: &mut RgbaImage) {
     //   Y-axis goes up
     //   X-axis goes right
     //   Z-axis goes towards the camera (negative into the screen)
-    let look_from = Vec3::new(-2.0, 2.0, 1.0);
-    let look_to = Vec3::new(0.0, 0.0, -1.0);
-    let v_up = Vec3::new(0.0, 1.0, 0.0);
+    let look_from = vec3_m(-2.0, 2.0, 1.0);
+    let look_to = vec3_m(0.0, 0.0, -1.0);
+    let v_up = vec3_m(0.0, 1.0, 0.0);
     let fov = 90.0;
     let aspect_ratio = width as f32 / height as f32;
 
@@ -297,19 +297,19 @@ pub fn cast_rays (buffer: &mut RgbaImage) {
     let mut world = World::new();
     let mut rng = thread_rng();
 
-    world.add_thing(Sphere::new(Vec3::new(0.0, 0.0, -1.0),    0.5,   MatLambertian::with_albedo(Vec3::new(0.8, 0.3, 0.3))));
-    world.add_thing(Sphere::new(Vec3::new(0.0, -100.5, -1.0), 100.0, MatLambertian::with_albedo(Vec3::new(0.8, 0.8, 0.0))));
-    world.add_thing(Sphere::new(Vec3::new(1.0, 0.0, -1.0),    0.5,   MatMetal::with_albedo_and_fuzz(Vec3::new(0.8, 0.6, 0.2), 0.0)));
+    world.add_thing(Sphere::new(vec3_m(0.0, 0.0, -1.0),    0.5,   MatLambertian::with_albedo(vec3_m(0.8, 0.3, 0.3))));
+    world.add_thing(Sphere::new(vec3_m(0.0, -100.5, -1.0), 100.0, MatLambertian::with_albedo(vec3_m(0.8, 0.8, 0.0))));
+    world.add_thing(Sphere::new(vec3_m(1.0, 0.0, -1.0),    0.5,   MatMetal::with_albedo_and_fuzz(vec3_m(0.8, 0.6, 0.2), 0.0)));
     // Negative radius allows us to simulate a hollow glass sphere
-    world.add_thing(Sphere::new(Vec3::new(-1.0, 0.0, -1.0),   0.5,   MatDielectric::with_refractive_index(1.5)));
-    world.add_thing(Sphere::new(Vec3::new(-1.0, 0.0, -1.0),   -0.45, MatDielectric::with_refractive_index(1.5)));
+    world.add_thing(Sphere::new(vec3_m(-1.0, 0.0, -1.0),   0.5,   MatDielectric::with_refractive_index(1.5)));
+    world.add_thing(Sphere::new(vec3_m(-1.0, 0.0, -1.0),   -0.45, MatDielectric::with_refractive_index(1.5)));
 
     // let r = (std::f32::consts::PI / 4.0).cos();
-    // world.add_thing(Sphere::new(Vec3::new(-r, 0.0, -1.0), r, MatLambertian::with_albedo(Vec3::new(0.0, 0.0, 1.0))));
-    // world.add_thing(Sphere::new(Vec3::new( r, 0.0, -1.0), r, MatLambertian::with_albedo(Vec3::new(1.0, 0.0, 0.0))));
+    // world.add_thing(Sphere::new(vec3(-r, 0.0, -1.0), r, MatLambertian::with_albedo(vec3(0.0, 0.0, 1.0))));
+    // world.add_thing(Sphere::new(vec3( r, 0.0, -1.0), r, MatLambertian::with_albedo(vec3(1.0, 0.0, 0.0))));
 
     for (x, y, pixel) in buffer.enumerate_pixels_mut() {
-        let mut col = Vec3::new(0.0, 0.0, 0.0);
+        let mut col = vec3_m(0.0, 0.0, 0.0);
         for _ in 0..samples {
             let u = (x as f32 + rng.next_f32()) / width as f32;
             let v = ((height - y) as f32 + rng.next_f32()) / height as f32;

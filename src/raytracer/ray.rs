@@ -18,3 +18,7 @@ impl Ray {
         self.origin.add(&self.direction.mul_f(t))
     }
 }
+
+pub fn ray_m (origin: Vec3, direction: Vec3) -> Ray {
+    Ray::new(origin, direction)
+}
