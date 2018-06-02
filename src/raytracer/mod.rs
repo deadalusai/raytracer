@@ -224,27 +224,49 @@ struct Camera {
     horizontal: Vec3,
     vertical: Vec3,
     origin: Vec3,
+    u: Vec3,
+    v: Vec3,
+    w: Vec3,
+    lens_radius: f32,
+}
+
+fn random_point_in_unit_disk () -> Vec3 {
+    let mut rng = thread_rng();
+    loop {
+        let p = vec3_m(rng.next_f32(), rng.next_f32(), 0.0).mul_f(2.0).sub(&vec3_m(1.0, 1.0, 0.0));
+        if vec3_dot(&p, &p) < 1.0 {
+            return p;
+        }
+    }
 }
 
 impl Camera {
-    fn new (look_from: Vec3, look_at: Vec3, v_up: Vec3, v_fov: f32, aspect_ratio: f32) -> Camera {
+    fn new (look_from: Vec3, look_at: Vec3, v_up: Vec3, v_fov: f32, aspect_ratio: f32, aperture: f32, focus_dist: f32) -> Camera {
         let theta = v_fov * std::f32::consts::PI / 180.0;
         let half_height = (theta / 2.0).tan();
         let half_width = aspect_ratio * half_height;
         let w = (look_from.sub(&look_at)).unit_vector();
         let u = vec3_cross(&v_up, &w).unit_vector();
         let v = vec3_cross(&w, &u);
+        let lens_radius = aperture / 2.0;
         Camera {
-            lower_left_corner: look_from.sub(&u.mul_f(half_width)).sub(&v.mul_f(half_height)).sub(&w),
-            horizontal: u.mul_f(2.0 * half_width),
-            vertical: v.mul_f(2.0 * half_height),
+            lower_left_corner: look_from.sub(&u.mul_f(half_width * focus_dist)).sub(&v.mul_f(half_height * focus_dist)).sub(&w.mul_f(focus_dist)),
+            horizontal: u.mul_f(2.0 * half_width * focus_dist),
+            vertical: v.mul_f(2.0 * half_height * focus_dist),
             origin: look_from,
+            w: w,
+            u: u,
+            v: v,
+            lens_radius: lens_radius,
         }
     }
 
     fn get_ray (&self, s: f32, t: f32) -> Ray {
-        let direction = self.lower_left_corner.add(&self.horizontal.mul_f(s)).add(&self.vertical.mul_f(t)).sub(&self.origin);
-        ray_m(self.origin.clone(), direction)
+        let rd = random_point_in_unit_disk().mul_f(self.lens_radius);
+        let offset = self.u.mul_f(rd.x).add(&self.v.mul_f(rd.y));
+        let origin = self.origin.add(&offset);
+        let direction = self.lower_left_corner.add(&self.horizontal.mul_f(s)).add(&self.vertical.mul_f(t)).sub(&self.origin).sub(&offset);
+        ray_m(origin, direction)
     }
 }
 
@@ -291,8 +313,10 @@ pub fn cast_rays (buffer: &mut RgbaImage, samples: u32) {
     let v_up = vec3_m(0.0, 1.0, 0.0);
     let fov = 90.0;
     let aspect_ratio = width as f32 / height as f32;
+    let dist_to_focus = look_from.sub(&look_to).length();
+    let aperture = 2.0;
 
-    let camera = Camera::new(look_from, look_to, v_up, fov, aspect_ratio);
+    let camera = Camera::new(look_from, look_to, v_up, fov, aspect_ratio, aperture, dist_to_focus);
     let mut world = World::new();
 
     world.add_thing(Sphere::new(vec3_m(0.0, 0.0, -1.0),    0.5,   MatLambertian::with_albedo(vec3_m(0.8, 0.3, 0.3))));
