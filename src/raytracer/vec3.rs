@@ -115,8 +115,8 @@ pub fn vec3_dot (a: &Vec3, b: &Vec3) -> f32 {
 
 pub fn vec3_cross (a: &Vec3, b: &Vec3) -> Vec3 {
     Vec3 {
-        x: a.y * b.z - a.z * b.y,
-        y: a.x * b.z - a.z * b.x,
-        z: a.y * b.x - a.x * b.y
+        x:  (a.y * b.z - a.z * b.y),
+        y: -(a.x * b.z - a.z * b.x),
+        z:  (a.x * b.y - a.y * b.x)
     }
 }

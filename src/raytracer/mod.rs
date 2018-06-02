@@ -295,7 +295,6 @@ pub fn cast_rays (buffer: &mut RgbaImage) {
 
     let camera = Camera::new(look_from, look_to, v_up, fov, aspect_ratio);
     let mut world = World::new();
-    let mut rng = thread_rng();
 
     world.add_thing(Sphere::new(vec3_m(0.0, 0.0, -1.0),    0.5,   MatLambertian::with_albedo(vec3_m(0.8, 0.3, 0.3))));
     world.add_thing(Sphere::new(vec3_m(0.0, -100.5, -1.0), 100.0, MatLambertian::with_albedo(vec3_m(0.8, 0.8, 0.0))));
@@ -308,6 +307,7 @@ pub fn cast_rays (buffer: &mut RgbaImage) {
     // world.add_thing(Sphere::new(vec3(-r, 0.0, -1.0), r, MatLambertian::with_albedo(vec3(0.0, 0.0, 1.0))));
     // world.add_thing(Sphere::new(vec3( r, 0.0, -1.0), r, MatLambertian::with_albedo(vec3(1.0, 0.0, 0.0))));
 
+    let mut rng = thread_rng();
     for (x, y, pixel) in buffer.enumerate_pixels_mut() {
         let mut col = vec3_m(0.0, 0.0, 0.0);
         for _ in 0..samples {
