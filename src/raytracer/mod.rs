@@ -1,13 +1,11 @@
 
-mod rgb;
-mod vec3;
-mod ray;
+mod types;
 
 use std;
 
-use raytracer::rgb::{ Rgb };
-use raytracer::vec3::{ Vec3, vec3_dot, vec3_cross, vec3_m };
-use raytracer::ray::{ Ray, ray_m };
+use raytracer::types::{ Rgb };
+use raytracer::types::{ Vec3, vec3_dot, vec3_cross };
+use raytracer::types::{ Ray };
 
 use image::{ RgbaImage };
 use rand::{ Rng, thread_rng };
@@ -34,10 +32,10 @@ impl MatLambertian {
 }
 
 fn random_point_in_unit_sphere () -> Vec3 {
-    let unit = vec3_m(1.0, 1.0, 1.0);
+    let unit = Vec3::new(1.0, 1.0, 1.0);
     let mut rng = thread_rng();
     loop {
-        let random_point = vec3_m(rng.next_f32(), rng.next_f32(), rng.next_f32());
+        let random_point = Vec3::new(rng.next_f32(), rng.next_f32(), rng.next_f32());
         let p = random_point.mul_f(2.0).sub(&unit);
         // Inside our sphere?
         if p.length_squared() < 1.0 {
@@ -47,9 +45,9 @@ fn random_point_in_unit_sphere () -> Vec3 {
 }
 
 impl Material for MatLambertian {
-    fn scatter (&self, _ray: &Ray, hit_record: &HitRecord) -> Option<MatRecord> {
+    fn scatter (&self, _r: &Ray, hit_record: &HitRecord) -> Option<MatRecord> {
         let target = hit_record.p.add(&hit_record.normal).add(&random_point_in_unit_sphere());
-        let scattered = ray_m(hit_record.p.clone(), target.sub(&hit_record.p));
+        let scattered = Ray::new(hit_record.p.clone(), target.sub(&hit_record.p));
         Some(MatRecord { scattered: scattered, attenuation: self.albedo.clone() })
         // TODO?
         // We could just as well scatter with some probability p and have attenuation be albedo / p
@@ -74,7 +72,7 @@ fn reflect (v: &Vec3, n: &Vec3) -> Vec3 {
 impl Material for MatMetal {
     fn scatter (&self, ray: &Ray, hit_record: &HitRecord) -> Option<MatRecord> {
         let reflected = reflect(&ray.direction.unit_vector(), &hit_record.normal);
-        let scattered = ray_m(hit_record.p.clone(), reflected.add(&random_point_in_unit_sphere().mul_f(self.fuzz)));
+        let scattered = Ray::new(hit_record.p.clone(), reflected.add(&random_point_in_unit_sphere().mul_f(self.fuzz)));
         if vec3_dot(&scattered.direction, &hit_record.normal) > 0.0 {
             return Some(MatRecord { scattered: scattered, attenuation: self.albedo.clone() });
         }
@@ -130,11 +128,10 @@ impl Material for MatDielectric {
                 .filter(|_| reflect_prob < rng.next_f32())
                 .unwrap_or_else(|| reflect(&ray.direction, &hit_record.normal));
         
-        let scattered = ray_m(hit_record.p.clone(), direction);
+        let scattered = Ray::new(hit_record.p.clone(), direction);
         
-        // NOTE: Attenuation is always 1 (glass absorbs nothing)
-        // Using 1,1,0 klls the blue channel which fixes a subtle color bug
-        Some(MatRecord { scattered: scattered, attenuation: vec3_m(1.0, 1.0, 1.0) })
+        // NOTE: Attenuation is always 0.99 (glass absorbs very little)
+        Some(MatRecord { scattered: scattered, attenuation: Vec3::new(0.99, 0.99, 0.99) })
     }
 }
 
@@ -226,14 +223,13 @@ struct Camera {
     origin: Vec3,
     u: Vec3,
     v: Vec3,
-    w: Vec3,
     lens_radius: f32,
 }
 
 fn random_point_in_unit_disk () -> Vec3 {
     let mut rng = thread_rng();
     loop {
-        let p = vec3_m(rng.next_f32(), rng.next_f32(), 0.0).mul_f(2.0).sub(&vec3_m(1.0, 1.0, 0.0));
+        let p = Vec3::new(rng.next_f32(), rng.next_f32(), 0.0).mul_f(2.0).sub(&Vec3::new(1.0, 1.0, 0.0));
         if vec3_dot(&p, &p) < 1.0 {
             return p;
         }
@@ -254,7 +250,6 @@ impl Camera {
             horizontal: u.mul_f(2.0 * half_width * focus_dist),
             vertical: v.mul_f(2.0 * half_height * focus_dist),
             origin: look_from,
-            w: w,
             u: u,
             v: v,
             lens_radius: lens_radius,
@@ -266,15 +261,15 @@ impl Camera {
         let offset = self.u.mul_f(rd.x).add(&self.v.mul_f(rd.y));
         let origin = self.origin.add(&offset);
         let direction = self.lower_left_corner.add(&self.horizontal.mul_f(s)).add(&self.vertical.mul_f(t)).sub(&self.origin).sub(&offset);
-        ray_m(origin, direction)
+        Ray::new(origin, direction)
     }
 }
 
 fn color_sky (ray: &Ray) -> Vec3 {
     let unit_direction = ray.direction.unit_vector();
     let t = 0.5 * (unit_direction.y + 1.0);
-    let white = vec3_m(1.0, 1.0, 1.0);
-    let sky_blue = vec3_m(0.5, 0.7, 1.0);
+    let white = Vec3::new(1.0, 1.0, 1.0);
+    let sky_blue = Vec3::new(0.5, 0.7, 1.0);
     white.mul_f(1.0 - t).add(&sky_blue.mul_f(t))
 }
 
@@ -292,40 +287,44 @@ fn color (ray: &Ray, world: &World, depth: i32) -> Vec3 {
     color_sky(ray)
 }
 
-fn vec3_to_rgb (v: &Vec3) -> Rgb {
-    Rgb::new(
-        (255.0 * v.x.sqrt()) as u8,
-        (255.0 * v.y.sqrt()) as u8,
-        (255.0 * v.z.sqrt()) as u8
-    )
-}
-
 fn random_scene () -> World {
     let mut rng = thread_rng();
     let mut world = World::new();
 
-    // Big sphere in center
-    world.add_thing(Sphere::new(vec3_m(0.0, -1000.0, 0.0), 1000.0, MatLambertian::with_albedo(vec3_m(0.5, 0.5, 0.5))));
+    // World sphere
+    world.add_thing(Sphere::new(Vec3::new(0.0, -1000.0, 0.0), 1000.0, MatLambertian::with_albedo(Vec3::new(0.5, 0.5, 0.5))));
 
+    // Small random spheres
     for a in -11..11 {
         for b in -11..11 {
-            let choose_mat = rng.next_f32();
-            let center = vec3_m(a as f32 + 0.9 * rng.next_f32(), 0.2, b as f32 + 0.9 * rng.next_f32());
-            if center.sub(&vec3_m(4.0, 0.2, 0.0)).length() > 0.9 {
+            let center = Vec3::new(a as f32 + 0.9 * rng.next_f32(), 0.2, b as f32 + 0.9 * rng.next_f32());
+            if center.sub(&Vec3::new(4.0, 0.2, 0.0)).length() > 0.9 {
                 let material: Box<Material> =
-                    if choose_mat < 0.8 {
-                        // Diffuse
-                        let albedo = vec3_m(rng.next_f32() * rng.next_f32(), rng.next_f32() * rng.next_f32(), rng.next_f32() * rng.next_f32());
-                        MatLambertian::with_albedo(albedo)
-                    } else if choose_mat < 0.95 {
-                        // Metal
-                        let albedo = vec3_m(0.5 * (1.0 + rng.next_f32()), 0.5 * (1.0 + rng.next_f32()), 0.5 * (1.0 + rng.next_f32()));
-                        let fuzz = 0.5 * rng.next_f32();
-                        MatMetal::with_albedo_and_fuzz(albedo, fuzz)
-                    } else {
-                        // Glass
-                        let refractive_index = 1.5;
-                        MatDielectric::with_refractive_index(refractive_index)
+                    match rng.next_f32() {
+                        v if v < 0.8 => {
+                            // Diffuse
+                            let albedo = Vec3::new(
+                                /* r */ rng.next_f32() * rng.next_f32(),
+                                /* g */ rng.next_f32() * rng.next_f32(),
+                                /* b */ rng.next_f32() * rng.next_f32()
+                            );
+                            MatLambertian::with_albedo(albedo)
+                        },
+                        v if v < 0.95 => {
+                            // Metal
+                            let albedo = Vec3::new(
+                                /* r */ 0.5 * (1.0 + rng.next_f32()),
+                                /* g */ 0.5 * (1.0 + rng.next_f32()),
+                                /* b */ 0.5 * (1.0 + rng.next_f32())
+                            );
+                            let fuzz = 0.5 * rng.next_f32();
+                            MatMetal::with_albedo_and_fuzz(albedo, fuzz)
+                        },
+                        _ => {
+                            // Glass
+                            let refractive_index = 1.5;
+                            MatDielectric::with_refractive_index(refractive_index)
+                        }
                     };
 
                 world.add_thing(Sphere::new(center, 0.2, material));
@@ -333,9 +332,10 @@ fn random_scene () -> World {
         }
     }
 
-    world.add_thing(Sphere::new(vec3_m(-4.0, 1.0, 0.0), 1.0, MatLambertian::with_albedo(vec3_m(0.8, 0.2, 0.1))));
-    world.add_thing(Sphere::new(vec3_m(0.0, 1.0, 0.0),  1.0, MatDielectric::with_refractive_index(1.5)));
-    world.add_thing(Sphere::new(vec3_m(4.0, 1.0, 0.0),  1.0, MatMetal::with_albedo_and_fuzz(vec3_m(0.8, 0.8, 0.8), 0.0)));
+    // Large fixed spheres
+    world.add_thing(Sphere::new(Vec3::new(-4.0, 1.0, 0.0), 1.0, MatLambertian::with_albedo(Vec3::new(0.8, 0.2, 0.1))));
+    world.add_thing(Sphere::new(Vec3::new(0.0, 1.0, 0.0),  1.0, MatDielectric::with_refractive_index(1.5)));
+    world.add_thing(Sphere::new(Vec3::new(4.0, 1.0, 0.0),  1.0, MatMetal::with_albedo_and_fuzz(Vec3::new(0.8, 0.8, 0.8), 0.0)));
 
     world
 }
@@ -348,9 +348,9 @@ pub fn cast_rays (buffer: &mut RgbaImage, samples: u32) {
     //   Y-axis goes up
     //   X-axis goes right
     //   Z-axis goes towards the camera (negative into the screen)
-    let look_from = vec3_m(13.0, 2.0, 3.0);
-    let look_to = vec3_m(0.0, 0.0, 0.0);
-    let v_up = vec3_m(0.0, 1.0, 0.0);
+    let look_from = Vec3::new(13.0, 2.0, 3.0);
+    let look_to = Vec3::new(0.0, 0.0, 0.0);
+    let v_up = Vec3::new(0.0, 1.0, 0.0);
     let fov = 20.0;
     let aspect_ratio = width as f32 / height as f32;
     let dist_to_focus = 10.0;
@@ -361,15 +361,15 @@ pub fn cast_rays (buffer: &mut RgbaImage, samples: u32) {
 
     let mut rng = thread_rng();
     for (x, y, pixel) in buffer.enumerate_pixels_mut() {
-        let mut col = vec3_m(0.0, 0.0, 0.0);
+        let mut col = Vec3::new(0.0, 0.0, 0.0);
         for _ in 0..samples {
             let u = (x as f32 + rng.next_f32()) / width as f32;
             let v = ((height - y) as f32 + rng.next_f32()) / height as f32;
             let ray = camera.get_ray(u, v);
-            col.add_mut(&color(&ray, &world, 0));
+            col = col.add(&color(&ray, &world, 0));
         }
-        col.div_f_mut(samples as f32);
-        let col = vec3_to_rgb(&col);
+        col = col.div_f(samples as f32);
+        let col = Rgb::from_vec3(&col);
         pixel.data = [col.r, col.g, col.b, 255];
     }
 }
