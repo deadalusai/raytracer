@@ -13,7 +13,7 @@ pub struct MatRecord {
     pub scattered: Ray,
 }
 
-pub trait Material {
+pub trait Material: Send + Sync {
     fn scatter (&self, ray: &Ray, hit_record: &HitRecord) -> Option<MatRecord>;
 }
 
@@ -26,7 +26,7 @@ pub struct HitRecord<'mat> {
     pub material: &'mat Material,
 }
 
-pub trait Hitable {
+pub trait Hitable: Send + Sync {
     fn hit<'a> (&'a self, ray: &Ray, t_min: f32, t_max: f32) -> Option<HitRecord<'a>>;
 }
 
@@ -34,7 +34,7 @@ pub trait Hitable {
 
 pub struct Scene {
     camera: Camera,
-    things: Vec<Box<Hitable + Send + Sync>>,
+    things: Vec<Box<Hitable>>,
 }
 
 impl Scene {
@@ -43,7 +43,7 @@ impl Scene {
     }
 
     pub fn add_thing<T> (&mut self, hitable: T)
-        where T: Hitable + Send + Sync + 'static
+        where T: Hitable + 'static
     {
         self.things.push(Box::new(hitable));
     }

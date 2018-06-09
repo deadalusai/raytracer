@@ -9,11 +9,11 @@ pub use raytracer::implementation::{ Material, MatRecord, Hitable, HitRecord };
 pub struct Sphere {
     center: Vec3,
     radius: f32,
-    material: Box<Material + Send + Sync>,
+    material: Box<Material>,
 }
 
 impl Sphere {
-    pub fn new (center: Vec3, radius: f32, material: Box<Material + Send + Sync>) -> Sphere {
+    pub fn new (center: Vec3, radius: f32, material: Box<Material>) -> Sphere {
         Sphere { center: center, radius: radius, material: material }
     }
 }

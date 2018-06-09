@@ -33,7 +33,7 @@ pub fn random_sphere_scene (viewport: &Viewport) -> Scene {
         for b in -11..11 {
             let center = Vec3::new(a as f32 + 0.9 * rng.next_f32(), 0.2, b as f32 + 0.9 * rng.next_f32());
             if center.sub(&Vec3::new(4.0, 0.2, 0.0)).length() > 0.9 {
-                let material: Box<Material + Send + Sync> =
+                let material: Box<Material> =
                     match rng.next_f32() {
                         v if v < 0.8 => {
                             // Diffuse
