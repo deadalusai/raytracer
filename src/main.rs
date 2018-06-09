@@ -108,7 +108,7 @@ fn start_render_thread (work_receiver: Receiver<RenderWork>, result_sender: Send
     loop {
         // Receive work
         let RenderWork (mut chunk, scene) = match work_receiver.recv() {
-            Err(_) => return,
+            Err(_) => break,
             Ok(work) => work
         };
         // Render
@@ -116,9 +116,8 @@ fn start_render_thread (work_receiver: Receiver<RenderWork>, result_sender: Send
         raytracer::cast_rays_into_scene(&mut chunk, &*scene, SAMPLES_PER_PIXEL);
         let elapsed = time.elapsed();
         // Send result
-        let ok = result_sender.send(RenderResult::WorkCompleted(chunk, elapsed));
-        // Main thread terminated?
-        if ok.is_err() {
+        let result = RenderResult::WorkCompleted(chunk, elapsed);
+        if let Err(_) = result_sender.send(result) {
             break;
         }
     }
