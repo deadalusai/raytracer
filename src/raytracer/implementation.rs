@@ -150,7 +150,7 @@ impl Viewport {
                 let top_left_x = x * chunk_width;
                 let top_left_y = y * chunk_height;
                 ViewChunk {
-                    id: id as u32 + 1,
+                    id: id as u32,
                     view_width: view_width,
                     view_height: view_height,
                     chunk_top_left: (top_left_x, top_left_y),

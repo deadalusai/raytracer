@@ -17,7 +17,6 @@ use piston::input::*;
 use glutin_window::GlutinWindow as Window;
 use opengl_graphics::{ GlGraphics, GlyphCache, OpenGL, Texture, TextureSettings };
 use image::RgbaImage;
-use rand::{ Rng, thread_rng };
 
 mod raytracer;
 
@@ -53,7 +52,7 @@ impl App {
                 let font_size = 15;
                 let transform = ctx.transform.trans(10.0, (offset * 20 + 25) as f64);
                 let label = format!(
-                    "Thread {}: {} chunk, {:.4} seconds (avg {:.4}s)",
+                    "Thread {}: {} chunks, {:.4} seconds (avg {:.4}s)",
                     thread.id, thread.total_chunks_rendered, thread.total_time_secs,
                     thread.total_time_secs / thread.total_chunks_rendered as f64
                 );
@@ -148,19 +147,17 @@ fn start_background_render_threads () -> Vec<RenderThread>  {
                 total_chunks_rendered: 0,
             }
         })
-        .collect::<Vec<_>>()
+        .collect()
 }
 
 fn make_chunks_list (viewport: &Viewport, chunk_count: u32) -> Vec<ViewChunk> {
     let divisions = (chunk_count as f32).sqrt();
     let h_count = (viewport.width as f32 / (viewport.width as f32 / divisions)) as u32;
     let v_count = (viewport.height as f32 / (viewport.height as f32 / divisions)) as u32;
-    let mut chunks: Vec<_> =
-        viewport.iter_view_chunks(h_count, v_count)
-                .collect();
-    // hax - randomly sort chunks
-    let mut rng = thread_rng();
-    chunks.sort_unstable_by_key(move |_| rng.next_u32());
+    let mut chunks = viewport.iter_view_chunks(h_count, v_count).collect::<Vec<_>>();
+    // Chunks are popped from this list as they are rendered.
+    // Reverse the list so the top of the image is rendered first.
+    chunks.reverse();
     chunks
 }
 
