@@ -76,7 +76,10 @@ fn main() {
         rot: 0 as f64
     };
 
-    raytracer::cast_rays(&mut app.buffer, SAMPLES);
+    let viewport = raytracer::samples::Viewport(WIDTH, HEIGHT);
+    let world = raytracer::samples::random_shpere_scene(viewport);
+
+    raytracer::cast_rays(&mut app.buffer, &world, SAMPLES);
 
     // HAX
     app.buffer.save("test.png").unwrap();
