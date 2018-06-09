@@ -5,63 +5,162 @@ extern crate opengl_graphics;
 extern crate image;
 extern crate rand;
 
+use std::sync::{ Mutex, Arc };
+use std::thread::{ spawn, JoinHandle };
+
 use piston::window::WindowSettings;
 use piston::event_loop::*;
 use piston::input::*;
 use glutin_window::GlutinWindow as Window;
 use opengl_graphics::{ GlGraphics, OpenGL, Texture, TextureSettings };
 use image::RgbaImage;
+use rand::{ Rng, thread_rng };
 
 mod raytracer;
 
-pub struct App {
+use raytracer::{ Scene, Viewport, ViewChunk };
+
+const WIDTH: u32 = 800;
+const HEIGHT: u32 = 600;
+const SAMPLES_PER_PIXEL: u32 = 100;
+const CHUNK_COUNT: u32 = 1000;
+const RENDER_THREAD_COUNT: u32 = 4;
+
+struct Chunks {
+    count: u32,
+    ready: Vec<ViewChunk>,
+    completed: Vec<ViewChunk>,
+}
+
+impl Chunks {
+    fn from_viewport (viewport: &Viewport, chunk_count: u32) -> Chunks {
+        let divisions = (chunk_count as f32).sqrt();
+        let h_count = (viewport.width as f32 / (viewport.width as f32 / divisions)) as u32;
+        let v_count = (viewport.height as f32 / (viewport.height as f32 / divisions)) as u32;
+        let mut chunks: Vec<_> =
+            viewport.iter_view_chunks(h_count, v_count)
+                    .collect();
+
+        // hax - randomly sort chunks
+        let mut rng = thread_rng();
+        chunks.sort_unstable_by_key(move |_| rng.next_u32());
+
+        Chunks {
+            count: chunks.len() as u32,
+            ready: chunks,
+            completed: vec!()
+        }
+    }
+}
+
+struct App {
     gl: GlGraphics,    // OpenGL drawing backend.
     buffer: RgbaImage, // Buffer
-    rot: f64           // Rotation
+    chunks: Arc<Mutex<Chunks>>, // List of chunks completed and in progress
+    t: f64,
 }
 
 impl App {
     fn render(&mut self, args: &RenderArgs) {
         use graphics::*;
 
-        let settings = TextureSettings::new();
-        let texture = Texture::from_image(&self.buffer, &settings);
-
-        // let rot_rads = self.rot;
-        // let rot_offset_x = args.width as f64 / 2.0;
-        // let rot_offset_y = args.height as f64 / 2.0;
+        let texture = Texture::from_image(&self.buffer, &TextureSettings::new());
         
         self.gl.draw(args.viewport(), |ctx, gl| {
             // Clear screen
             clear([0.0; 4], gl);
-            
-            // Apply rotation
+            // Apply transformations
             let transform = ctx.transform;
-            //let transform = ctx.transform
-            //    .trans(rot_offset_x, rot_offset_y)
-            //    .rot_rad(rot_rads)
-            //    .trans(-rot_offset_x, -rot_offset_y);
-
             // Draw the buffer texture
             image(&texture, transform, gl);
         });
     }
 
     fn update(&mut self, args: &UpdateArgs) {
-        // Rotate 2 radians per second.
-        self.rot += 2.0 * args.dt;
+        self.t += args.dt;
+
+        // Only update once every few seconds
+        if self.t < 1.0 {
+            return;
+        }
+
+        // Render chunks to buffer
+        if let Ok(ref mut chunks) = self.chunks.lock() {
+            // For each completed chunk...
+            for chunk in chunks.completed.iter() {
+                // Draw chunk to buffer
+                for chunk_y in 0..chunk.height {
+                    for chunk_x in 0..chunk.width {
+                        let col = chunk.get_chunk_pixel(chunk_x, chunk_y);
+                        let (view_x, view_y) = chunk.get_view_relative_coords(chunk_x, chunk_y);
+                        let pixel = self.buffer.get_pixel_mut(view_x, view_y);
+                        pixel.data = [col.r, col.g, col.b, 255];
+                    }
+                }
+            }
+        }
+
+        self.t = 0.0;
     }
+}
+
+fn start_render_thread (chunks: &Mutex<Chunks>, scene: &Scene) {
+    let mut working_chunk = None;
+    let mut finished_chunk = None;
+    loop {
+        let mut chunk_count = 0;
+
+        {
+            if let Ok(ref mut chunks) = chunks.lock() {
+                // Release old chunk
+                if let Some(chunk) = finished_chunk.take() {
+                    chunks.completed.push(chunk)
+                }
+                // Acquire a new chunk
+                working_chunk = chunks.ready.pop();
+                chunk_count = chunks.count;
+            }
+        }
+
+        if let Some(chunk) = working_chunk.take() {
+            // Render
+            println!("Rendering chunk {} of {}", chunk.id, chunk_count);
+
+            let mut chunk = chunk;
+            raytracer::cast_rays_into_scene(&mut chunk, scene, SAMPLES_PER_PIXEL);
+
+            // Done
+            finished_chunk = Some(chunk);
+        } else {
+            // Work queue empty.
+            break;
+        }
+    }
+}
+
+fn start_background_render_threads (chunks: Arc<Mutex<Chunks>>, scene: Arc<Scene>) -> Vec<JoinHandle<()>>  {
+    (0..RENDER_THREAD_COUNT)
+        .map(move |_| {
+            let chunks = chunks.clone();
+            let scene = scene.clone();
+            spawn(move || start_render_thread(&*chunks, &*scene))
+        })
+        .collect::<Vec<_>>()
 }
 
 fn main() {
     // Change this to OpenGL::V2_1 if not working.
     let opengl = OpenGL::V3_2;
 
-    const WIDTH: u32 = 200;
-    const HEIGHT: u32 = 200;
-    const SAMPLES_PER_PIXEL: u32 = 1;
+    println!("Creating scene");
 
-    // Create an Glutin window.
+    let viewport = Viewport::new(WIDTH, HEIGHT);
+    let scene = raytracer::samples::random_sphere_scene(&viewport);
+
+    let chunk_list = Chunks::from_viewport(&viewport, CHUNK_COUNT);
+    
+    println!("Creating window");
+
     let mut window: Window =
         WindowSettings::new("raytracer", [WIDTH, HEIGHT])
             .opengl(opengl)
@@ -73,36 +172,18 @@ fn main() {
     let mut app = App {
         gl: GlGraphics::new(opengl),
         buffer: RgbaImage::new(WIDTH, HEIGHT),
-        rot: 0 as f64
+        chunks: Arc::new(Mutex::new(chunk_list)),
+        t: 0.0,
     };
 
-    let viewport = raytracer::Viewport::new(WIDTH, HEIGHT);
-    let world = raytracer::samples::random_shpere_scene(&viewport);
+    let scene = Arc::new(scene);
+    
+    println!("Starting render threads");
 
-    let mut chunks: Vec<_> = viewport.iter_view_chunks(2, 2).collect();
-    let len = chunks.len();
-    for (i, chunk) in chunks.iter_mut().enumerate() {
-        println!("Rendering chunk {} of {}", i + 1, len);
-        raytracer::cast_rays_into_world(chunk, &world, SAMPLES_PER_PIXEL);
-    }
-
-    println!("Drawing chunks to buffer");
-
-    for (i, chunk) in chunks.iter().enumerate() {
-        println!("Drawing chunk {} of {}", i + 1, len);
-        for chunk_y in 0..chunk.height {
-            for chunk_x in 0..chunk.width {
-                let col = chunk.get_chunk_pixel(chunk_x, chunk_y);
-                let (view_x, view_y) = chunk.get_view_relative_coords(chunk_x, chunk_y);
-                let pixel = app.buffer.get_pixel_mut(view_x, view_y);
-                pixel.data = [col.r, col.g, col.b, 255];
-            }
-        }
-    }
-
-    // HAX
-    app.buffer.save("test.png").unwrap();
-
+    let threads = start_background_render_threads(app.chunks.clone(), scene.clone());
+    
+    println!("Starting main event loop");
+    
     let mut events = Events::new(EventSettings::new());
     while let Some(e) = events.next(&mut window) {
         if let Some(r) = e.render_args() {
@@ -112,5 +193,15 @@ fn main() {
         if let Some(u) = e.update_args() {
             app.update(&u);
         }
+    }
+
+    println!("Writing rendered image to disk");
+    
+    app.buffer.save("test.png").unwrap();
+
+    println!("Waiting for render threads to terminate");
+
+    for thread in threads {
+        thread.join().unwrap();
     }
 }

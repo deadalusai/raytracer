@@ -10,7 +10,7 @@ use rand::{ Rng, thread_rng };
 // Sample scenes
 //
 
-pub fn random_shpere_scene (viewport: &Viewport) -> Scene {
+pub fn random_sphere_scene (viewport: &Viewport) -> Scene {
     // Camera
     let look_from = Vec3::new(13.0, 2.0, 3.0);
     let look_to = Vec3::new(0.0, 0.0, 0.0);
@@ -33,7 +33,7 @@ pub fn random_shpere_scene (viewport: &Viewport) -> Scene {
         for b in -11..11 {
             let center = Vec3::new(a as f32 + 0.9 * rng.next_f32(), 0.2, b as f32 + 0.9 * rng.next_f32());
             if center.sub(&Vec3::new(4.0, 0.2, 0.0)).length() > 0.9 {
-                let material: Box<Material> =
+                let material: Box<Material + Send + Sync> =
                     match rng.next_f32() {
                         v if v < 0.8 => {
                             // Diffuse

@@ -34,7 +34,7 @@ pub trait Hitable {
 
 pub struct Scene {
     camera: Camera,
-    things: Vec<Box<Hitable>>,
+    things: Vec<Box<Hitable + Send + Sync>>,
 }
 
 impl Scene {
@@ -43,10 +43,9 @@ impl Scene {
     }
 
     pub fn add_thing<T> (&mut self, hitable: T)
-        where T: Hitable + 'static
+        where T: Hitable + Send + Sync + 'static
     {
-        let b = Box::new(hitable);
-        self.things.push(b);
+        self.things.push(Box::new(hitable));
     }
 }
 
@@ -146,10 +145,12 @@ impl Viewport {
         let chunk_height = view_height / v_count;
         (0..v_count)
             .flat_map(move |y| (0..h_count).map(move |x| (x, y)))
-            .map(move |(x, y)| {
+            .enumerate()
+            .map(move |(id, (x, y))| {
                 let top_left_x = x * chunk_width;
                 let top_left_y = y * chunk_height;
                 ViewChunk {
+                    id: id as u32 + 1,
                     view_width: view_width,
                     view_height: view_height,
                     chunk_top_left: (top_left_x, top_left_y),
@@ -162,6 +163,8 @@ impl Viewport {
 }
 
 pub struct ViewChunk {
+    pub id: u32,
+
     view_width: u32,
     view_height: u32,
     chunk_top_left: (u32, u32),
@@ -228,7 +231,7 @@ fn cast_ray (ray: &Ray, world: &Scene) -> Vec3 {
     color_internal(ray, world, 0)
 }
 
-pub fn cast_rays_into_world (chunk: &mut ViewChunk, scene: &Scene, samples_per_pixel: u32) {
+pub fn cast_rays_into_scene (chunk: &mut ViewChunk, scene: &Scene, samples_per_pixel: u32) {
     if samples_per_pixel == 0 {
         panic!("samples_per_pixel cannot be zero");
     }
