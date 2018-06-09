@@ -5,8 +5,10 @@ extern crate opengl_graphics;
 extern crate image;
 extern crate rand;
 
-use std::sync::{ Mutex, Arc };
+use std::sync::{ Arc };
+use std::sync::mpsc::{ channel, Sender, Receiver };
 use std::thread::{ spawn, JoinHandle };
+use std::time::{ Instant, Duration };
 
 use piston::window::WindowSettings;
 use piston::event_loop::*;
@@ -22,42 +24,16 @@ use raytracer::{ Scene, Viewport, ViewChunk };
 
 const WIDTH: u32 = 800;
 const HEIGHT: u32 = 600;
-const SAMPLES_PER_PIXEL: u32 = 100;
-const CHUNK_COUNT: u32 = 1000;
-const RENDER_THREAD_COUNT: u32 = 4;
-
-struct Chunks {
-    count: u32,
-    ready: Vec<ViewChunk>,
-    completed: Vec<ViewChunk>,
-}
-
-impl Chunks {
-    fn from_viewport (viewport: &Viewport, chunk_count: u32) -> Chunks {
-        let divisions = (chunk_count as f32).sqrt();
-        let h_count = (viewport.width as f32 / (viewport.width as f32 / divisions)) as u32;
-        let v_count = (viewport.height as f32 / (viewport.height as f32 / divisions)) as u32;
-        let mut chunks: Vec<_> =
-            viewport.iter_view_chunks(h_count, v_count)
-                    .collect();
-
-        // hax - randomly sort chunks
-        let mut rng = thread_rng();
-        chunks.sort_unstable_by_key(move |_| rng.next_u32());
-
-        Chunks {
-            count: chunks.len() as u32,
-            ready: chunks,
-            completed: vec!()
-        }
-    }
-}
+const SAMPLES_PER_PIXEL: u32 = 10;
+const CHUNK_COUNT: u32 = 100;
+const RENDER_THREAD_COUNT: u32 = 3;
 
 struct App {
-    gl: GlGraphics,    // OpenGL drawing backend.
-    buffer: RgbaImage, // Buffer
-    chunks: Arc<Mutex<Chunks>>, // List of chunks completed and in progress
-    t: f64,
+    gl: GlGraphics,                 // OpenGL drawing backend
+    buffer: RgbaImage,              // Buffer
+    scene: Arc<Scene>,
+    pending_chunks: Vec<ViewChunk>, // List of pending chunks
+    threads: Vec<RenderThread>,     // List of thread handles
 }
 
 impl App {
@@ -76,76 +52,105 @@ impl App {
         });
     }
 
-    fn update(&mut self, args: &UpdateArgs) {
-        self.t += args.dt;
+    fn update(&mut self, _args: &UpdateArgs) {
+        use RenderResult::*;
 
-        // Only update once every few seconds
-        if self.t < 1.0 {
-            return;
-        }
-
-        // Render chunks to buffer
-        if let Ok(ref mut chunks) = self.chunks.lock() {
-            // For each completed chunk...
-            for chunk in chunks.completed.iter() {
-                // Draw chunk to buffer
-                for chunk_y in 0..chunk.height {
-                    for chunk_x in 0..chunk.width {
-                        let col = chunk.get_chunk_pixel(chunk_x, chunk_y);
-                        let (view_x, view_y) = chunk.get_view_relative_coords(chunk_x, chunk_y);
-                        let pixel = self.buffer.get_pixel_mut(view_x, view_y);
-                        pixel.data = [col.r, col.g, col.b, 255];
-                    }
+        // Poll each thread for completed work
+        for thread in &mut self.threads {
+            if let Ok(result) = thread.receiver.try_recv() {
+                if let WorkCompleted(chunk, elapsed) = result {
+                    // Render chunk to buffer
+                    copy_view_chunk_to_image_buffer(&mut self.buffer, &chunk);
+                    // Update stats
+                    thread.total_time_secs += elapsed.as_secs();
+                    thread.total_renders += 1;
+                }
+                // Send new work
+                if let Some(chunk) = self.pending_chunks.pop() {
+                    let work = RenderWork(chunk, self.scene.clone());
+                    thread.sender.send(work).expect("Sending work");
                 }
             }
         }
-
-        self.t = 0.0;
     }
 }
 
-fn start_render_thread (chunks: &Mutex<Chunks>, scene: &Scene) {
-    let mut working_chunk = None;
-    let mut finished_chunk = None;
-    loop {
-        let mut chunk_count = 0;
-
-        {
-            if let Ok(ref mut chunks) = chunks.lock() {
-                // Release old chunk
-                if let Some(chunk) = finished_chunk.take() {
-                    chunks.completed.push(chunk)
-                }
-                // Acquire a new chunk
-                working_chunk = chunks.ready.pop();
-                chunk_count = chunks.count;
-            }
+fn copy_view_chunk_to_image_buffer (buffer: &mut RgbaImage, chunk: &ViewChunk) {
+    for chunk_y in 0..chunk.height {
+        for chunk_x in 0..chunk.width {
+            let col = chunk.get_chunk_pixel(chunk_x, chunk_y);
+            let (view_x, view_y) = chunk.get_view_relative_coords(chunk_x, chunk_y);
+            let pixel = buffer.get_pixel_mut(view_x, view_y);
+            pixel.data = [col.r, col.g, col.b, 255];
         }
+    }
+}
 
-        if let Some(chunk) = working_chunk.take() {
-            // Render
-            println!("Rendering chunk {} of {}", chunk.id, chunk_count);
+struct RenderWork (ViewChunk, Arc<Scene>);
 
-            let mut chunk = chunk;
-            raytracer::cast_rays_into_scene(&mut chunk, scene, SAMPLES_PER_PIXEL);
+enum RenderResult {
+    Ready,
+    WorkCompleted(ViewChunk, Duration)
+}
 
-            // Done
-            finished_chunk = Some(chunk);
-        } else {
-            // Work queue empty.
+fn start_render_thread (work_receiver: Receiver<RenderWork>, result_sender: Sender<RenderResult>) {
+    result_sender.send(RenderResult::Ready).expect("Worker ready");
+    loop {
+        // Receive work
+        let RenderWork (mut chunk, scene) = match work_receiver.recv() {
+            Err(_) => return,
+            Ok(work) => work
+        };
+        // Render
+        let time = Instant::now();
+        raytracer::cast_rays_into_scene(&mut chunk, &*scene, SAMPLES_PER_PIXEL);
+        let elapsed = time.elapsed();
+        // Send result
+        let ok = result_sender.send(RenderResult::WorkCompleted(chunk, elapsed));
+        // Main thread terminated?
+        if ok.is_err() {
             break;
         }
     }
 }
 
-fn start_background_render_threads (chunks: Arc<Mutex<Chunks>>, scene: Arc<Scene>) -> Vec<JoinHandle<()>>  {
+struct RenderThread {
+    handle: JoinHandle<()>,
+    sender: Sender<RenderWork>,
+    receiver: Receiver<RenderResult>,
+    total_time_secs: u64,
+    total_renders: u64,
+}
+
+fn start_background_render_threads () -> Vec<RenderThread>  {
+
     (0..RENDER_THREAD_COUNT)
         .map(move |_| {
-            let chunks = chunks.clone();
-            let scene = scene.clone();
-            spawn(move || start_render_thread(&*chunks, &*scene))
+            let (work_sender, work_receiver) = channel::<RenderWork>();
+            let (result_sender, result_receiver) = channel::<RenderResult>();
+            let handle = spawn(move || start_render_thread(work_receiver, result_sender));
+            RenderThread {
+                handle: handle,
+                sender: work_sender,
+                receiver: result_receiver,
+                total_time_secs: 0,
+                total_renders: 0,
+            }
         })
         .collect::<Vec<_>>()
+}
+
+fn make_chunks_list (viewport: &Viewport, chunk_count: u32) -> Vec<ViewChunk> {
+    let divisions = (chunk_count as f32).sqrt();
+    let h_count = (viewport.width as f32 / (viewport.width as f32 / divisions)) as u32;
+    let v_count = (viewport.height as f32 / (viewport.height as f32 / divisions)) as u32;
+    let mut chunks: Vec<_> =
+        viewport.iter_view_chunks(h_count, v_count)
+                .collect();
+    // hax - randomly sort chunks
+    let mut rng = thread_rng();
+    chunks.sort_unstable_by_key(move |_| rng.next_u32());
+    chunks
 }
 
 fn main() {
@@ -157,7 +162,7 @@ fn main() {
     let viewport = Viewport::new(WIDTH, HEIGHT);
     let scene = raytracer::samples::random_sphere_scene(&viewport);
 
-    let chunk_list = Chunks::from_viewport(&viewport, CHUNK_COUNT);
+    let chunks = make_chunks_list(&viewport, CHUNK_COUNT);
     
     println!("Creating window");
 
@@ -167,20 +172,19 @@ fn main() {
             .exit_on_esc(true)
             .build()
             .unwrap();
+    
+    println!("Starting render threads");
+
+    let threads = start_background_render_threads();
 
     // Create a new game and run it.
     let mut app = App {
         gl: GlGraphics::new(opengl),
         buffer: RgbaImage::new(WIDTH, HEIGHT),
-        chunks: Arc::new(Mutex::new(chunk_list)),
-        t: 0.0,
+        scene: Arc::new(scene),
+        pending_chunks: chunks,
+        threads: threads,
     };
-
-    let scene = Arc::new(scene);
-    
-    println!("Starting render threads");
-
-    let threads = start_background_render_threads(app.chunks.clone(), scene.clone());
     
     println!("Starting main event loop");
     
@@ -201,7 +205,9 @@ fn main() {
 
     println!("Waiting for render threads to terminate");
 
-    for thread in threads {
-        thread.join().unwrap();
+    for thread in app.threads {
+        drop(thread.sender);
+        drop(thread.receiver);
+        thread.handle.join().unwrap();
     }
 }
