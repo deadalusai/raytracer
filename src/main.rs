@@ -5,6 +5,7 @@ extern crate opengl_graphics;
 extern crate image;
 extern crate rand;
 
+use std::path::{ Path };
 use std::sync::{ Arc };
 use std::sync::mpsc::{ channel, Sender, Receiver };
 use std::thread::{ spawn, JoinHandle };
@@ -14,7 +15,7 @@ use piston::window::WindowSettings;
 use piston::event_loop::*;
 use piston::input::*;
 use glutin_window::GlutinWindow as Window;
-use opengl_graphics::{ GlGraphics, OpenGL, Texture, TextureSettings };
+use opengl_graphics::{ GlGraphics, GlyphCache, OpenGL, Texture, TextureSettings };
 use image::RgbaImage;
 use rand::{ Rng, thread_rng };
 
@@ -29,26 +30,35 @@ const CHUNK_COUNT: u32 = 100;
 const RENDER_THREAD_COUNT: u32 = 3;
 
 struct App {
-    gl: GlGraphics,                 // OpenGL drawing backend
-    buffer: RgbaImage,              // Buffer
+    buffer: RgbaImage,
     scene: Arc<Scene>,
-    pending_chunks: Vec<ViewChunk>, // List of pending chunks
-    threads: Vec<RenderThread>,     // List of thread handles
+    pending_chunks: Vec<ViewChunk>,
+    threads: Vec<RenderThread>,
 }
 
 impl App {
-    fn render(&mut self, args: &RenderArgs) {
+    fn render<'a>(&mut self, args: &RenderArgs, gl: &mut GlGraphics, font_cache: &mut GlyphCache<'a>) {
         use graphics::*;
 
-        let texture = Texture::from_image(&self.buffer, &TextureSettings::new());
+        let buffer_texture = Texture::from_image(&self.buffer, &TextureSettings::new());
         
-        self.gl.draw(args.viewport(), |ctx, gl| {
+        gl.draw(args.viewport(), |ctx, gl| {
             // Clear screen
             clear([0.0; 4], gl);
-            // Apply transformations
-            let transform = ctx.transform;
             // Draw the buffer texture
-            image(&texture, transform, gl);
+            image(&buffer_texture, ctx.transform, gl);
+            // Draw thread status
+            for (offset, thread) in self.threads.iter().enumerate() {
+                let font_color = [0.0, 0.5, 0.0, 1.0];
+                let font_size = 15;
+                let transform = ctx.transform.trans(10.0, (offset * 20 + 25) as f64);
+                let label = format!(
+                    "Thread {}: {} chunk, {:.4} seconds (avg {:.4}s)",
+                    thread.id, thread.total_chunks_rendered, thread.total_time_secs,
+                    thread.total_time_secs / thread.total_chunks_rendered as f64
+                );
+                text(font_color, font_size, &label, font_cache, transform, gl).unwrap();
+            }
         });
     }
 
@@ -62,8 +72,8 @@ impl App {
                     // Render chunk to buffer
                     copy_view_chunk_to_image_buffer(&mut self.buffer, &chunk);
                     // Update stats
-                    thread.total_time_secs += elapsed.as_secs();
-                    thread.total_renders += 1;
+                    thread.total_time_secs += elapsed.as_secs() as f64 + elapsed.subsec_nanos() as f64 * 1e-9;
+                    thread.total_chunks_rendered += 1;
                 }
                 // Send new work
                 if let Some(chunk) = self.pending_chunks.pop() {
@@ -115,26 +125,28 @@ fn start_render_thread (work_receiver: Receiver<RenderWork>, result_sender: Send
 }
 
 struct RenderThread {
+    id: u32,
     handle: JoinHandle<()>,
     sender: Sender<RenderWork>,
     receiver: Receiver<RenderResult>,
-    total_time_secs: u64,
-    total_renders: u64,
+    total_time_secs: f64,
+    total_chunks_rendered: u32,
 }
 
 fn start_background_render_threads () -> Vec<RenderThread>  {
 
     (0..RENDER_THREAD_COUNT)
-        .map(move |_| {
+        .map(move |id| {
             let (work_sender, work_receiver) = channel::<RenderWork>();
             let (result_sender, result_receiver) = channel::<RenderResult>();
             let handle = spawn(move || start_render_thread(work_receiver, result_sender));
             RenderThread {
+                id: id,
                 handle: handle,
                 sender: work_sender,
                 receiver: result_receiver,
-                total_time_secs: 0,
-                total_renders: 0,
+                total_time_secs: 0.0,
+                total_chunks_rendered: 0,
             }
         })
         .collect::<Vec<_>>()
@@ -177,9 +189,14 @@ fn main() {
 
     let threads = start_background_render_threads();
 
+    println!("Preparing graphics");
+    
+    let font_path = Path::new("fonts/FiraSans-Regular.ttf");
+    let mut font_cache = GlyphCache::new(font_path, (), TextureSettings::new()).expect("Loading font");
+    let mut gl = GlGraphics::new(opengl);
+
     // Create a new game and run it.
     let mut app = App {
-        gl: GlGraphics::new(opengl),
         buffer: RgbaImage::new(WIDTH, HEIGHT),
         scene: Arc::new(scene),
         pending_chunks: chunks,
@@ -191,7 +208,7 @@ fn main() {
     let mut events = Events::new(EventSettings::new());
     while let Some(e) = events.next(&mut window) {
         if let Some(r) = e.render_args() {
-            app.render(&r);
+            app.render(&r, &mut gl, &mut font_cache);
         }
 
         if let Some(u) = e.update_args() {
