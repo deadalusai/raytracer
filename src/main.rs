@@ -14,10 +14,6 @@ use image::RgbaImage;
 
 mod raytracer;
 
-const WIDTH: u32 = 800;
-const HEIGHT: u32 = 600;
-const SAMPLES: u32 = 100;
-
 pub struct App {
     gl: GlGraphics,    // OpenGL drawing backend.
     buffer: RgbaImage, // Buffer
@@ -61,6 +57,10 @@ fn main() {
     // Change this to OpenGL::V2_1 if not working.
     let opengl = OpenGL::V3_2;
 
+    const WIDTH: u32 = 200;
+    const HEIGHT: u32 = 200;
+    const SAMPLES_PER_PIXEL: u32 = 1;
+
     // Create an Glutin window.
     let mut window: Window =
         WindowSettings::new("raytracer", [WIDTH, HEIGHT])
@@ -76,10 +76,29 @@ fn main() {
         rot: 0 as f64
     };
 
-    let viewport = raytracer::samples::Viewport(WIDTH, HEIGHT);
-    let world = raytracer::samples::random_shpere_scene(viewport);
+    let viewport = raytracer::Viewport::new(WIDTH, HEIGHT);
+    let world = raytracer::samples::random_shpere_scene(&viewport);
 
-    raytracer::cast_rays(&mut app.buffer, &world, SAMPLES);
+    let mut chunks: Vec<_> = viewport.iter_view_chunks(2, 2).collect();
+    let len = chunks.len();
+    for (i, chunk) in chunks.iter_mut().enumerate() {
+        println!("Rendering chunk {} of {}", i + 1, len);
+        raytracer::cast_rays_into_world(chunk, &world, SAMPLES_PER_PIXEL);
+    }
+
+    println!("Drawing chunks to buffer");
+
+    for (i, chunk) in chunks.iter().enumerate() {
+        println!("Drawing chunk {} of {}", i + 1, len);
+        for chunk_y in 0..chunk.height {
+            for chunk_x in 0..chunk.width {
+                let col = chunk.get_chunk_pixel(chunk_x, chunk_y);
+                let (view_x, view_y) = chunk.get_view_relative_coords(chunk_x, chunk_y);
+                let pixel = app.buffer.get_pixel_mut(view_x, view_y);
+                pixel.data = [col.r, col.g, col.b, 255];
+            }
+        }
+    }
 
     // HAX
     app.buffer.save("test.png").unwrap();

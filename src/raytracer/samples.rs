@@ -2,34 +2,31 @@
 use raytracer::types::{ Vec3 };
 use raytracer::materials::{ MatLambertian, MatDielectric, MatMetal };
 use raytracer::shapes::{ Sphere };
-use raytracer::implementation::{ World, Camera, Material };
+use raytracer::implementation::{ Scene, Viewport, Camera, Material };
 
 use rand::{ Rng, thread_rng };
 
 //
-// Sample worlds
+// Sample scenes
 //
 
-pub struct Viewport(pub u32, pub u32);
-
-pub fn random_shpere_scene (viewport: Viewport) -> World {
-    let Viewport(width, height) = viewport;
+pub fn random_shpere_scene (viewport: &Viewport) -> Scene {
     // Camera
     let look_from = Vec3::new(13.0, 2.0, 3.0);
     let look_to = Vec3::new(0.0, 0.0, 0.0);
     let fov = 20.0;
-    let aspect_ratio = width as f32 / height as f32;
+    let aspect_ratio = viewport.width as f32 / viewport.height as f32;
     let aperture = 0.1;
     let dist_to_focus = 10.0;
 
     let camera = Camera::new(look_from, look_to, fov, aspect_ratio, aperture, dist_to_focus);
 
-    // World
+    // Scene
     let mut rng = thread_rng();
-    let mut world = World::new(camera);
+    let mut scene = Scene::new(camera);
 
     // World sphere
-    world.add_thing(Sphere::new(Vec3::new(0.0, -1000.0, 0.0), 1000.0, MatLambertian::with_albedo(Vec3::new(0.5, 0.5, 0.5))));
+    scene.add_thing(Sphere::new(Vec3::new(0.0, -1000.0, 0.0), 1000.0, MatLambertian::with_albedo(Vec3::new(0.5, 0.5, 0.5))));
 
     // Small random spheres
     for a in -11..11 {
@@ -64,15 +61,15 @@ pub fn random_shpere_scene (viewport: Viewport) -> World {
                         }
                     };
 
-                world.add_thing(Sphere::new(center, 0.2, material));
+                scene.add_thing(Sphere::new(center, 0.2, material));
             }
         }
     }
 
     // Large fixed spheres
-    world.add_thing(Sphere::new(Vec3::new(-4.0, 1.0, 0.0), 1.0, MatLambertian::with_albedo(Vec3::new(0.8, 0.2, 0.1))));
-    world.add_thing(Sphere::new(Vec3::new(0.0, 1.0, 0.0),  1.0, MatDielectric::with_refractive_index(1.5)));
-    world.add_thing(Sphere::new(Vec3::new(4.0, 1.0, 0.0),  1.0, MatMetal::with_albedo_and_fuzz(Vec3::new(0.8, 0.8, 0.8), 0.0)));
+    scene.add_thing(Sphere::new(Vec3::new(-4.0, 1.0, 0.0), 1.0, MatLambertian::with_albedo(Vec3::new(0.8, 0.2, 0.1))));
+    scene.add_thing(Sphere::new(Vec3::new(0.0, 1.0, 0.0),  1.0, MatDielectric::with_refractive_index(1.5)));
+    scene.add_thing(Sphere::new(Vec3::new(4.0, 1.0, 0.0),  1.0, MatMetal::with_albedo_and_fuzz(Vec3::new(0.8, 0.8, 0.8), 0.0)));
 
-    world
+    scene
 }
