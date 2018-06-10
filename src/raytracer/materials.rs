@@ -8,6 +8,7 @@ use rand::{ Rng, thread_rng };
 // Materials
 //
 
+#[derive(Clone)]
 pub struct MatLambertian {
     albedo: Vec3,
 }
@@ -41,6 +42,7 @@ impl Material for MatLambertian {
     }
 }
 
+#[derive(Clone)]
 pub struct MatMetal {
     albedo: Vec3,
     fuzz: f32,
@@ -67,6 +69,7 @@ impl Material for MatMetal {
     }
 }
 
+#[derive(Clone)]
 pub struct MatDielectric {
     albedo: Vec3,
     ref_index: f32,
