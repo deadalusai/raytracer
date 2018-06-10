@@ -68,12 +68,13 @@ impl Material for MatMetal {
 }
 
 pub struct MatDielectric {
+    albedo: Vec3,
     ref_index: f32,
 }
 
 impl MatDielectric {
-    pub fn with_refractive_index (ref_index: f32) -> Box<MatDielectric> {
-        Box::new(MatDielectric { ref_index: ref_index })
+    pub fn with_albedo_and_refractive_index (albedo: Vec3, ref_index: f32) -> Box<MatDielectric> {
+        Box::new(MatDielectric { albedo: albedo, ref_index: ref_index })
     }
 }
 
@@ -117,7 +118,7 @@ impl Material for MatDielectric {
         
         let scattered = Ray::new(hit_record.p.clone(), direction);
         
-        // NOTE: Attenuation is always 0.99 (glass absorbs very little)
-        Some(MatRecord { scattered: scattered, attenuation: Vec3::new(0.99, 0.99, 0.99) })
+        // NOTE: Use albedo of 1.0 for perfectly transparent
+        Some(MatRecord { scattered: scattered, attenuation: self.albedo.clone() })
     }
 }

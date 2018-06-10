@@ -57,7 +57,12 @@ pub fn random_sphere_scene (viewport: &Viewport) -> Scene {
                         _ => {
                             // Glass
                             let refractive_index = 1.5;
-                            MatDielectric::with_refractive_index(refractive_index)
+                            let albedo = Vec3::new(
+                                /* r */ 0.5 * (1.0 + rng.next_f32()),
+                                /* g */ 0.5 * (1.0 + rng.next_f32()),
+                                /* b */ 0.5 * (1.0 + rng.next_f32())
+                            );
+                            MatDielectric::with_albedo_and_refractive_index(albedo, refractive_index)
                         }
                     };
 
@@ -70,8 +75,8 @@ pub fn random_sphere_scene (viewport: &Viewport) -> Scene {
     scene.add_thing(Sphere::new(Vec3::new(-4.0, 1.0, 0.0), 1.0, MatLambertian::with_albedo(Vec3::new(0.8, 0.2, 0.1))));
     
     // Large hollow glass sphere
-    scene.add_thing(Sphere::new(Vec3::new(0.0, 1.0, 0.0),  1.0, MatDielectric::with_refractive_index(1.5)));
-    scene.add_thing(Sphere::new(Vec3::new(0.0, 1.0, 0.0), -0.99, MatDielectric::with_refractive_index(1.5)));
+    scene.add_thing(Sphere::new(Vec3::new(0.0, 1.0, 0.0),  1.0, MatDielectric::with_albedo_and_refractive_index(Vec3::new(0.95, 0.95, 0.95), 1.5)));
+    scene.add_thing(Sphere::new(Vec3::new(0.0, 1.0, 0.0), -0.99, MatDielectric::with_albedo_and_refractive_index(Vec3::new(0.95, 0.95, 0.95), 1.5)));
 
     // Large mat sphere
     scene.add_thing(Sphere::new(Vec3::new(4.0, 1.0, 0.0),  1.0, MatMetal::with_albedo_and_fuzz(Vec3::new(0.8, 0.8, 0.8), 0.0)));
