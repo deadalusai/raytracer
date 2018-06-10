@@ -66,9 +66,14 @@ pub fn random_sphere_scene (viewport: &Viewport) -> Scene {
         }
     }
 
-    // Large fixed spheres
+    // Large metal sphere
     scene.add_thing(Sphere::new(Vec3::new(-4.0, 1.0, 0.0), 1.0, MatLambertian::with_albedo(Vec3::new(0.8, 0.2, 0.1))));
+    
+    // Large hollow glass sphere
     scene.add_thing(Sphere::new(Vec3::new(0.0, 1.0, 0.0),  1.0, MatDielectric::with_refractive_index(1.5)));
+    scene.add_thing(Sphere::new(Vec3::new(0.0, 1.0, 0.0), -0.99, MatDielectric::with_refractive_index(1.5)));
+
+    // Large mat sphere
     scene.add_thing(Sphere::new(Vec3::new(4.0, 1.0, 0.0),  1.0, MatMetal::with_albedo_and_fuzz(Vec3::new(0.8, 0.8, 0.8), 0.0)));
 
     scene

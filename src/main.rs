@@ -36,7 +36,7 @@ struct App {
 }
 
 impl App {
-    fn render<'a>(&mut self, args: &RenderArgs, gl: &mut GlGraphics, font_cache: &mut GlyphCache<'a>) {
+    fn render(&self, args: &RenderArgs, gl: &mut GlGraphics, font_cache: &mut GlyphCache<'_>) {
         use graphics::*;
 
         let buffer_texture = Texture::from_image(&self.buffer, &TextureSettings::new());
