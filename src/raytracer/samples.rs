@@ -48,7 +48,7 @@ pub fn random_sphere_scene (viewport: &Viewport) -> Scene {
     let fov = 20.0;
     let aspect_ratio = viewport.width as f32 / viewport.height as f32;
     let aperture = 0.1;
-    let dist_to_focus = 10.0;
+    let dist_to_focus = 10.0; // distance to look target is 13-ish
 
     let camera = Camera::new(look_from, look_to, fov, aspect_ratio, aperture, dist_to_focus);
 

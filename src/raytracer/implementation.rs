@@ -99,7 +99,7 @@ impl Camera {
         let theta = v_fov * std::f32::consts::PI / 180.0;
         let half_height = (theta / 2.0).tan();
         let half_width = aspect_ratio * half_height;
-        let w = (look_from.sub(&look_at)).unit_vector();
+        let w = look_from.sub(&look_at).unit_vector();
         let u = vec3_cross(&v_up, &w).unit_vector();
         let v = vec3_cross(&w, &u);
         let lens_radius = aperture / 2.0;
