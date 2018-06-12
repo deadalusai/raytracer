@@ -19,7 +19,7 @@ impl MatLambertian {
     pub fn with_albedo (albedo: Vec3) -> MatLambertian {
         MatLambertian { 
             albedo: albedo,
-            attenuation: 0.99,
+            attenuation: 1.0,
         }
     }
 
@@ -103,7 +103,7 @@ impl MatDielectric {
     pub fn with_albedo (albedo: Vec3) -> MatDielectric {
         MatDielectric {
             albedo: albedo,
-            attenuation: 0.001,
+            attenuation: 0.0,
             ref_index: 1.5,
         }
     }
@@ -154,7 +154,7 @@ impl Material for MatDielectric {
 
         let direction =
             refract(&ray.direction, &outward_normal, ni_over_nt)
-                .filter(|_| reflect_prob < rng.next_f32())
+                .filter(|_| rng.next_f32() > reflect_prob)
                 .unwrap_or_else(|| reflect(&ray.direction, &hit_record.normal));
         
         let scattered = Ray::new(hit_record.p.clone(), direction);
