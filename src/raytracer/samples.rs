@@ -67,7 +67,7 @@ fn background_sky (ray: &Ray) -> Vec3 {
 
 /// Returns black
 fn background_black (ray: &Ray) -> Vec3 {
-    Vec3::new(0.0, 0.0, 0.0)
+    Vec3::zero()
 }
 
 //
@@ -166,8 +166,8 @@ pub fn simple_scene (viewport: &Viewport) -> Scene {
     // World sphere
     scene.add_obj(Sphere::new(Vec3::new(0.0, -1000.0, 0.0), 1000.0, MatLambertian::with_albedo(make_albedo(30, 30, 30))));
 
-    scene.add_obj(Sphere::new(Vec3::new(1.0, 1.5, -1.0), 1.0, make_lambertian(&mut rng).with_attenuation(1.0)));
-    scene.add_obj(Sphere::new(Vec3::new(-1.0, 1.5, 1.0), 1.0, make_metal(&mut rng).with_fuzz(0.0).with_attenuation(0.0)));
+    scene.add_obj(Sphere::new(Vec3::new(1.0, 1.5, -1.0), 1.0, make_lambertian(&mut rng).with_attenuation(0.9999)));
+    scene.add_obj(Sphere::new(Vec3::new(-1.0, 1.5, 1.0), 1.0, make_metal(&mut rng).with_fuzz(0.1).with_attenuation(0.0001)));
 
     scene
 }

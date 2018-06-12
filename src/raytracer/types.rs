@@ -16,6 +16,10 @@ impl Vec3 {
         Vec3 { x: x, y: y, z: z }
     }
 
+    pub fn zero () -> Vec3 {
+        Vec3::new(0.0, 0.0, 0.0)
+    }
+
     pub fn add (&self, other: &Vec3) -> Vec3 {
         Vec3 {
             x: self.x + other.x,

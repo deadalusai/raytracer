@@ -25,6 +25,7 @@ use raytracer::{ Scene, Viewport, ViewChunk };
 const WIDTH: u32 = 800;
 const HEIGHT: u32 = 600;
 const SAMPLES_PER_PIXEL: u32 = 100;
+const MAX_REFLECTIONS: u32 = 20;
 const CHUNK_COUNT: u32 = 100;
 const RENDER_THREAD_COUNT: u32 = 3;
 
@@ -112,7 +113,7 @@ fn start_render_thread (work_receiver: Receiver<RenderWork>, result_sender: Send
         };
         // Render
         let time = Instant::now();
-        raytracer::cast_rays_into_scene(&mut chunk, &*scene, SAMPLES_PER_PIXEL);
+        raytracer::cast_rays_into_scene(&mut chunk, &*scene, SAMPLES_PER_PIXEL, MAX_REFLECTIONS);
         let elapsed = time.elapsed();
         // Send result
         let result = RenderResult::WorkCompleted(chunk, elapsed);
@@ -170,8 +171,6 @@ fn main() {
     let viewport = Viewport::new(WIDTH, HEIGHT);
     let scene = raytracer::samples::simple_scene(&viewport);
 
-    let chunks = make_chunks_list(&viewport, CHUNK_COUNT);
-    
     println!("Creating window");
 
     let mut window: Window =
@@ -180,23 +179,21 @@ fn main() {
             .exit_on_esc(true)
             .build()
             .unwrap();
-    
-    println!("Starting render threads");
-
-    let threads = start_background_render_threads();
 
     println!("Preparing graphics");
     
     let font_path = Path::new("fonts/FiraSans-Regular.ttf");
     let mut font_cache = GlyphCache::new(font_path, (), TextureSettings::new()).expect("Loading font");
     let mut gl = GlGraphics::new(opengl);
+    
+    println!("Starting render threads");
 
     // Create a new game and run it.
     let mut app = App {
         buffer: RgbaImage::new(WIDTH, HEIGHT),
         scene: Arc::new(scene),
-        pending_chunks: chunks,
-        threads: threads,
+        pending_chunks: make_chunks_list(&viewport, CHUNK_COUNT),
+        threads: start_background_render_threads(),
     };
     
     println!("Starting main event loop");

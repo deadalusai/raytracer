@@ -77,13 +77,13 @@ impl Scene {
         self.lights.push(Box::new(light));
     }
 
-    fn hit_first (&self, ray: &Ray, t_min: f32) -> Option<HitRecord> {
+    fn hit_any (&self, ray: &Ray, t_min: f32) -> bool {
         for hitable in self.hitables.iter() {
-            if let Some(record) = hitable.hit(ray, t_min, std::f32::MAX) {
-                return Some(record);
+            if let Some(_) = hitable.hit(ray, t_min, std::f32::MAX) {
+                return true;
             }
         }
-        None
+        false
     }
 
     fn hit_closest (&self, ray: &Ray, t_min: f32) -> Option<HitRecord> {
@@ -165,34 +165,55 @@ impl Camera {
 
 const BIAS: f32 = 0.001;
 
+fn max_f (a: f32, b: f32) -> f32 {
+    a.max(b)
+}
+
 /// Determines the color which the given ray resolves to.
-fn cast_ray (ray: &Ray, scene: &Scene) -> Vec3 {
+fn cast_ray (ray: &Ray, scene: &Scene, max_reflections: u32) -> Vec3 {
 
     // Internal implementation
-    fn color_internal (ray: &Ray, scene: &Scene, depth: i32) -> Vec3 {
+    fn cast_ray_recursive (ray: &Ray, scene: &Scene, reflections_remaining: u32) -> Vec3 {
         
-        // Hit the world?
-        if depth > 0 {
+        if reflections_remaining > 0 {
+            // Hit anything in the scene?
             if let Some(hit_record) = scene.hit_closest(ray, BIAS) {
-                if let Some(mat) = hit_record.material.scatter(ray, &hit_record) {
+                if let Some(mat_record) = hit_record.material.scatter(ray, &hit_record) {
 
                     // NOTE: Shadow origin slightly above p along surface normal to avoid "shadow acne"
                     let shadow_origin = hit_record.p.add(&hit_record.normal.mul_f(BIAS));
-                    let mut color = (scene.background_fn)(ray);
 
+                    // Determine color from lights in the scene
+                    let mut color_from_lights = Vec3::zero();
                     for light in scene.lights.iter() {
                         if let Some(light_record) = light.get_direction_and_intensity(&shadow_origin) {
-                            // Test to see if there is an object blocking our light
+                            // Test to see if there is any shape blocking light from this lamp by casting a ray from the shadow back to the light source
                             let shadow_ray = Ray::new(shadow_origin.clone(), light_record.direction.negate());
-                            let is_visible = scene.hit_first(&shadow_ray, BIAS).is_none();
-                            if is_visible {
-                                let m = (0.0 as f32).max(vec3_dot(&hit_record.normal, &light_record.direction.negate()));
-                                color = color.add(&mat.albedo.mul(&light_record.color).mul_f(light_record.intensity).mul_f(m));
+                            if !scene.hit_any(&shadow_ray, BIAS) {
+                                // color_from_light = light color * light intensity * max(0.0, dot(hit normal, inverse light direction))
+                                let color_from_light = light_record.color.mul_f(light_record.intensity).mul_f(max_f(0.0, vec3_dot(&hit_record.normal, &light_record.direction.negate())));
+                                // multiply by material albedo
+                                color_from_lights = color_from_lights.add(&mat_record.albedo.mul(&color_from_light));
                             }
                         }
                     }
 
-                    return color_internal(&mat.scattered, scene, depth - 1).mul_f(1.0 - mat.attenuation).add(&color); 
+                    // Determine color from material scattering, and attenuate
+                    // NOTE: no need to recurse if attenuation is high enough...
+                    let mut color_from_reflection =
+                        if mat_record.attenuation >= 1.0 {
+                            Vec3::zero()
+                        }
+                        else {
+                            let color_from_reflection = cast_ray_recursive(&mat_record.scattered, scene, reflections_remaining - 1).mul_f(1.0 - mat_record.attenuation);
+                            // multiply by material albedo
+                            mat_record.albedo.mul(&color_from_reflection)
+                        };
+
+                    // Apply the inverse attenuation for color taken from light
+                    color_from_lights = color_from_lights.mul_f(mat_record.attenuation);
+
+                    return color_from_reflection.add(&color_from_lights);
                 }
             }
         }
@@ -201,10 +222,10 @@ fn cast_ray (ray: &Ray, scene: &Scene) -> Vec3 {
         (scene.background_fn)(ray)
     }
 
-    color_internal(ray, scene, 5)
+    cast_ray_recursive(ray, scene, max_reflections)
 }
 
-pub fn cast_rays_into_scene (chunk: &mut ViewChunk, scene: &Scene, samples_per_pixel: u32) {
+pub fn cast_rays_into_scene (chunk: &mut ViewChunk, scene: &Scene, samples_per_pixel: u32, max_reflections: u32) {
     if samples_per_pixel == 0 {
         panic!("samples_per_pixel cannot be zero");
     }
@@ -233,7 +254,7 @@ pub fn cast_rays_into_scene (chunk: &mut ViewChunk, scene: &Scene, samples_per_p
 
                 // Cast a ray, and determine the color
                 let ray = scene.camera.get_ray(u, v);
-                col = col.add(&cast_ray(&ray, &scene));
+                col = col.add(&cast_ray(&ray, &scene, max_reflections));
             }
             // Find the average
             col = col.div_f(samples_per_pixel as f32);
