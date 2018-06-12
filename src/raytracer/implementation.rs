@@ -223,9 +223,9 @@ fn cast_ray (ray: &Ray, world: &Scene) -> Vec3 {
     // Internal implementation
     fn color_internal (ray: &Ray, scene: &Scene, depth: i32) -> Vec3 {
 
-        let light_from = Vec3::new(0.0, 10.0, 0.0);
-        let light_to = Vec3::new(0.0, 0.0, 0.0);
-        let light_dir = light_to.sub(&light_from).unit_vector();
+        let light_from = Vec3::new(0.0, 3.0, 0.0);
+        // let light_to = Vec3::new(0.0, 0.0, 0.0);
+        // let light_dir = light_to.sub(&light_from).unit_vector();
         let light_intensity = 1.0;
         let light_color = Vec3::new(1.0, 1.0, 1.0);
         
@@ -236,6 +236,7 @@ fn cast_ray (ray: &Ray, world: &Scene) -> Vec3 {
                     
                     let bias = 0.001;
                     let shadow_origin = hit_record.p.add(&hit_record.normal.mul_f(bias));
+                    let light_dir = shadow_origin.sub(&light_from).unit_vector();
                     let shadow_ray = Ray::new(shadow_origin, light_dir.negate());
 
                     let is_visible = scene.hit_first(&shadow_ray, 0.001).is_none();
