@@ -133,7 +133,6 @@ struct RenderThread {
 }
 
 fn start_background_render_threads () -> Vec<RenderThread>  {
-
     (0..RENDER_THREAD_COUNT)
         .map(move |id| {
             let (work_sender, work_receiver) = channel::<RenderWork>();
@@ -169,7 +168,7 @@ fn main() {
     println!("Creating scene");
 
     let viewport = Viewport::new(WIDTH, HEIGHT);
-    let scene = raytracer::samples::simple_scene(&viewport);
+    let scene = raytracer::samples::random_sphere_scene(&viewport);
 
     println!("Creating window");
 

@@ -4,7 +4,7 @@ use raytracer::types::{ Vec3, Ray };
 use raytracer::materials::{ MatLambertian, MatDielectric, MatMetal };
 use raytracer::shapes::{ Sphere };
 use raytracer::viewport::{ Viewport };
-use raytracer::lights::{ PointLight };
+use raytracer::lights::{ PointLight, DirectionalLight };
 use raytracer::implementation::{ Scene, Camera, Material };
 
 use rand::{ Rng, thread_rng };
@@ -54,22 +54,6 @@ fn make_glass<R: Rng> (rng: &mut R) -> MatDielectric {
     MatDielectric::with_albedo(albedo).with_ref_index(refractive_index)
 }
 
-// Skybox functions
-
-/// Returns a sky color gradient based on the vertical element of the ray
-fn background_sky (ray: &Ray) -> Vec3 {
-    let unit_direction = ray.direction.unit_vector();
-    let t = 0.5 * (unit_direction.y + 1.0);
-    let white = Vec3::new(1.0, 1.0, 1.0);
-    let sky_blue = Vec3::new(0.5, 0.7, 1.0);
-    white.mul_f(1.0 - t).add(&sky_blue.mul_f(t))
-}
-
-/// Returns black
-fn background_black (ray: &Ray) -> Vec3 {
-    Vec3::zero()
-}
-
 //
 // Scenes
 //
@@ -87,7 +71,12 @@ pub fn random_sphere_scene (viewport: &Viewport) -> Scene {
 
     // Scene
     let mut rng = thread_rng();
-    let mut scene = Scene::new(camera, background_sky);
+    let mut scene = Scene::new(camera);
+
+    // Lights
+    let lamp_origin = Vec3::new(4.0, 100.0, 4.0);
+    let lamp_direction = Vec3::zero().sub(&lamp_origin);
+    scene.add_light(DirectionalLight::with_origin_and_direction(lamp_origin, lamp_direction));
 
     // World sphere
     scene.add_obj(Sphere::new(Vec3::new(0.0, -1000.0, 0.0), 1000.0, MatLambertian::with_albedo(Vec3::new(0.5, 0.5, 0.5))));
@@ -153,15 +142,13 @@ pub fn simple_scene (viewport: &Viewport) -> Scene {
 
     // Scene
     let mut rng = thread_rng();
-    let mut scene = Scene::new(camera, background_black);
+    let mut scene = Scene::new(camera);
 
     // Lights
-    // let red_color = Vec3::new(1.0, 0.0, 0.0);
-    // let blue_color = Vec3::new(0.0, 0.0, 1.0);
-    // scene.add_light(PointLight::new(Vec3::new(0.0, 10.0, 8.0), red_color, 100.0));
-    // scene.add_light(PointLight::new(Vec3::new(0.0, 10.0, -8.0), blue_color, 100.0));
+    // scene.add_light(PointLight::with_origin(Vec3::new(0.0, 10.0, 8.0)).with_color(Vec3::new(1.0, 0.0, 0.0)));
+    // scene.add_light(PointLight::with_origin(Vec3::new(0.0, 10.0, -8.0)).with_color(Vec3::new(0.0, 0.0, 1.0)));
     
-    scene.add_light(PointLight::new(Vec3::new(0.0, 10.0, -4.0), Vec3::new(1.0, 1.0, 1.0), 100.0));
+    scene.add_light(PointLight::with_origin(Vec3::new(0.0, 10.0, -4.0)).with_intensity(100.0));
 
     // World sphere
     scene.add_obj(Sphere::new(Vec3::new(0.0, -1000.0, 0.0), 1000.0, MatLambertian::with_albedo(make_albedo(30, 30, 30))));

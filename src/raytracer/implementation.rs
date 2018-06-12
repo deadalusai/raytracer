@@ -46,22 +46,18 @@ pub trait LightSource: Send + Sync {
 
 // Scene
 
-pub type BackgroundFn = fn(&Ray) -> Vec3;
-
 pub struct Scene {
     camera: Camera,
     lights: Vec<Box<LightSource>>,
     hitables: Vec<Box<Hitable>>,
-    background_fn: BackgroundFn,
 }
 
 impl Scene {
-    pub fn new (camera: Camera, background_fn: BackgroundFn) -> Scene {
+    pub fn new (camera: Camera) -> Scene {
         Scene {
             camera: camera,
             lights: vec!(),
             hitables: vec!(),
-            background_fn: background_fn,
         }
     }
 
@@ -77,13 +73,13 @@ impl Scene {
         self.lights.push(Box::new(light));
     }
 
-    fn hit_any (&self, ray: &Ray, t_min: f32) -> bool {
+    fn hit_any (&self, ray: &Ray, t_min: f32) -> Option<HitRecord> {
         for hitable in self.hitables.iter() {
-            if let Some(_) = hitable.hit(ray, t_min, std::f32::MAX) {
-                return true;
+            if let Some(record) = hitable.hit(ray, t_min, std::f32::MAX) {
+                return Some(record);
             }
         }
-        false
+        None
     }
 
     fn hit_closest (&self, ray: &Ray, t_min: f32) -> Option<HitRecord> {
@@ -169,6 +165,14 @@ fn max_f (a: f32, b: f32) -> f32 {
     a.max(b)
 }
 
+fn clamp (v: Vec3) -> Vec3 {
+    Vec3 {
+        x: v.x.min(1.0),
+        y: v.y.min(1.0),
+        z: v.z.min(1.0),
+    }
+}
+
 /// Determines the color which the given ray resolves to.
 fn cast_ray (ray: &Ray, scene: &Scene, max_reflections: u32) -> Vec3 {
 
@@ -187,11 +191,13 @@ fn cast_ray (ray: &Ray, scene: &Scene, max_reflections: u32) -> Vec3 {
                     let mut color_from_lights = Vec3::zero();
                     for light in scene.lights.iter() {
                         if let Some(light_record) = light.get_direction_and_intensity(&shadow_origin) {
+                            // color_from_light = light color * light intensity * max(0.0, dot(hit normal, inverse light direction))
+                            let color_from_light = light_record.color.mul_f(light_record.intensity).mul_f(max_f(0.0, vec3_dot(&hit_record.normal, &light_record.direction.negate())));
                             // Test to see if there is any shape blocking light from this lamp by casting a ray from the shadow back to the light source
+                            // TODO: Allow semi-opaque materials to attenuate, color and refract (?) light...
                             let shadow_ray = Ray::new(shadow_origin.clone(), light_record.direction.negate());
-                            if !scene.hit_any(&shadow_ray, BIAS) {
-                                // color_from_light = light color * light intensity * max(0.0, dot(hit normal, inverse light direction))
-                                let color_from_light = light_record.color.mul_f(light_record.intensity).mul_f(max_f(0.0, vec3_dot(&hit_record.normal, &light_record.direction.negate())));
+                            let is_shadowed = scene.hit_any(&shadow_ray, BIAS).is_some();
+                            if !is_shadowed {
                                 // multiply by material albedo
                                 color_from_lights = color_from_lights.add(&mat_record.albedo.mul(&color_from_light));
                             }
@@ -218,11 +224,10 @@ fn cast_ray (ray: &Ray, scene: &Scene, max_reflections: u32) -> Vec3 {
             }
         }
 
-        // Hit the background instead
-        (scene.background_fn)(ray)
+        Vec3::zero()
     }
 
-    cast_ray_recursive(ray, scene, max_reflections)
+    clamp(cast_ray_recursive(ray, scene, max_reflections))
 }
 
 pub fn cast_rays_into_scene (chunk: &mut ViewChunk, scene: &Scene, samples_per_pixel: u32, max_reflections: u32) {
