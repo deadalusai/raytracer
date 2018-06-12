@@ -32,20 +32,36 @@ pub trait Hitable: Send + Sync {
 
 // Scene
 
+pub type BackgroundFn = fn(&Ray) -> Vec3;
+
 pub struct Scene {
     camera: Camera,
     things: Vec<Box<Hitable>>,
+    background_fn: BackgroundFn,
 }
 
 impl Scene {
-    pub fn new (camera: Camera) -> Scene {
-        Scene { camera: camera, things: vec!() }
+    pub fn new (camera: Camera, background_fn: BackgroundFn) -> Scene {
+        Scene {
+            camera: camera,
+            things: vec!(),
+            background_fn: background_fn,
+        }
     }
 
-    pub fn add_thing<T> (&mut self, hitable: T)
+    pub fn add_obj<T> (&mut self, hitable: T)
         where T: Hitable + 'static
     {
         self.things.push(Box::new(hitable));
+    }
+
+    fn hit_first (&self, ray: &Ray, t_min: f32) -> Option<HitRecord> {
+        for hitable in self.things.iter() {
+            if let Some(record) = hitable.hit(ray, t_min, std::f32::MAX) {
+                return Some(record);
+            }
+        }
+        None
     }
 }
 
@@ -204,31 +220,39 @@ impl ViewChunk {
 /// Determines the color which the given ray resolves to.
 fn cast_ray (ray: &Ray, world: &Scene) -> Vec3 {
 
-    // Returns a sky color gradient based on the vertical element of the ray
-    fn color_sky (ray: &Ray) -> Vec3 {
-        let unit_direction = ray.direction.unit_vector();
-        let t = 0.5 * (unit_direction.y + 1.0);
-        let white = Vec3::new(1.0, 1.0, 1.0);
-        let sky_blue = Vec3::new(0.5, 0.7, 1.0);
-        white.mul_f(1.0 - t).add(&sky_blue.mul_f(t))
-    }
-
     // Internal implementation
     fn color_internal (ray: &Ray, scene: &Scene, depth: i32) -> Vec3 {
+
+        let light_from = Vec3::new(0.0, 10.0, 0.0);
+        let light_to = Vec3::new(0.0, 0.0, 0.0);
+        let light_dir = light_to.sub(&light_from).unit_vector();
+        let light_intensity = 1.0;
+        let light_color = Vec3::new(1.0, 1.0, 1.0);
+        
         // Hit the world?
-        if depth < 50 {
+        if depth > 0 {
             if let Some(hit_record) = scene.hit(ray, 0.001, std::f32::MAX) {
                 if let Some(mat) = hit_record.material.scatter(ray, &hit_record) {
-                    return color_internal(&mat.scattered, scene, depth + 1).mul(&mat.attenuation);
+                    
+                    let bias = 0.001;
+                    let shadow_origin = hit_record.p.add(&hit_record.normal.mul_f(bias));
+                    let shadow_ray = Ray::new(shadow_origin, light_dir.negate());
+
+                    let is_visible = scene.hit_first(&shadow_ray, 0.001).is_none();
+                    if is_visible {
+                        let m = (0.0 as f32).max(vec3_dot(&hit_record.normal, &light_dir.negate()));
+                        return mat.attenuation.mul_f(light_intensity).mul(&light_color).mul_f(m);
+                        // return color_internal(&mat.scattered, scene, depth - 1).mul(&mat.attenuation);
+                    }
                 }
             }
         }
 
-        // Hit the sky instead...
-        color_sky(ray)
+        // Hit the background instead
+        (scene.background_fn)(ray)
     }
 
-    color_internal(ray, world, 0)
+    color_internal(ray, world, 50)
 }
 
 pub fn cast_rays_into_scene (chunk: &mut ViewChunk, scene: &Scene, samples_per_pixel: u32) {

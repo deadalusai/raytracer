@@ -1,6 +1,6 @@
 #![allow(unused)]
 
-use raytracer::types::{ Vec3 };
+use raytracer::types::{ Vec3, Ray };
 use raytracer::materials::{ MatLambertian, MatDielectric, MatMetal };
 use raytracer::shapes::{ Sphere };
 use raytracer::implementation::{ Scene, Viewport, Camera, Material };
@@ -52,6 +52,26 @@ fn make_glass<R: Rng> (rng: &mut R) -> Box<MatDielectric> {
     MatDielectric::with_albedo_and_refractive_index(albedo, refractive_index)
 }
 
+// Skybox functions
+
+/// Returns a sky color gradient based on the vertical element of the ray
+fn background_sky (ray: &Ray) -> Vec3 {
+    let unit_direction = ray.direction.unit_vector();
+    let t = 0.5 * (unit_direction.y + 1.0);
+    let white = Vec3::new(1.0, 1.0, 1.0);
+    let sky_blue = Vec3::new(0.5, 0.7, 1.0);
+    white.mul_f(1.0 - t).add(&sky_blue.mul_f(t))
+}
+
+/// Returns black
+fn background_black (ray: &Ray) -> Vec3 {
+    Vec3::new(0.0, 0.0, 0.0)
+}
+
+//
+// Scenes
+//
+
 pub fn random_sphere_scene (viewport: &Viewport) -> Scene {
     // Camera
     let look_from = Vec3::new(13.0, 2.0, 3.0);
@@ -65,26 +85,26 @@ pub fn random_sphere_scene (viewport: &Viewport) -> Scene {
 
     // Scene
     let mut rng = thread_rng();
-    let mut scene = Scene::new(camera);
+    let mut scene = Scene::new(camera, background_sky);
 
     // World sphere
-    scene.add_thing(Sphere::new(Vec3::new(0.0, -1000.0, 0.0), 1000.0, MatLambertian::with_albedo(Vec3::new(0.5, 0.5, 0.5))));
+    scene.add_obj(Sphere::new(Vec3::new(0.0, -1000.0, 0.0), 1000.0, MatLambertian::with_albedo(Vec3::new(0.5, 0.5, 0.5))));
 
     // Large metal sphere
     let lam_sphere_center = Vec3::new(-4.0, 1.0, 0.0);
     let lam_sphere_mat = MatLambertian::with_albedo(Vec3::new(0.8, 0.2, 0.1));
-    scene.add_thing(Sphere::new(lam_sphere_center.clone(), 1.0, lam_sphere_mat));
+    scene.add_obj(Sphere::new(lam_sphere_center.clone(), 1.0, lam_sphere_mat));
     
     // Large hollow glass sphere
     let hollow_sphere_center = Vec3::new(0.0, 1.0, 0.0);
     let hollow_sphere_mat = MatDielectric::with_albedo_and_refractive_index(Vec3::new(0.95, 0.95, 0.95), 1.5);
-    scene.add_thing(Sphere::new(hollow_sphere_center.clone(),  1.0, hollow_sphere_mat.clone()));
-    scene.add_thing(Sphere::new(hollow_sphere_center.clone(), -0.99, hollow_sphere_mat));
+    scene.add_obj(Sphere::new(hollow_sphere_center.clone(),  1.0, hollow_sphere_mat.clone()));
+    scene.add_obj(Sphere::new(hollow_sphere_center.clone(), -0.99, hollow_sphere_mat));
 
     // Large mat sphere
     let metal_sphere_center = Vec3::new(4.0, 1.0, 0.0);
     let metal_sphere_mat = MatMetal::with_albedo_and_fuzz(Vec3::new(0.8, 0.8, 0.8), 0.0);
-    scene.add_thing(Sphere::new(metal_sphere_center.clone(),  1.0, metal_sphere_mat));
+    scene.add_obj(Sphere::new(metal_sphere_center.clone(),  1.0, metal_sphere_mat));
 
     let sphere_centers = [lam_sphere_center, hollow_sphere_center, metal_sphere_center];
 
@@ -111,7 +131,7 @@ pub fn random_sphere_scene (viewport: &Viewport) -> Scene {
                     _             => make_glass(&mut rng)
                 };
 
-            scene.add_thing(Sphere::new(center, radius, material));
+            scene.add_obj(Sphere::new(center, radius, material));
         }
     }
 
@@ -130,12 +150,12 @@ pub fn simple_scene (viewport: &Viewport) -> Scene {
     let camera = Camera::new(look_from, look_to, fov, aspect_ratio, aperture, dist_to_focus);
 
     // Scene
-    let mut scene = Scene::new(camera);
+    let mut scene = Scene::new(camera, background_black);
 
     // World sphere
-    scene.add_thing(Sphere::new(Vec3::new(0.0, -1000.0, 0.0), 1000.0, MatLambertian::with_albedo(make_attenuation(91, 114, 89))));
+    scene.add_obj(Sphere::new(Vec3::new(0.0, -1000.0, 0.0), 1000.0, MatLambertian::with_albedo(make_attenuation(91, 114, 89))));
 
-    scene.add_thing(Sphere::new(Vec3::new(0.0, 1.5, 0.0), 1.0, MatLambertian::with_albedo(make_attenuation(132, 38, 17))));
+    scene.add_obj(Sphere::new(Vec3::new(0.0, 1.5, 0.0), 1.0, MatLambertian::with_albedo(make_attenuation(132, 38, 17))));
 
     scene
 }
