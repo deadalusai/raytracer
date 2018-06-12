@@ -3,6 +3,7 @@ use std;
 use raytracer::types::{ Rgb };
 use raytracer::types::{ Vec3, vec3_dot, vec3_cross };
 use raytracer::types::{ Ray };
+use raytracer::viewport::{ ViewChunk };
 
 use rand::{ Rng, thread_rng };
 
@@ -30,13 +31,26 @@ pub trait Hitable: Send + Sync {
     fn hit<'a> (&'a self, ray: &Ray, t_min: f32, t_max: f32) -> Option<HitRecord<'a>>;
 }
 
+// Light sources
+
+pub struct LightRecord {
+    pub direction: Vec3,
+    pub color: Vec3,
+    pub intensity: f32,
+}
+
+pub trait LightSource: Send + Sync {
+    fn get_direction_and_intensity (&self, p: &Vec3) -> Option<LightRecord>;
+}
+
 // Scene
 
 pub type BackgroundFn = fn(&Ray) -> Vec3;
 
 pub struct Scene {
     camera: Camera,
-    things: Vec<Box<Hitable>>,
+    lights: Vec<Box<LightSource>>,
+    hitables: Vec<Box<Hitable>>,
     background_fn: BackgroundFn,
 }
 
@@ -44,7 +58,8 @@ impl Scene {
     pub fn new (camera: Camera, background_fn: BackgroundFn) -> Scene {
         Scene {
             camera: camera,
-            things: vec!(),
+            lights: vec!(),
+            hitables: vec!(),
             background_fn: background_fn,
         }
     }
@@ -52,24 +67,28 @@ impl Scene {
     pub fn add_obj<T> (&mut self, hitable: T)
         where T: Hitable + 'static
     {
-        self.things.push(Box::new(hitable));
+        self.hitables.push(Box::new(hitable));
+    }
+
+    pub fn add_light<T> (&mut self, light: T)
+        where T: LightSource + 'static
+    {
+        self.lights.push(Box::new(light));
     }
 
     fn hit_first (&self, ray: &Ray, t_min: f32) -> Option<HitRecord> {
-        for hitable in self.things.iter() {
+        for hitable in self.hitables.iter() {
             if let Some(record) = hitable.hit(ray, t_min, std::f32::MAX) {
                 return Some(record);
             }
         }
         None
     }
-}
 
-impl Hitable for Scene {
-    fn hit (&self, ray: &Ray, t_min: f32, t_max: f32) -> Option<HitRecord> {
+    fn hit_closest (&self, ray: &Ray, t_min: f32) -> Option<HitRecord> {
         let mut closest_hit_record = None;
-        let mut closest_so_far = t_max;
-        for hitable in self.things.iter() {
+        let mut closest_so_far = std::f32::MAX;
+        for hitable in self.hitables.iter() {
             if let Some(record) = hitable.hit(ray, t_min, closest_so_far) {
                 closest_so_far = record.t;
                 closest_hit_record = Some(record);
@@ -140,111 +159,42 @@ impl Camera {
 }
 
 //
-// View tracking and chunk primitives
-//
-
-#[derive(Debug)]
-pub struct Viewport {
-    pub width: u32,
-    pub height: u32,
-}
-
-impl Viewport {
-    pub fn new (width: u32, height: u32) -> Viewport {
-        Viewport { width: width, height: height }
-    }
-
-    pub fn iter_view_chunks (&self, h_count: u32, v_count: u32) -> impl Iterator<Item=ViewChunk> {
-        let view_width = self.width;
-        let view_height = self.height;
-        let chunk_width = view_width / h_count;
-        let chunk_height = view_height / v_count;
-        (0..v_count)
-            .flat_map(move |y| (0..h_count).map(move |x| (x, y)))
-            .enumerate()
-            .map(move |(id, (x, y))| {
-                let top_left_x = x * chunk_width;
-                let top_left_y = y * chunk_height;
-                ViewChunk {
-                    id: id as u32,
-                    view_width: view_width,
-                    view_height: view_height,
-                    chunk_top_left: (top_left_x, top_left_y),
-                    width: chunk_width,
-                    height: chunk_height,
-                    data: vec!(Rgb::new(0, 0, 0); chunk_width as usize * chunk_height as usize)
-                }
-            })
-    }
-}
-
-pub struct ViewChunk {
-    pub id: u32,
-
-    view_width: u32,
-    view_height: u32,
-    chunk_top_left: (u32, u32),
-
-    pub width: u32,
-    pub height: u32,
-    
-    data: Vec<Rgb>,
-}
-
-impl ViewChunk {
-    /// Sets a pixel using chunk-relative co-ordinates
-    pub fn set_chunk_pixel (&mut self, chunk_x: u32, chunk_y: u32, value: Rgb) {
-        let pos = (chunk_y * self.width + chunk_x) as usize;
-        self.data[pos] = value;
-    }
-
-    /// Gets a pixel using view-relative co-ordinates
-    pub fn get_chunk_pixel (&self, chunk_x: u32, chunk_y: u32) -> &Rgb {
-        let pos = (chunk_y * self.width + chunk_x) as usize;
-        &self.data[pos]
-    }
-
-    /// Gets a pixel using view-relative co-ordinates
-    pub fn get_view_relative_coords (&self, chunk_x: u32, chunk_y: u32) -> (u32, u32) {
-        // Convert to chunk-relative coords
-        let view_x = self.chunk_top_left.0 + chunk_x;
-        let view_y = self.chunk_top_left.1 + chunk_y;
-        (view_x, view_y)
-    }
-}
-
-//
 // Core raytracing routine
 //
 
+const BIAS: f32 = 0.001;
+
 /// Determines the color which the given ray resolves to.
-fn cast_ray (ray: &Ray, world: &Scene) -> Vec3 {
+fn cast_ray (ray: &Ray, scene: &Scene) -> Vec3 {
 
     // Internal implementation
     fn color_internal (ray: &Ray, scene: &Scene, depth: i32) -> Vec3 {
-
-        let light_from = Vec3::new(0.0, 3.0, 0.0);
-        // let light_to = Vec3::new(0.0, 0.0, 0.0);
-        // let light_dir = light_to.sub(&light_from).unit_vector();
-        let light_intensity = 1.0;
-        let light_color = Vec3::new(1.0, 1.0, 1.0);
         
         // Hit the world?
         if depth > 0 {
-            if let Some(hit_record) = scene.hit(ray, 0.001, std::f32::MAX) {
+            if let Some(hit_record) = scene.hit_closest(ray, BIAS) {
                 if let Some(mat) = hit_record.material.scatter(ray, &hit_record) {
                     
-                    let bias = 0.001;
-                    let shadow_origin = hit_record.p.add(&hit_record.normal.mul_f(bias));
-                    let light_dir = shadow_origin.sub(&light_from).unit_vector();
-                    let shadow_ray = Ray::new(shadow_origin, light_dir.negate());
+                    // return color_internal(&mat.scattered, scene, depth - 1).mul(&mat.attenuation);
 
-                    let is_visible = scene.hit_first(&shadow_ray, 0.001).is_none();
-                    if is_visible {
-                        let m = (0.0 as f32).max(vec3_dot(&hit_record.normal, &light_dir.negate()));
-                        return mat.attenuation.mul_f(light_intensity).mul(&light_color).mul_f(m);
-                        // return color_internal(&mat.scattered, scene, depth - 1).mul(&mat.attenuation);
+                    // NOTE: Shadow origin slightly above p along surface normal to avoid "shadow acne"
+                    let shadow_origin = hit_record.p.add(&hit_record.normal.mul_f(BIAS));
+
+                    let mut color = (scene.background_fn)(ray);
+
+                    for light in scene.lights.iter() {
+                        if let Some(light_record) = light.get_direction_and_intensity(&shadow_origin) {
+                            // Test to see if there is an object blocking our light
+                            let shadow_ray = Ray::new(shadow_origin.clone(), light_record.direction.negate());
+                            let is_visible = scene.hit_first(&shadow_ray, BIAS).is_none();
+                            if is_visible {
+                                let m = (0.0 as f32).max(vec3_dot(&hit_record.normal, &light_record.direction.negate()));
+                                color = color.add(&mat.attenuation.mul_f(light_record.intensity).mul(&light_record.color).mul_f(m));
+                            }
+                        }
                     }
+                    
+                    return color;
                 }
             }
         }
@@ -253,7 +203,7 @@ fn cast_ray (ray: &Ray, world: &Scene) -> Vec3 {
         (scene.background_fn)(ray)
     }
 
-    color_internal(ray, world, 50)
+    color_internal(ray, scene, 50)
 }
 
 pub fn cast_rays_into_scene (chunk: &mut ViewChunk, scene: &Scene, samples_per_pixel: u32) {
@@ -280,8 +230,8 @@ pub fn cast_rays_into_scene (chunk: &mut ViewChunk, scene: &Scene, samples_per_p
                 // NOTE:
                 // View coordinates are from upper left corner, but World coordinates are from lower left corner. 
                 // Need to convert coordinate systems with (height - y)
-                let u = (view_x as f32 + rand_x) / chunk.view_width as f32;
-                let v = ((chunk.view_height - view_y) as f32 + rand_y) / chunk.view_height as f32;
+                let u = (view_x as f32 + rand_x) / chunk.viewport.width as f32;
+                let v = ((chunk.viewport.height - view_y) as f32 + rand_y) / chunk.viewport.height as f32;
 
                 // Cast a ray, and determine the color
                 let ray = scene.camera.get_ray(u, v);

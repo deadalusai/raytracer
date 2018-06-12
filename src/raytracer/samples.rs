@@ -3,7 +3,9 @@
 use raytracer::types::{ Vec3, Ray };
 use raytracer::materials::{ MatLambertian, MatDielectric, MatMetal };
 use raytracer::shapes::{ Sphere };
-use raytracer::implementation::{ Scene, Viewport, Camera, Material };
+use raytracer::viewport::{ Viewport };
+use raytracer::lights::{ PointLight };
+use raytracer::implementation::{ Scene, Camera, Material };
 
 use rand::{ Rng, thread_rng };
 
@@ -151,6 +153,13 @@ pub fn simple_scene (viewport: &Viewport) -> Scene {
 
     // Scene
     let mut scene = Scene::new(camera, background_black);
+
+    // Lights
+    // let red_color = Vec3::new(1.0, 0.0, 0.0);
+    // let blue_color = Vec3::new(0.0, 0.0, 1.0);
+    // scene.add_light(PointLight::new(Vec3::new(0.0, 10.0, 8.0), red_color, 100.0));
+    // scene.add_light(PointLight::new(Vec3::new(0.0, 10.0, -8.0), blue_color, 100.0));
+    scene.add_light(PointLight::new(Vec3::new(0.0, 10.0, 4.0), Vec3::new(1.0, 1.0, 1.0), 100.0));
 
     // World sphere
     scene.add_obj(Sphere::new(Vec3::new(0.0, -1000.0, 0.0), 1000.0, MatLambertian::with_albedo(make_attenuation(91, 114, 89))));
