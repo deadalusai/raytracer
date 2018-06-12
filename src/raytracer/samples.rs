@@ -15,7 +15,7 @@ use rand::{ Rng, thread_rng };
 
 // Attenuation factory
 
-fn make_attenuation (r: u8, g: u8, b: u8) -> Vec3 {
+fn make_albedo (r: u8, g: u8, b: u8) -> Vec3 {
     Vec3::new(
         r as f32 / 255.0,
         g as f32 / 255.0,
@@ -25,7 +25,7 @@ fn make_attenuation (r: u8, g: u8, b: u8) -> Vec3 {
 
 // Random material factories
 
-fn make_lambertian<R: Rng> (rng: &mut R) -> Box<MatLambertian> {
+fn make_lambertian<R: Rng> (rng: &mut R) -> MatLambertian {
     let albedo = Vec3::new(
         /* r */ rng.next_f32() * rng.next_f32(),
         /* g */ rng.next_f32() * rng.next_f32(),
@@ -34,24 +34,24 @@ fn make_lambertian<R: Rng> (rng: &mut R) -> Box<MatLambertian> {
     MatLambertian::with_albedo(albedo)
 }
 
-fn make_metal<R: Rng> (rng: &mut R) -> Box<MatMetal> {
+fn make_metal<R: Rng> (rng: &mut R) -> MatMetal {
     let albedo = Vec3::new(
         /* r */ 0.5 * (1.0 + rng.next_f32()),
         /* g */ 0.5 * (1.0 + rng.next_f32()),
         /* b */ 0.5 * (1.0 + rng.next_f32())
     );
     let fuzz = 0.5 * rng.next_f32();
-    MatMetal::with_albedo_and_fuzz(albedo, fuzz)
+    MatMetal::with_albedo(albedo).with_fuzz(fuzz)
 }
 
-fn make_glass<R: Rng> (rng: &mut R) -> Box<MatDielectric> {
+fn make_glass<R: Rng> (rng: &mut R) -> MatDielectric {
     let refractive_index = 1.5;
     let albedo = Vec3::new(
         /* r */ 0.5 * (1.0 + rng.next_f32()),
         /* g */ 0.5 * (1.0 + rng.next_f32()),
         /* b */ 0.5 * (1.0 + rng.next_f32())
     );
-    MatDielectric::with_albedo_and_refractive_index(albedo, refractive_index)
+    MatDielectric::with_albedo(albedo).with_ref_index(refractive_index)
 }
 
 // Skybox functions
@@ -99,13 +99,13 @@ pub fn random_sphere_scene (viewport: &Viewport) -> Scene {
     
     // Large hollow glass sphere
     let hollow_sphere_center = Vec3::new(0.0, 1.0, 0.0);
-    let hollow_sphere_mat = MatDielectric::with_albedo_and_refractive_index(Vec3::new(0.95, 0.95, 0.95), 1.5);
+    let hollow_sphere_mat = MatDielectric::with_albedo(Vec3::new(0.95, 0.95, 0.95)).with_ref_index(1.5);
     scene.add_obj(Sphere::new(hollow_sphere_center.clone(),  1.0, hollow_sphere_mat.clone()));
     scene.add_obj(Sphere::new(hollow_sphere_center.clone(), -0.99, hollow_sphere_mat));
 
     // Large mat sphere
     let metal_sphere_center = Vec3::new(4.0, 1.0, 0.0);
-    let metal_sphere_mat = MatMetal::with_albedo_and_fuzz(Vec3::new(0.8, 0.8, 0.8), 0.0);
+    let metal_sphere_mat = MatMetal::with_albedo(Vec3::new(0.8, 0.8, 0.8)).with_fuzz(0.0);
     scene.add_obj(Sphere::new(metal_sphere_center.clone(),  1.0, metal_sphere_mat));
 
     let sphere_centers = [lam_sphere_center, hollow_sphere_center, metal_sphere_center];
@@ -126,14 +126,14 @@ pub fn random_sphere_scene (viewport: &Viewport) -> Scene {
             }
 
             // Select a material
-            let material: Box<Material> =
+            let sphere =
                 match rng.next_f32() {
-                    v if v < 0.8  => make_lambertian(&mut rng),
-                    v if v < 0.95 => make_metal(&mut rng),
-                    _             => make_glass(&mut rng)
+                    v if v < 0.8  => Sphere::new(center, radius, make_lambertian(&mut rng)),
+                    v if v < 0.95 => Sphere::new(center, radius, make_metal(&mut rng)),
+                    _             => Sphere::new(center, radius, make_glass(&mut rng))
                 };
 
-            scene.add_obj(Sphere::new(center, radius, material));
+            scene.add_obj(sphere);
         }
     }
 
@@ -152,6 +152,7 @@ pub fn simple_scene (viewport: &Viewport) -> Scene {
     let camera = Camera::new(look_from, look_to, fov, aspect_ratio, aperture, dist_to_focus);
 
     // Scene
+    let mut rng = thread_rng();
     let mut scene = Scene::new(camera, background_black);
 
     // Lights
@@ -159,12 +160,14 @@ pub fn simple_scene (viewport: &Viewport) -> Scene {
     // let blue_color = Vec3::new(0.0, 0.0, 1.0);
     // scene.add_light(PointLight::new(Vec3::new(0.0, 10.0, 8.0), red_color, 100.0));
     // scene.add_light(PointLight::new(Vec3::new(0.0, 10.0, -8.0), blue_color, 100.0));
-    scene.add_light(PointLight::new(Vec3::new(0.0, 10.0, 4.0), Vec3::new(1.0, 1.0, 1.0), 100.0));
+    
+    scene.add_light(PointLight::new(Vec3::new(0.0, 10.0, -4.0), Vec3::new(1.0, 1.0, 1.0), 100.0));
 
     // World sphere
-    scene.add_obj(Sphere::new(Vec3::new(0.0, -1000.0, 0.0), 1000.0, MatLambertian::with_albedo(make_attenuation(91, 114, 89))));
+    scene.add_obj(Sphere::new(Vec3::new(0.0, -1000.0, 0.0), 1000.0, MatLambertian::with_albedo(make_albedo(30, 30, 30))));
 
-    scene.add_obj(Sphere::new(Vec3::new(0.0, 1.5, 0.0), 1.0, MatLambertian::with_albedo(make_attenuation(132, 38, 17))));
+    scene.add_obj(Sphere::new(Vec3::new(1.0, 1.5, -1.0), 1.0, make_lambertian(&mut rng).with_attenuation(1.0)));
+    scene.add_obj(Sphere::new(Vec3::new(-1.0, 1.5, 1.0), 1.0, make_metal(&mut rng).with_fuzz(0.0).with_attenuation(0.0)));
 
     scene
 }

@@ -1,3 +1,4 @@
+#![allow(unused)]
 
 pub use raytracer::types::{ Vec3, vec3_dot, Ray };
 pub use raytracer::implementation::{ Material, MatRecord, HitRecord };
@@ -11,11 +12,20 @@ use rand::{ Rng, thread_rng };
 #[derive(Clone)]
 pub struct MatLambertian {
     albedo: Vec3,
+    attenuation: f32,
 }
 
 impl MatLambertian {
-    pub fn with_albedo (albedo: Vec3) -> Box<MatLambertian> {
-        Box::new(MatLambertian { albedo: albedo })
+    pub fn with_albedo (albedo: Vec3) -> MatLambertian {
+        MatLambertian { 
+            albedo: albedo,
+            attenuation: 0.99,
+        }
+    }
+
+    pub fn with_attenuation (mut self, attenuation: f32) -> MatLambertian {
+        self.attenuation = attenuation;
+        self
     }
 }
 
@@ -36,21 +46,34 @@ impl Material for MatLambertian {
     fn scatter (&self, _r: &Ray, hit_record: &HitRecord) -> Option<MatRecord> {
         let target = hit_record.p.add(&hit_record.normal).add(&random_point_in_unit_sphere());
         let scattered = Ray::new(hit_record.p.clone(), target.sub(&hit_record.p));
-        Some(MatRecord { scattered: scattered, attenuation: self.albedo.clone() })
-        // TODO?
-        // We could just as well scatter with some probability p and have attenuation be albedo / p
+        Some(MatRecord { scattered: scattered, attenuation: self.attenuation, albedo: self.albedo.clone() })
     }
 }
 
 #[derive(Clone)]
 pub struct MatMetal {
     albedo: Vec3,
+    attenuation: f32,
     fuzz: f32,
 }
 
 impl MatMetal {
-    pub fn with_albedo_and_fuzz (albedo: Vec3, fuzz: f32) -> Box<MatMetal> {
-        Box::new(MatMetal { albedo: albedo, fuzz: fuzz })
+    pub fn with_albedo (albedo: Vec3) -> MatMetal {
+        MatMetal {
+            albedo: albedo,
+            attenuation: 0.01,
+            fuzz: 0.0
+        }
+    }
+
+    pub fn with_attenuation (mut self, attenuation: f32) -> MatMetal {
+        self.attenuation = attenuation;
+        self
+    }
+
+    pub fn with_fuzz (mut self, fuzz: f32) -> MatMetal {
+        self.fuzz = fuzz;
+        self
     }
 }
 
@@ -63,7 +86,7 @@ impl Material for MatMetal {
         let reflected = reflect(&ray.direction.unit_vector(), &hit_record.normal);
         let scattered = Ray::new(hit_record.p.clone(), reflected.add(&random_point_in_unit_sphere().mul_f(self.fuzz)));
         if vec3_dot(&scattered.direction, &hit_record.normal) > 0.0 {
-            return Some(MatRecord { scattered: scattered, attenuation: self.albedo.clone() });
+            return Some(MatRecord { scattered: scattered, attenuation: self.attenuation, albedo: self.albedo.clone() });
         }
         None
     }
@@ -72,12 +95,27 @@ impl Material for MatMetal {
 #[derive(Clone)]
 pub struct MatDielectric {
     albedo: Vec3,
+    attenuation: f32,
     ref_index: f32,
 }
 
 impl MatDielectric {
-    pub fn with_albedo_and_refractive_index (albedo: Vec3, ref_index: f32) -> Box<MatDielectric> {
-        Box::new(MatDielectric { albedo: albedo, ref_index: ref_index })
+    pub fn with_albedo (albedo: Vec3) -> MatDielectric {
+        MatDielectric {
+            albedo: albedo,
+            attenuation: 0.001,
+            ref_index: 1.5,
+        }
+    }
+
+    pub fn with_attenuation (mut self, attenuation: f32) -> MatDielectric {
+        self.attenuation = attenuation;
+        self
+    }
+
+    pub fn with_ref_index (mut self, ref_index: f32) -> MatDielectric {
+        self.ref_index = ref_index;
+        self
     }
 }
 
@@ -121,7 +159,7 @@ impl Material for MatDielectric {
         
         let scattered = Ray::new(hit_record.p.clone(), direction);
         
-        // NOTE: Use albedo of 1.0 for perfectly transparent
-        Some(MatRecord { scattered: scattered, attenuation: self.albedo.clone() })
+        // NOTE: Use attenuation of 1.0 for perfectly transparent
+        Some(MatRecord { scattered: scattered, attenuation: self.attenuation, albedo: self.albedo.clone() })
     }
 }

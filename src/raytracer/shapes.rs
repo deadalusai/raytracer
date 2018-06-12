@@ -13,8 +13,10 @@ pub struct Sphere {
 }
 
 impl Sphere {
-    pub fn new (center: Vec3, radius: f32, material: Box<Material>) -> Sphere {
-        Sphere { center: center, radius: radius, material: material }
+    pub fn new<M> (center: Vec3, radius: f32, material: M) -> Sphere
+        where M: Material + 'static
+    {
+        Sphere { center: center, radius: radius, material: Box::new(material) }
     }
 }
 

@@ -24,7 +24,7 @@ use raytracer::{ Scene, Viewport, ViewChunk };
 
 const WIDTH: u32 = 800;
 const HEIGHT: u32 = 600;
-const SAMPLES_PER_PIXEL: u32 = 10;
+const SAMPLES_PER_PIXEL: u32 = 100;
 const CHUNK_COUNT: u32 = 100;
 const RENDER_THREAD_COUNT: u32 = 3;
 

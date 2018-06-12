@@ -10,8 +10,9 @@ use rand::{ Rng, thread_rng };
 // Materials
 
 pub struct MatRecord {
-    pub attenuation: Vec3,
     pub scattered: Ray,
+    pub albedo: Vec3,
+    pub attenuation: f32,
 }
 
 pub trait Material: Send + Sync {
@@ -174,12 +175,9 @@ fn cast_ray (ray: &Ray, scene: &Scene) -> Vec3 {
         if depth > 0 {
             if let Some(hit_record) = scene.hit_closest(ray, BIAS) {
                 if let Some(mat) = hit_record.material.scatter(ray, &hit_record) {
-                    
-                    // return color_internal(&mat.scattered, scene, depth - 1).mul(&mat.attenuation);
 
                     // NOTE: Shadow origin slightly above p along surface normal to avoid "shadow acne"
                     let shadow_origin = hit_record.p.add(&hit_record.normal.mul_f(BIAS));
-
                     let mut color = (scene.background_fn)(ray);
 
                     for light in scene.lights.iter() {
@@ -189,12 +187,12 @@ fn cast_ray (ray: &Ray, scene: &Scene) -> Vec3 {
                             let is_visible = scene.hit_first(&shadow_ray, BIAS).is_none();
                             if is_visible {
                                 let m = (0.0 as f32).max(vec3_dot(&hit_record.normal, &light_record.direction.negate()));
-                                color = color.add(&mat.attenuation.mul_f(light_record.intensity).mul(&light_record.color).mul_f(m));
+                                color = color.add(&mat.albedo.mul(&light_record.color).mul_f(light_record.intensity).mul_f(m));
                             }
                         }
                     }
-                    
-                    return color;
+
+                    return color_internal(&mat.scattered, scene, depth - 1).mul_f(1.0 - mat.attenuation).add(&color); 
                 }
             }
         }
@@ -203,7 +201,7 @@ fn cast_ray (ray: &Ray, scene: &Scene) -> Vec3 {
         (scene.background_fn)(ray)
     }
 
-    color_internal(ray, scene, 50)
+    color_internal(ray, scene, 5)
 }
 
 pub fn cast_rays_into_scene (chunk: &mut ViewChunk, scene: &Scene, samples_per_pixel: u32) {
