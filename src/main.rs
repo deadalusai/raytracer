@@ -168,7 +168,7 @@ fn main() {
     println!("Creating scene");
 
     let viewport = Viewport::new(WIDTH, HEIGHT);
-    let scene = raytracer::samples::random_sphere_scene(&viewport);
+    let scene = raytracer::samples::simple_scene(&viewport);
 
     let chunks = make_chunks_list(&viewport, CHUNK_COUNT);
     

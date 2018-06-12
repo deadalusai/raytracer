@@ -1,3 +1,4 @@
+#![allow(unused)]
 
 use raytracer::types::{ Vec3 };
 use raytracer::materials::{ MatLambertian, MatDielectric, MatMetal };
@@ -9,6 +10,16 @@ use rand::{ Rng, thread_rng };
 //
 // Sample scenes
 //
+
+// Attenuation factory
+
+fn make_attenuation (r: u8, g: u8, b: u8) -> Vec3 {
+    Vec3::new(
+        r as f32 / 255.0,
+        g as f32 / 255.0,
+        b as f32 / 255.0
+    )
+}
 
 // Random material factories
 
@@ -103,6 +114,28 @@ pub fn random_sphere_scene (viewport: &Viewport) -> Scene {
             scene.add_thing(Sphere::new(center, radius, material));
         }
     }
+
+    scene
+}
+
+pub fn simple_scene (viewport: &Viewport) -> Scene {
+    // Camera
+    let look_from = Vec3::new(5.0, 3.0, 0.0);
+    let look_to = Vec3::new(0.0, 1.5, 0.0);
+    let fov = 90.0;
+    let aspect_ratio = viewport.width as f32 / viewport.height as f32;
+    let aperture = 0.1;
+    let dist_to_focus = look_from.sub(&look_to).length();
+
+    let camera = Camera::new(look_from, look_to, fov, aspect_ratio, aperture, dist_to_focus);
+
+    // Scene
+    let mut scene = Scene::new(camera);
+
+    // World sphere
+    scene.add_thing(Sphere::new(Vec3::new(0.0, -1000.0, 0.0), 1000.0, MatLambertian::with_albedo(make_attenuation(91, 114, 89))));
+
+    scene.add_thing(Sphere::new(Vec3::new(0.0, 1.5, 0.0), 1.0, MatLambertian::with_albedo(make_attenuation(132, 38, 17))));
 
     scene
 }
