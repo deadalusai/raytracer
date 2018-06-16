@@ -80,6 +80,14 @@ impl Vec3 {
         self.div_f(self.length())
     }
 
+    pub fn clamp (&self) -> Vec3 {  
+        Vec3 {
+            x: self.x.min(1.0).max(-1.0),
+            y: self.y.min(1.0).max(-1.0),
+            z: self.z.min(1.0).max(-1.0),
+        }
+    }
+
     pub fn length (&self) -> f32 {
         self.length_squared().sqrt()
     }
