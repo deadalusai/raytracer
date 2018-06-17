@@ -25,9 +25,9 @@ use raytracer::{ Scene, Viewport, ViewChunk };
 const WIDTH: u32 = 800;
 const HEIGHT: u32 = 600;
 const SAMPLES_PER_PIXEL: u32 = 100;
-const MAX_REFLECTIONS: u32 = 20;
+const MAX_REFLECTIONS: u32 = 10;
 const CHUNK_COUNT: u32 = 100;
-const RENDER_THREAD_COUNT: u32 = 3;
+const RENDER_THREAD_COUNT: u32 = 4;
 
 struct App {
     buffer: RgbaImage,
@@ -168,7 +168,7 @@ fn main() {
     println!("Creating scene");
 
     let viewport = Viewport::new(WIDTH, HEIGHT);
-    let scene = raytracer::samples::random_sphere_scene(&viewport);
+    let scene = raytracer::samples::simple_scene(&viewport);
 
     println!("Creating window");
 

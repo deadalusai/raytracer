@@ -76,7 +76,7 @@ pub fn random_sphere_scene (viewport: &Viewport) -> Scene {
     // Lights
     let lamp_origin = Vec3::new(4.0, 100.0, 4.0);
     let lamp_direction = Vec3::zero().sub(&lamp_origin);
-    scene.add_light(DirectionalLight::with_origin_and_direction(lamp_origin, lamp_direction));
+    scene.add_light(DirectionalLight::with_origin_and_direction(lamp_origin, lamp_direction).with_intensity(0.5));
 
     // World sphere
     scene.add_obj(Sphere::new(Vec3::new(0.0, -1000.0, 0.0), 1000.0, MatLambertian::with_albedo(Vec3::new(0.5, 0.5, 0.5))));
@@ -131,9 +131,9 @@ pub fn random_sphere_scene (viewport: &Viewport) -> Scene {
 
 pub fn simple_scene (viewport: &Viewport) -> Scene {
     // Camera
-    let look_from = Vec3::new(5.0, 3.0, 0.0);
-    let look_to = Vec3::new(0.0, 1.5, 0.0);
-    let fov = 90.0;
+    let look_from = Vec3::new(6.0, 3.0, -1.5);
+    let look_to = Vec3::new(0.0, 1.0, 0.0);
+    let fov = 75.0;
     let aspect_ratio = viewport.width as f32 / viewport.height as f32;
     let aperture = 0.1;
     let dist_to_focus = look_from.sub(&look_to).length();
@@ -141,20 +141,21 @@ pub fn simple_scene (viewport: &Viewport) -> Scene {
     let camera = Camera::new(look_from, look_to, fov, aspect_ratio, aperture, dist_to_focus);
 
     // Scene
-    let mut rng = thread_rng();
     let mut scene = Scene::new(camera);
 
     // Lights
     // scene.add_light(PointLight::with_origin(Vec3::new(0.0, 10.0, 8.0)).with_color(Vec3::new(1.0, 0.0, 0.0)));
     // scene.add_light(PointLight::with_origin(Vec3::new(0.0, 10.0, -8.0)).with_color(Vec3::new(0.0, 0.0, 1.0)));
     
-    scene.add_light(PointLight::with_origin(Vec3::new(0.0, 10.0, -4.0)).with_intensity(100.0));
+    scene.add_light(PointLight::with_origin(Vec3::new(0.0, 10.0, -4.0)).with_intensity(20.0));
 
     // World sphere
-    scene.add_obj(Sphere::new(Vec3::new(0.0, -1000.0, 0.0), 1000.0, MatLambertian::with_albedo(make_albedo(30, 30, 30))));
+    scene.add_obj(Sphere::new(Vec3::new(0.0, -1000.0, 0.0), 1000.0, MatLambertian::with_albedo(make_albedo(0, 179, 45))));
 
-    scene.add_obj(Sphere::new(Vec3::new(1.0, 1.5, -1.0), 1.0, make_lambertian(&mut rng).with_attenuation(0.9999)));
-    scene.add_obj(Sphere::new(Vec3::new(-1.0, 1.5, 1.0), 1.0, make_metal(&mut rng).with_fuzz(0.1).with_attenuation(0.0001)));
+    scene.add_obj(Sphere::new(Vec3::new(2.0, 1.0, -2.0), 1.0, MatLambertian::with_albedo(make_albedo(179, 45, 0))));
+    scene.add_obj(Sphere::new(Vec3::new(0.0, 1.0, 0.0),  1.0,   MatDielectric::with_albedo(make_albedo(255, 255, 255))));
+    // scene.add_obj(Sphere::new(Vec3::new(0.0, 1.0, 0.0),  -0.95, MatDielectric::with_albedo(make_albedo(255, 255, 255))));
+    scene.add_obj(Sphere::new(Vec3::new(-2.0, 1.0, 2.0), 1.0, MatMetal::with_albedo(make_albedo(230, 230, 230)).with_fuzz(0.1)));
 
     scene
 }

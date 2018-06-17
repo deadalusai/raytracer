@@ -9,10 +9,20 @@ use rand::{ Rng, thread_rng };
 
 // Materials
 
+pub struct Reflect {
+    pub direction: Vec3,
+    pub intensity: f32,
+}
+
+pub struct Refract {
+    pub direction: Vec3,
+    pub intensity: f32,
+}
+
 pub struct MatRecord {
-    pub scattered: Ray,
+    pub reflection: Option<Reflect>,
+    pub refraction: Option<Refract>,
     pub albedo: Vec3,
-    pub attenuation: f32,
 }
 
 pub trait Material: Send + Sync {
@@ -191,40 +201,45 @@ fn cast_ray (ray: &Ray, scene: &Scene, max_reflections: u32) -> Vec3 {
                 // NOTE: Shadow origin slightly above p along surface normal to avoid "shadow acne"
                 let shadow_origin = hit_record.p.add(&hit_record.normal.mul_f(BIAS));
 
-                // Determine color from lights in the scene
+                // Determine color from lights in the scene.
                 let mut color_from_lights = Vec3::zero();
 
                 for light in scene.lights.iter() {
                     if let Some(light_record) = light.get_direction_and_intensity(&shadow_origin) {
-                        // color_from_light = light color * light intensity * max(0.0, dot(hit normal, inverse light direction))
-                        let color_from_light = light_record.color.mul_f(light_record.intensity).mul_f(max_f(0.0, vec3_dot(&hit_record.normal, &light_record.direction.negate())));
                         // Test to see if there is any shape blocking light from this lamp by casting a ray from the shadow back to the light source
-                        // TODO: Allow semi-opaque materials to attenuate, color and refract (?) light...
+                        // TODO: Allow semi-opaque materials to color and refract (?) light...
                         let shadow_ray = Ray::new(shadow_origin.clone(), light_record.direction.negate());
                         let is_shadowed = scene.hit_any(&shadow_ray, BIAS).is_some();
                         if !is_shadowed {
-                            // multiply by material albedo
-                            color_from_lights = color_from_lights.add(&mat_record.albedo.mul(&color_from_light));
+                            let light_color =
+                                light_record.color.mul_f(light_record.intensity) // Light color + intensity
+                                    .mul(&mat_record.albedo) // Material albedo
+                                    .mul_f(max_f(0.0, vec3_dot(&hit_record.normal, &light_record.direction.negate()))); // Adjust intensity as reflection normal changes
+
+                            color_from_lights = color_from_lights.add(&light_color);
                         }
                     }
                 }
 
-                // Determine color from material scattering, and attenuate
-                // NOTE: no need to recurse if attenuation is high enough...
-                let mut color_from_reflection =
-                    if mat_record.attenuation >= 1.0 {
-                        Vec3::zero()
+                // Determine color from material reflection.
+                let mut color_from_reflection = Vec3::zero();
+                if let Some(reflect) = mat_record.reflection {
+                    if reflect.intensity > 0.0 {
+                        let r = Ray::new(hit_record.p.clone(), reflect.direction);
+                        color_from_reflection = cast_ray_recursive(&r, scene, reflections_remaining - 1).mul_f(reflect.intensity).mul(&mat_record.albedo);
                     }
-                    else {
-                        let color_from_reflection = cast_ray_recursive(&mat_record.scattered, scene, reflections_remaining - 1).mul_f(1.0 - mat_record.attenuation);
-                        // multiply by material albedo
-                        mat_record.albedo.mul(&color_from_reflection)
-                    };
+                }
 
-                // Apply the inverse attenuation for color taken from light
-                color_from_lights = color_from_lights.mul_f(mat_record.attenuation);
+                // Determine color from material refraction.
+                let mut color_from_refraction = Vec3::zero();
+                if let Some(refract) = mat_record.refraction {
+                    if refract.intensity > 0.0 {
+                        let r = Ray::new(hit_record.p.clone(), refract.direction);
+                        color_from_refraction = cast_ray_recursive(&r, scene, reflections_remaining - 1).mul_f(refract.intensity).mul(&mat_record.albedo);
+                    }
+                }
 
-                return color_from_reflection.add(&color_from_lights);
+                return color_from_lights.add(&color_from_reflection).add(&color_from_refraction);
             }
         }
 
