@@ -1,17 +1,11 @@
 #![allow(unused)]
 
+use std::mem::{ swap };
+
 pub use raytracer::types::{ Vec3, vec3_dot, Ray };
 pub use raytracer::implementation::{ Material, MatRecord, Reflect, Refract, HitRecord };
 
 use rand::{ Rng, thread_rng };
-
-//
-// Functions
-//
-
-fn reflect (v: &Vec3, n: &Vec3) -> Vec3 {
-    v.sub(&n.mul_f(vec3_dot(v, n)).mul_f(2.0))
-}
 
 //
 // Materials
@@ -55,8 +49,9 @@ impl Material for MatLambertian {
         let target = hit_record.p.add(&hit_record.normal).add(&random_point_in_unit_sphere());
         let direction = target.sub(&hit_record.p);
         let intensity = 1.0 - self.attenuation;
+        let ray = Ray::new(hit_record.p.clone(), direction);
         Some(MatRecord {
-            reflection: Some(Reflect { direction: direction, intensity: intensity }),
+            reflection: Some(Reflect { ray: ray, intensity: intensity }),
             refraction: None,
             albedo: self.albedo.clone()
         })
@@ -90,9 +85,14 @@ impl MatMetal {
     }
 }
 
+fn reflect (incident_ray: &Ray, surface_normal: &Vec3) -> Vec3 {
+    let dir = incident_ray.direction.unit_vector();
+    dir.sub(&surface_normal.mul_f(vec3_dot(&dir, &surface_normal)).mul_f(2.0))
+}
+
 impl Material for MatMetal {
     fn scatter (&self, ray: &Ray, hit_record: &HitRecord) -> Option<MatRecord> {
-        let reflected = reflect(&ray.direction.unit_vector(), &hit_record.normal);
+        let reflected = reflect(&ray, &hit_record.normal);
         let scattered = match self.fuzz {
             x if x > 0.0 => reflected.add(&random_point_in_unit_sphere().mul_f(self.fuzz)),
             _            => reflected
@@ -101,8 +101,9 @@ impl Material for MatMetal {
             // TODO: Return None? Or return no reflection component?
             return None;
         }
+        let ray = Ray::new(hit_record.p.clone(), scattered);
         Some(MatRecord {
-            reflection: Some(Reflect { direction: scattered, intensity: 1.0 - self.attenuation }),
+            reflection: Some(Reflect { ray: ray, intensity: 1.0 - self.attenuation }),
             refraction: None,
             albedo: self.albedo.clone()
         })
@@ -136,54 +137,82 @@ impl MatDielectric {
     }
 }
 
-fn refract (v: &Vec3, n: &Vec3, ni_over_nt: f32) -> Option<Vec3> {
-    let uv = v.unit_vector();
-    let dt = vec3_dot(&uv, n);
-    let discriminant = 1.0 - ni_over_nt * ni_over_nt * (1.0 - dt * dt);
-    if discriminant > 0.0 {
-        let refracted = uv.sub(&n.mul_f(dt)).mul_f(ni_over_nt).sub(&n.mul_f(discriminant.sqrt()));
-        return Some(refracted);
+fn refract (incident_ray: &Ray, surface_normal: &Vec3, ref_index: f32) -> Vec3 {
+    let cosi = vec3_dot(&incident_ray.direction, surface_normal); //.min(1.0).max(-1.0);
+    let (eta, outward_normal) =
+        if cosi < 0.0 {
+            (1.0 / ref_index, surface_normal.clone())
+        } else {
+            (ref_index / 1.0, surface_normal.negate())
+        };
+    let cosi = cosi.abs();
+    let k = 1.0 - eta * eta * (1.0 - cosi * cosi);
+    if k < 0.0 {
+        Vec3::zero()
+    } else {
+        incident_ray.direction.mul_f(eta).add(&outward_normal.mul_f(eta * cosi - k.sqrt()))
     }
-    None
-}
-
-fn schlick_reflect_prob (cosine: f32, ref_idx: f32) -> f32 {
-    let r0 = (1.0 - ref_idx) / (1.0 + ref_idx);
-    let r0 = r0 * r0;
-    r0 + (1.0 - r0) * (1.0 - cosine).powf(5.0)
 }
 
 /// Fresnel equation: ration of reflected light for a given incident direction and surface normal
-// fn fresnel (indicent_direction: &Vec3, normal: &Vec3) -> f32 {
-// 
-// }
+fn fresnel (incident_ray: &Ray, normal: &Vec3, ref_index: f32) -> f32 {
+    let cosi = vec3_dot(&incident_ray.direction, normal).min(1.0).max(-1.0);
+    let (etai, etat) =
+        if cosi > 0.0 {
+            (ref_index, 1.0)
+        } else {
+            (1.0, ref_index)
+        };
+    // Compute sint using Snell's law
+    let sint = etai / etat * (1.0 - cosi * cosi).max(0.0).sqrt();
+    if sint >= 1.0 {
+        // Total internal reflection
+        return 1.0;
+    }
+    let cost = (1.0 - sint * sint).max(0.0).sqrt();
+    let cosi = cosi.abs();
+    let rs = ((etat * cosi) - (etai * cost)) / ((etat * cosi) + (etai * cost));
+    let rp = ((etai * cosi) - (etat * cost)) / ((etai * cosi) + (etat * cost));
+    let kr = (rs * rs + rp * rp) / 2.0;
+    // As a consequence of the conservation of energy, transmittance is given by:
+    // kt = 1 - kr;
+    return kr;
+}
 
 impl Material for MatDielectric {
     fn scatter (&self, ray: &Ray, hit_record: &HitRecord) -> Option<MatRecord> {
-        let mut rng = thread_rng();
+        // Compute reflection/refraction ratio
+        let kr = fresnel(ray, &hit_record.normal, self.ref_index);
 
-        let dot = vec3_dot(&ray.direction, &hit_record.normal);
-        let (outward_normal, ni_over_nt, cosine) =
-            if dot > 0.0 {
-                (hit_record.normal.negate(), self.ref_index, self.ref_index * dot / ray.direction.length())
-            } else {
-                (hit_record.normal.clone(), 1.0 / self.ref_index, -dot / ray.direction.length())
-            };
+        // Add bias to reflection/refraction ray origins to avoid acne
+        const BIAS: f32 = 0.001;
+        let outside = vec3_dot(&ray.direction, &hit_record.normal) < 0.0;
+        let bias = hit_record.normal.mul_f(BIAS);
 
-        let reflect_prob = schlick_reflect_prob(cosine, self.ref_index);
+        // compute refraction if it is not a case of total internal reflection
+        let refraction = match kr {
+            kr if kr >= 1.0 => None, // Total internal reflection
+            _ => {
+                let refraction_origin = if outside { hit_record.p.sub(&bias) } else { hit_record.p.add(&bias) };
+                let refraction_direction = refract(&ray, &hit_record.normal, self.ref_index).unit_vector();
+                let refraction = Refract {
+                    ray: Ray::new(refraction_origin, refraction_direction),
+                    intensity: 1.0 - kr
+                };
+                Some(refraction)
+            }
+        };
 
-        let refract = refract(&ray.direction, &outward_normal, ni_over_nt)
-                        .map(|r| Refract { direction: r, intensity: 1.0 - reflect_prob });
+        let reflection_origin = if outside { hit_record.p.add(&bias) } else { hit_record.p.sub(&bias) };
+        let reflection_direction = reflect(&ray, &hit_record.normal).unit_vector();
+        let reflection = Reflect {
+            ray: Ray::new(reflection_origin, reflection_direction),
+            intensity: kr
+        };
 
-        let reflect = Some(Reflect {
-            direction: reflect(&ray.direction, &hit_record.normal),
-            intensity: reflect_prob
-        });
-
-        // TODO: Apply attenuation?
         Some(MatRecord {
-            refraction: refract,
-            reflection: reflect,
+            refraction: refraction,
+            reflection: Some(reflection),
             albedo: self.albedo.clone()
         })
     }

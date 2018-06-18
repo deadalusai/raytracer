@@ -10,12 +10,12 @@ use rand::{ Rng, thread_rng };
 // Materials
 
 pub struct Reflect {
-    pub direction: Vec3,
+    pub ray: Ray,
     pub intensity: f32,
 }
 
 pub struct Refract {
-    pub direction: Vec3,
+    pub ray: Ray,
     pub intensity: f32,
 }
 
@@ -85,7 +85,7 @@ impl Scene {
 
     fn hit_any (&self, ray: &Ray, t_min: f32) -> Option<HitRecord> {
         for hitable in self.hitables.iter() {
-            if let Some(record) = hitable.hit(ray, t_min, std::f32::MAX) {
+            if let Some(record) = hitable.hit(ray, t_min, std::f32::INFINITY) {
                 return Some(record);
             }
         }
@@ -94,7 +94,7 @@ impl Scene {
 
     fn hit_closest (&self, ray: &Ray, t_min: f32) -> Option<HitRecord> {
         let mut closest_hit_record = None;
-        let mut closest_so_far = std::f32::MAX;
+        let mut closest_so_far = std::f32::INFINITY;
         for hitable in self.hitables.iter() {
             if let Some(record) = hitable.hit(ray, t_min, closest_so_far) {
                 closest_so_far = record.t;
@@ -212,7 +212,8 @@ fn cast_ray (ray: &Ray, scene: &Scene, max_reflections: u32) -> Vec3 {
                         let is_shadowed = scene.hit_any(&shadow_ray, BIAS).is_some();
                         if !is_shadowed {
                             let light_color =
-                                light_record.color.mul_f(light_record.intensity) // Light color + intensity
+                                light_record.color
+                                    .mul_f(light_record.intensity) // Light color + intensity
                                     .mul(&mat_record.albedo) // Material albedo
                                     .mul_f(max_f(0.0, vec3_dot(&hit_record.normal, &light_record.direction.negate()))); // Adjust intensity as reflection normal changes
 
@@ -225,8 +226,10 @@ fn cast_ray (ray: &Ray, scene: &Scene, max_reflections: u32) -> Vec3 {
                 let mut color_from_reflection = Vec3::zero();
                 if let Some(reflect) = mat_record.reflection {
                     if reflect.intensity > 0.0 {
-                        let r = Ray::new(hit_record.p.clone(), reflect.direction);
-                        color_from_reflection = cast_ray_recursive(&r, scene, reflections_remaining - 1).mul_f(reflect.intensity).mul(&mat_record.albedo);
+                        color_from_reflection =
+                            cast_ray_recursive(&reflect.ray, scene, reflections_remaining - 1)
+                                .mul_f(reflect.intensity)
+                                .mul(&mat_record.albedo);
                     }
                 }
 
@@ -234,8 +237,10 @@ fn cast_ray (ray: &Ray, scene: &Scene, max_reflections: u32) -> Vec3 {
                 let mut color_from_refraction = Vec3::zero();
                 if let Some(refract) = mat_record.refraction {
                     if refract.intensity > 0.0 {
-                        let r = Ray::new(hit_record.p.clone(), refract.direction);
-                        color_from_refraction = cast_ray_recursive(&r, scene, reflections_remaining - 1).mul_f(refract.intensity).mul(&mat_record.albedo);
+                        color_from_refraction =
+                            cast_ray_recursive(&refract.ray, scene, reflections_remaining - 1)
+                                .mul_f(refract.intensity)
+                                .mul(&mat_record.albedo);
                     }
                 }
 

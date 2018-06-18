@@ -52,6 +52,22 @@ impl Vec3 {
         }
     }
 
+    pub fn add_f (&self, f: f32) -> Vec3 {
+        Vec3 {
+            x: self.x + f,
+            y: self.y + f,
+            z: self.z + f
+        }
+    }
+
+    pub fn sub_f (&self, f: f32) -> Vec3 {
+        Vec3 {
+            x: self.x - f,
+            y: self.y - f,
+            z: self.z - f
+        }
+    }
+
     pub fn mul_f (&self, f: f32) -> Vec3 {
         Vec3 {
             x: self.x * f,
@@ -77,7 +93,12 @@ impl Vec3 {
     }
 
     pub fn unit_vector (&self) -> Vec3 {
-        self.div_f(self.length())
+        let len = self.length();
+        if len == 0.0 {
+            self.clone()
+        } else {
+            self.div_f(len)
+        }
     }
 
     pub fn clamp (&self) -> Vec3 {  

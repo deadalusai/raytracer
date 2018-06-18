@@ -133,7 +133,7 @@ pub fn simple_scene (viewport: &Viewport) -> Scene {
     // Camera
     let look_from = Vec3::new(6.0, 3.0, -1.5);
     let look_to = Vec3::new(0.0, 1.0, 0.0);
-    let fov = 75.0;
+    let fov = 35.0;
     let aspect_ratio = viewport.width as f32 / viewport.height as f32;
     let aperture = 0.1;
     let dist_to_focus = look_from.sub(&look_to).length();
