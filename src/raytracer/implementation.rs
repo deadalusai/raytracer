@@ -190,8 +190,8 @@ fn cast_ray (ray: &Ray, scene: &Scene, max_reflections: u32) -> Vec3 {
     fn cast_ray_recursive (ray: &Ray, scene: &Scene, reflections_remaining: u32) -> Vec3 {
 
         // Exceeded our reflection limit?
-        if reflections_remaining == 0 { 
-            return Vec3::zero();
+        if reflections_remaining == 0 {
+            return color_sky(ray);
         }
         
         // Hit anything in the scene?
@@ -267,6 +267,7 @@ pub fn cast_rays_into_scene (chunk: &mut ViewChunk, scene: &Scene, samples_per_p
         for chunk_x in 0..chunk.width {
             // Convert to view-relative coordinates
             let (view_x, view_y) = chunk.get_view_relative_coords(chunk_x, chunk_y);
+            
             // Implement anti-aliasing by taking the average color of random rays cast around these x, y coordinates.
             let mut col = Vec3::new(0.0, 0.0, 0.0);
             for _ in 0..samples_per_pixel {
