@@ -90,7 +90,7 @@ pub fn random_sphere_scene (viewport: &Viewport) -> Scene {
     let hollow_sphere_center = Vec3::new(0.0, 1.0, 0.0);
     let hollow_sphere_mat = MatDielectric::with_albedo(Vec3::new(0.95, 0.95, 0.95)).with_ref_index(1.5);
     scene.add_obj(Sphere::new(hollow_sphere_center.clone(),  1.0, hollow_sphere_mat.clone()));
-    scene.add_obj(Sphere::new(hollow_sphere_center.clone(), -0.99, hollow_sphere_mat));
+    // scene.add_obj(Sphere::new(hollow_sphere_center.clone(), -0.99, hollow_sphere_mat));
 
     // Large mat sphere
     let metal_sphere_center = Vec3::new(4.0, 1.0, 0.0);
@@ -152,10 +152,15 @@ pub fn simple_scene (viewport: &Viewport) -> Scene {
     // World sphere
     scene.add_obj(Sphere::new(Vec3::new(0.0, -1000.0, 0.0), 1000.0, MatLambertian::with_albedo(make_albedo(0, 179, 45))));
 
+    // Mat sphere
     scene.add_obj(Sphere::new(Vec3::new(2.0, 1.0, -2.0), 1.0, MatLambertian::with_albedo(make_albedo(179, 45, 0))));
+    
+    // Glass sphere (hollow)
     scene.add_obj(Sphere::new(Vec3::new(0.0, 1.0, 0.0),  1.0,   MatDielectric::with_albedo(make_albedo(255, 255, 255))));
-    // scene.add_obj(Sphere::new(Vec3::new(0.0, 1.0, 0.0),  -0.95, MatDielectric::with_albedo(make_albedo(255, 255, 255))));
-    scene.add_obj(Sphere::new(Vec3::new(-2.0, 1.0, 2.0), 1.0, MatMetal::with_albedo(make_albedo(230, 230, 230)).with_fuzz(0.1)));
+    // scene.add_obj(Sphere::new(Vec3::new(0.0, 1.0, 0.0),  -0.8, MatDielectric::with_albedo(make_albedo(255, 255, 255))));
+
+    // Metal sphere
+    scene.add_obj(Sphere::new(Vec3::new(-2.0, 1.0, 2.0), 1.0, MatMetal::with_albedo(make_albedo(230, 230, 230)).with_fuzz(0.001)));
 
     scene
 }

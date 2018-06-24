@@ -20,12 +20,12 @@ use image::RgbaImage;
 
 mod raytracer;
 
-use raytracer::{ Scene, Viewport, ViewChunk };
+use raytracer::{ Scene, Viewport, ViewChunk, Rgb };
 
 const WIDTH: u32 = 800;
 const HEIGHT: u32 = 600;
 const SAMPLES_PER_PIXEL: u32 = 100;
-const MAX_REFLECTIONS: u32 = 5;
+const MAX_REFLECTIONS: u32 = 100;
 const CHUNK_COUNT: u32 = 100;
 const RENDER_THREAD_COUNT: u32 = 4;
 
@@ -76,7 +76,16 @@ impl App {
                     thread.total_chunks_rendered += 1;
                 }
                 // Send new work
-                if let Some(chunk) = self.pending_chunks.pop() {
+                if let Some(mut chunk) = self.pending_chunks.pop() {
+
+                    // Hack - paint in-progress chunks green
+                    for chunk_y in 0..chunk.height {
+                        for chunk_x in 0..chunk.width {
+                            chunk.set_chunk_pixel(chunk_x, chunk_y, Rgb { r: 0, g: 150, b: 0 });
+                        }
+                    }
+                    copy_view_chunk_to_image_buffer(&mut self.buffer, &chunk);
+
                     let work = RenderWork(chunk, self.scene.clone());
                     thread.sender.send(work).expect("Sending work");
                 }
@@ -168,7 +177,7 @@ fn main() {
     println!("Creating scene");
 
     let viewport = Viewport::new(WIDTH, HEIGHT);
-    let scene = raytracer::samples::simple_scene(&viewport);
+    let scene = raytracer::samples::random_sphere_scene(&viewport);
 
     println!("Creating window");
 
