@@ -187,10 +187,10 @@ fn color_sky (ray: &Ray) -> Vec3 {
 fn cast_ray (ray: &Ray, scene: &Scene, max_reflections: u32) -> Vec3 {
 
     // Internal implementation
-    fn cast_ray_recursive (ray: &Ray, scene: &Scene, reflections_remaining: u32) -> Vec3 {
+    fn cast_ray_recursive (ray: &Ray, scene: &Scene, recurse_limit: u32) -> Vec3 {
 
         // Exceeded our reflection limit?
-        if reflections_remaining == 0 {
+        if recurse_limit == 0 {
             return color_sky(ray);
         }
         
@@ -222,12 +222,28 @@ fn cast_ray (ray: &Ray, scene: &Scene, max_reflections: u32) -> Vec3 {
                     }
                 }
 
+                // We may need to recurse more than once, depending on the material we hit.
+                // In this case, split the recursion limit in two to avoid doubling our work.
+                let (reflect_limit, refract_limit) = {
+                    let recurse_limit = recurse_limit - 1;
+                    match (&mat_record.reflection, &mat_record.refraction) {
+                        (&Some(_), &Some(_)) => {
+                            let reflect_limit = recurse_limit / 4;
+                            let refract_limit = recurse_limit - reflect_limit;
+                            (reflect_limit, refract_limit)
+                        },
+                        (&Some(_), &None) => (recurse_limit, 0),
+                        (&None, &Some(_)) => (0, recurse_limit),
+                        (&None, &None) => panic!("Material has no reflection or refraction?")
+                    }
+                };
+
                 // Determine color from material reflection.
                 let mut color_from_reflection = Vec3::zero();
                 if let Some(reflect) = mat_record.reflection {
                     if reflect.intensity > 0.0 {
                         color_from_reflection =
-                            cast_ray_recursive(&reflect.ray, scene, reflections_remaining - 1)
+                            cast_ray_recursive(&reflect.ray, scene, reflect_limit)
                                 .mul_f(reflect.intensity)
                                 .mul(&mat_record.albedo);
                     }
@@ -238,7 +254,7 @@ fn cast_ray (ray: &Ray, scene: &Scene, max_reflections: u32) -> Vec3 {
                 if let Some(refract) = mat_record.refraction {
                     if refract.intensity > 0.0 {
                         color_from_refraction =
-                            cast_ray_recursive(&refract.ray, scene, reflections_remaining - 1)
+                            cast_ray_recursive(&refract.ray, scene, refract_limit)
                                 .mul_f(refract.intensity)
                                 .mul(&mat_record.albedo);
                     }
