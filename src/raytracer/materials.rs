@@ -5,7 +5,7 @@ use std::mem::{ swap };
 pub use raytracer::types::{ Vec3, vec3_dot, Ray };
 pub use raytracer::implementation::{ Material, MatRecord, Reflect, Refract, HitRecord };
 
-use rand::{ Rng, thread_rng };
+use rand::{ Rng };
 
 //
 // Materials
@@ -31,9 +31,8 @@ impl MatLambertian {
     }
 }
 
-fn random_point_in_unit_sphere () -> Vec3 {
+fn random_point_in_unit_sphere (rng: &mut Rng) -> Vec3 {
     let unit = Vec3::new(1.0, 1.0, 1.0);
-    let mut rng = thread_rng();
     loop {
         let random_point = Vec3::new(rng.next_f32(), rng.next_f32(), rng.next_f32());
         let p = random_point.mul_f(2.0).sub(&unit);
@@ -45,8 +44,8 @@ fn random_point_in_unit_sphere () -> Vec3 {
 }
 
 impl Material for MatLambertian {
-    fn scatter (&self, _r: &Ray, hit_record: &HitRecord) -> Option<MatRecord> {
-        let target = hit_record.p.add(&hit_record.normal).add(&random_point_in_unit_sphere());
+    fn scatter (&self, _r: &Ray, hit_record: &HitRecord, rng: &mut Rng) -> Option<MatRecord> {
+        let target = hit_record.p.add(&hit_record.normal).add(&random_point_in_unit_sphere(rng));
         let direction = target.sub(&hit_record.p);
         let intensity = 1.0 - self.attenuation;
         let ray = Ray::new(hit_record.p.clone(), direction);
@@ -91,12 +90,14 @@ fn reflect (incident_direction: &Vec3, surface_normal: &Vec3) -> Vec3 {
 }
 
 impl Material for MatMetal {
-    fn scatter (&self, ray: &Ray, hit_record: &HitRecord) -> Option<MatRecord> {
+    fn scatter (&self, ray: &Ray, hit_record: &HitRecord, rng: &mut Rng) -> Option<MatRecord> {
         let reflected = reflect(&ray.direction, &hit_record.normal);
-        let scattered = match self.fuzz {
-            x if x > 0.0 => reflected.add(&random_point_in_unit_sphere().mul_f(self.fuzz)),
-            _            => reflected
-        };
+        let scattered =
+            if self.fuzz == 0.0 {
+                reflected
+            } else {
+                reflected.add(&random_point_in_unit_sphere(rng).mul_f(self.fuzz))
+            };
         if vec3_dot(&scattered, &hit_record.normal) <= 0.0 {
             // TODO: Return None? Or return no reflection component?
             return None;
@@ -155,7 +156,7 @@ fn schlick_reflect_prob (cosine: f32, ref_idx: f32) -> f32 {
 }
 
 impl Material for MatDielectric {
-    fn scatter (&self, ray: &Ray, hit_record: &HitRecord) -> Option<MatRecord> {
+    fn scatter (&self, ray: &Ray, hit_record: &HitRecord, rng: &mut Rng) -> Option<MatRecord> {
         let dot = vec3_dot(&ray.direction, &hit_record.normal);
         let (outward_normal, ni_over_nt, cosine) =
             if dot > 0.0 {

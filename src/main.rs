@@ -18,6 +18,7 @@ use piston::input::*;
 use glutin_window::GlutinWindow as Window;
 use opengl_graphics::{ GlGraphics, GlyphCache, OpenGL, Texture, TextureSettings };
 use image::RgbaImage;
+use rand::{ weak_rng };
 
 mod raytracer;
 
@@ -29,6 +30,7 @@ const SAMPLES_PER_PIXEL: u32 = 100;
 const MAX_REFLECTIONS: u32 = 100;
 const CHUNK_COUNT: u32 = 100;
 const RENDER_THREAD_COUNT: u32 = 4;
+const MAX_REFRESHES_PER_SECOND: u64 = 10;
 
 struct App {
     buffer: RgbaImage,
@@ -114,6 +116,7 @@ enum RenderResult {
 }
 
 fn start_render_thread (work_receiver: Receiver<RenderWork>, result_sender: Sender<RenderResult>) {
+    let mut rng = weak_rng();
     result_sender.send(RenderResult::Ready).expect("Worker ready");
     loop {
         // Receive work
@@ -123,7 +126,7 @@ fn start_render_thread (work_receiver: Receiver<RenderWork>, result_sender: Send
         };
         // Render
         let time = Instant::now();
-        raytracer::cast_rays_into_scene(&mut chunk, &*scene, SAMPLES_PER_PIXEL, MAX_REFLECTIONS);
+        raytracer::cast_rays_into_scene(&mut chunk, &mut rng, &*scene, SAMPLES_PER_PIXEL, MAX_REFLECTIONS);
         let elapsed = time.elapsed();
         // Send result
         let result = RenderResult::WorkCompleted(chunk, elapsed);
@@ -207,7 +210,10 @@ fn main() {
     
     println!("Starting main event loop");
     
-    let mut events = Events::new(EventSettings::new());
+    let mut events =
+        Events::new(EventSettings::new())
+            .max_fps(MAX_REFRESHES_PER_SECOND);
+
     while let Some(e) = events.next(&mut window) {
         if let Some(r) = e.render_args() {
             app.render(&r, &mut gl, &mut font_cache);

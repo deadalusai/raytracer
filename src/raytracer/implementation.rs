@@ -5,7 +5,7 @@ use raytracer::types::{ Vec3, vec3_dot, vec3_cross };
 use raytracer::types::{ Ray };
 use raytracer::viewport::{ ViewChunk };
 
-use rand::{ Rng, thread_rng };
+use rand::{ Rng };
 
 // Materials
 
@@ -26,7 +26,7 @@ pub struct MatRecord {
 }
 
 pub trait Material: Send + Sync {
-    fn scatter (&self, ray: &Ray, hit_record: &HitRecord) -> Option<MatRecord>;
+    fn scatter (&self, ray: &Ray, hit_record: &HitRecord, rng: &mut Rng) -> Option<MatRecord>;
 }
 
 // Hitables
@@ -124,8 +124,7 @@ pub struct Camera {
     lens_radius: f32,
 }
 
-fn random_point_in_unit_disk () -> Vec3 {
-    let mut rng = thread_rng();
+fn random_point_in_unit_disk (rng: &mut Rng) -> Vec3 {
     loop {
         let p = Vec3::new(rng.next_f32(), rng.next_f32(), 0.0).mul_f(2.0).sub(&Vec3::new(1.0, 1.0, 0.0));
         if vec3_dot(&p, &p) < 1.0 {
@@ -156,8 +155,8 @@ impl Camera {
         }
     }
 
-    pub fn get_ray (&self, s: f32, t: f32) -> Ray {
-        let rd = random_point_in_unit_disk().mul_f(self.lens_radius);
+    pub fn get_ray (&self, s: f32, t: f32, rng: &mut Rng) -> Ray {
+        let rd = random_point_in_unit_disk(rng).mul_f(self.lens_radius);
         let offset = self.u.mul_f(rd.x).add(&self.v.mul_f(rd.y));
         let origin = self.origin.add(&offset);
         let direction = self.lower_left_corner.add(&self.horizontal.mul_f(s)).add(&self.vertical.mul_f(t)).sub(&self.origin).sub(&offset);
@@ -184,10 +183,10 @@ fn color_sky (ray: &Ray) -> Vec3 {
 }
 
 /// Determines the color which the given ray resolves to.
-fn cast_ray (ray: &Ray, scene: &Scene, max_reflections: u32) -> Vec3 {
+fn cast_ray (ray: &Ray, scene: &Scene, rng: &mut Rng, max_reflections: u32) -> Vec3 {
 
     // Internal implementation
-    fn cast_ray_recursive (ray: &Ray, scene: &Scene, recurse_limit: u32) -> Vec3 {
+    fn cast_ray_recursive (ray: &Ray, scene: &Scene, rng: &mut Rng, recurse_limit: u32) -> Vec3 {
 
         // Exceeded our reflection limit?
         if recurse_limit == 0 {
@@ -196,7 +195,7 @@ fn cast_ray (ray: &Ray, scene: &Scene, max_reflections: u32) -> Vec3 {
         
         // Hit anything in the scene?
         if let Some(hit_record) = scene.hit_closest(ray, BIAS) {
-            if let Some(mat_record) = hit_record.material.scatter(ray, &hit_record) {
+            if let Some(mat_record) = hit_record.material.scatter(ray, &hit_record, rng) {
 
                 // NOTE: Shadow origin slightly above p along surface normal to avoid "shadow acne"
                 let shadow_origin = hit_record.p.add(&hit_record.normal.mul_f(BIAS));
@@ -243,7 +242,7 @@ fn cast_ray (ray: &Ray, scene: &Scene, max_reflections: u32) -> Vec3 {
                 if let Some(reflect) = mat_record.reflection {
                     if reflect.intensity > 0.0 {
                         color_from_reflection =
-                            cast_ray_recursive(&reflect.ray, scene, reflect_limit)
+                            cast_ray_recursive(&reflect.ray, scene, rng, reflect_limit)
                                 .mul_f(reflect.intensity);
                     }
                 }
@@ -253,7 +252,7 @@ fn cast_ray (ray: &Ray, scene: &Scene, max_reflections: u32) -> Vec3 {
                 if let Some(refract) = mat_record.refraction {
                     if refract.intensity > 0.0 {
                         color_from_refraction =
-                            cast_ray_recursive(&refract.ray, scene, refract_limit)
+                            cast_ray_recursive(&refract.ray, scene, rng, refract_limit)
                                 .mul_f(refract.intensity);
                     }
                 }
@@ -266,15 +265,13 @@ fn cast_ray (ray: &Ray, scene: &Scene, max_reflections: u32) -> Vec3 {
         color_sky(ray)
     }
 
-    cast_ray_recursive(ray, scene, max_reflections).clamp()
+    cast_ray_recursive(ray, scene, rng, max_reflections).clamp()
 }
 
-pub fn cast_rays_into_scene (chunk: &mut ViewChunk, scene: &Scene, samples_per_pixel: u32, max_reflections: u32) {
+pub fn cast_rays_into_scene (chunk: &mut ViewChunk, rng: &mut Rng, scene: &Scene, samples_per_pixel: u32, max_reflections: u32) {
     if samples_per_pixel == 0 {
         panic!("samples_per_pixel cannot be zero");
     }
-
-    let mut rng = thread_rng();
     
     // For each x, y coordinate in this view chunk
     for chunk_y in 0..chunk.height {
@@ -298,8 +295,8 @@ pub fn cast_rays_into_scene (chunk: &mut ViewChunk, scene: &Scene, samples_per_p
                 let v = ((chunk.viewport.height - view_y) as f32 + rand_y) / chunk.viewport.height as f32;
 
                 // Cast a ray, and determine the color
-                let ray = scene.camera.get_ray(u, v);
-                col = col.add(&cast_ray(&ray, &scene, max_reflections));
+                let ray = scene.camera.get_ray(u, v, rng);
+                col = col.add(&cast_ray(&ray, scene, rng, max_reflections));
             }
             // Find the average
             col = col.div_f(samples_per_pixel as f32);
