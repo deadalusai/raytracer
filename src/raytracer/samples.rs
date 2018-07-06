@@ -7,7 +7,15 @@ use raytracer::viewport::{ Viewport };
 use raytracer::lights::{ PointLight, DirectionalLight };
 use raytracer::implementation::{ Scene, Camera, Material };
 
-use rand::{ Rng, thread_rng };
+use rand::{ Rng, StdRng, SeedableRng };
+use sha2::{ Sha256, Digest };
+
+fn create_rng_from_seed (seed_text: &str) -> StdRng {
+    let mut hasher = Sha256::default();
+    hasher.input(seed_text.as_bytes());
+    let bytes: Vec<_> = hasher.result().iter().map(|&b| b as usize).collect();
+    StdRng::from_seed(&bytes)
+}
 
 //
 // Sample scenes
@@ -70,7 +78,7 @@ pub fn random_sphere_scene (viewport: &Viewport) -> Scene {
     let camera = Camera::new(look_from, look_to, fov, aspect_ratio, aperture, dist_to_focus);
 
     // Scene
-    let mut rng = thread_rng();
+    let mut rng = create_rng_from_seed("random sphere scene");
     let mut scene = Scene::new(camera);
 
     // Lights

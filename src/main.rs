@@ -4,6 +4,7 @@ extern crate glutin_window;
 extern crate opengl_graphics;
 extern crate image;
 extern crate rand;
+extern crate sha2;
 
 use std::path::{ Path };
 use std::sync::{ Arc };
