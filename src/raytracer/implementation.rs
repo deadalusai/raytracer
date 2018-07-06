@@ -244,8 +244,7 @@ fn cast_ray (ray: &Ray, scene: &Scene, max_reflections: u32) -> Vec3 {
                     if reflect.intensity > 0.0 {
                         color_from_reflection =
                             cast_ray_recursive(&reflect.ray, scene, reflect_limit)
-                                .mul_f(reflect.intensity)
-                                .mul(&mat_record.albedo);
+                                .mul_f(reflect.intensity);
                     }
                 }
 
@@ -255,12 +254,11 @@ fn cast_ray (ray: &Ray, scene: &Scene, max_reflections: u32) -> Vec3 {
                     if refract.intensity > 0.0 {
                         color_from_refraction =
                             cast_ray_recursive(&refract.ray, scene, refract_limit)
-                                .mul_f(refract.intensity)
-                                .mul(&mat_record.albedo);
+                                .mul_f(refract.intensity);
                     }
                 }
 
-                return color_from_lights.add(&color_from_reflection).add(&color_from_refraction);
+                return color_from_lights.add(&color_from_reflection).add(&color_from_refraction).mul(&mat_record.albedo);
             }
         }
 
