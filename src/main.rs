@@ -30,7 +30,8 @@ const SAMPLES_PER_PIXEL: u32 = 100;
 const MAX_REFLECTIONS: u32 = 100;
 const CHUNK_COUNT: u32 = 100;
 const RENDER_THREAD_COUNT: u32 = 4;
-const MAX_REFRESHES_PER_SECOND: u64 = 10;
+const MAX_FRAMES_PER_SECOND: u64 = 30;
+const UPDATES_PER_SECOND: u64 = 10;
 
 struct App {
     buffer: RgbaImage,
@@ -212,7 +213,8 @@ fn main() {
     
     let mut events =
         Events::new(EventSettings::new())
-            .max_fps(MAX_REFRESHES_PER_SECOND);
+            .max_fps(MAX_FRAMES_PER_SECOND)
+            .ups(UPDATES_PER_SECOND);
 
     while let Some(e) = events.next(&mut window) {
         if let Some(r) = e.render_args() {

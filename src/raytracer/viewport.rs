@@ -22,7 +22,7 @@ impl Viewport {
         let viewport = self.clone();
         (0..v_count)
             .flat_map(move |y| (0..h_count).map(move |x| (x, y)))
-            .filter(|&(x, y)| x == 5 && y == 4)
+            // .filter(|&(x, y)| x == 5 && y == 4)
             .enumerate()
             .map(move |(id, (x, y))| {
                 let top_left_x = x * chunk_width;
