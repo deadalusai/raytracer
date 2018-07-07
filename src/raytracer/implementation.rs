@@ -140,9 +140,9 @@ impl Camera {
         let theta = v_fov * std::f32::consts::PI / 180.0;
         let half_height = (theta / 2.0).tan();
         let half_width = aspect_ratio * half_height;
-        let w = look_from.sub(&look_at).unit_vector();
-        let u = vec3_cross(&v_up, &w).unit_vector();
-        let v = vec3_cross(&w, &u);
+        let w = look_from.sub(&look_at).unit_vector(); // Vector from camera origin to target
+        let u = vec3_cross(&v_up, &w).unit_vector();   // Vector from camera origin to camera right
+        let v = vec3_cross(&w, &u);                    // Vector from camera origin to camera top
         let lens_radius = aperture / 2.0;
         Camera {
             lower_left_corner: look_from.sub(&u.mul_f(half_width * focus_dist)).sub(&v.mul_f(half_height * focus_dist)).sub(&w.mul_f(focus_dist)),
