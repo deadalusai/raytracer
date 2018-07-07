@@ -26,7 +26,7 @@ use raytracer::{ Scene, Viewport, ViewChunk, Rgb };
 
 const WIDTH: u32 = 800;
 const HEIGHT: u32 = 600;
-const SAMPLES_PER_PIXEL: u32 = 100;
+const SAMPLES_PER_PIXEL: u32 = 25;
 const MAX_REFLECTIONS: u32 = 100;
 const CHUNK_COUNT: u32 = 100;
 const RENDER_THREAD_COUNT: u32 = 4;
@@ -182,7 +182,7 @@ fn main() {
     println!("Creating scene");
 
     let viewport = Viewport::new(WIDTH, HEIGHT);
-    let scene = raytracer::samples::random_sphere_scene(&viewport);
+    let scene = raytracer::samples::simple_scene(&viewport);
 
     println!("Creating window");
 

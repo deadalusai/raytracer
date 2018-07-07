@@ -205,24 +205,37 @@ fn cast_ray (ray: &Ray, scene: &Scene, rng: &mut Rng, max_reflections: u32) -> V
 
                 for light in scene.lights.iter() {
                     if let Some(light_record) = light.get_direction_and_intensity(&shadow_origin) {
-                        // Test to see if there is any shape blocking light from this lamp by casting a ray from the shadow back to the light source
-                        // TODO: Allow semi-opaque materials to color and refract (?) light...
-                        let shadow_ray = Ray::new(shadow_origin.clone(), light_record.direction.negate());
-                        let is_shadowed = scene.hit_any(&shadow_ray, BIAS).is_some();
-                        if !is_shadowed {
-                            let light_color =
-                                light_record.color
-                                    .mul_f(light_record.intensity) // Light color + intensity
-                                    .mul(&mat_record.albedo) // Material albedo
-                                    .mul_f(max_f(0.0, vec3_dot(&hit_record.normal, &light_record.direction.negate()))); // Adjust intensity as reflection normal changes
 
-                            color_from_lights = color_from_lights.add(&light_color);
+                        let light_color =
+                            light_record.color
+                                .mul_f(light_record.intensity) // Light color * intensity
+                                .mul(&mat_record.albedo) // Material albedo
+                                .mul_f(max_f(0.0, vec3_dot(&hit_record.normal, &light_record.direction.negate()))); // Adjust intensity as reflection normal changes
+
+                        // Test to see if there is any shape blocking light from this lamp by casting a ray from the shadow back to the light source
+                        let shadow_ray = Ray::new(shadow_origin.clone(), light_record.direction.negate());
+                        match scene.hit_any(&shadow_ray, BIAS) {
+                            // Not shadowed
+                            None => {
+                                // Determine color from lamp directly
+                                color_from_lights = color_from_lights.add(&light_color);
+                            },
+                            // Shadowed
+                            Some(shadow_hit) => {
+                                if let Some(shadow_mat) = shadow_hit.material.scatter(&shadow_ray, &shadow_hit, rng) {
+                                    if let Some(shadow_refraction) = shadow_mat.refraction {
+                                        // Hack: simulate colored shadows by taking the albedo of transparent materials.
+                                        let color_with_albedo = light_color.mul(&shadow_mat.albedo).mul_f(shadow_refraction.intensity);
+                                        color_from_lights = color_from_lights.add(&color_with_albedo);
+                                    }
+                                }
+                            },
                         }
                     }
                 }
 
                 // We may need to recurse more than once, depending on the material we hit.
-                // In this case, split the recursion limit in two to avoid doubling our work.
+                // In this case, split the recursion limit to avoid doubling our work.
                 let (reflect_limit, refract_limit) = {
                     let recurse_limit = recurse_limit - 1;
                     match (&mat_record.reflection, &mat_record.refraction) {
@@ -243,6 +256,7 @@ fn cast_ray (ray: &Ray, scene: &Scene, rng: &mut Rng, max_reflections: u32) -> V
                     if reflect.intensity > 0.0 {
                         color_from_reflection =
                             cast_ray_recursive(&reflect.ray, scene, rng, reflect_limit)
+                                .add(&color_from_lights) // Note: lamp color is mixed in here.
                                 .mul_f(reflect.intensity);
                     }
                 }
@@ -257,7 +271,7 @@ fn cast_ray (ray: &Ray, scene: &Scene, rng: &mut Rng, max_reflections: u32) -> V
                     }
                 }
 
-                return color_from_lights.add(&color_from_reflection).add(&color_from_refraction).mul(&mat_record.albedo);
+                return color_from_reflection.add(&color_from_refraction).mul(&mat_record.albedo);
             }
         }
 

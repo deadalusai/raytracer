@@ -14,19 +14,19 @@ use rand::{ Rng };
 #[derive(Clone)]
 pub struct MatLambertian {
     albedo: Vec3,
-    attenuation: f32,
+    intensity: f32,
 }
 
 impl MatLambertian {
     pub fn with_albedo (albedo: Vec3) -> MatLambertian {
         MatLambertian { 
             albedo: albedo,
-            attenuation: 0.9,
+            intensity: 0.5,
         }
     }
 
-    pub fn with_attenuation (mut self, attenuation: f32) -> MatLambertian {
-        self.attenuation = attenuation;
+    pub fn with_intensity (mut self, intensity: f32) -> MatLambertian {
+        self.intensity = intensity;
         self
     }
 }
@@ -47,10 +47,9 @@ impl Material for MatLambertian {
     fn scatter (&self, _r: &Ray, hit_record: &HitRecord, rng: &mut Rng) -> Option<MatRecord> {
         let target = hit_record.p.add(&hit_record.normal).add(&random_point_in_unit_sphere(rng));
         let direction = target.sub(&hit_record.p);
-        let intensity = 1.0 - self.attenuation;
         let ray = Ray::new(hit_record.p.clone(), direction);
         Some(MatRecord {
-            reflection: Some(Reflect { ray: ray, intensity: intensity }),
+            reflection: Some(Reflect { ray: ray, intensity: self.intensity }),
             refraction: None,
             albedo: self.albedo.clone()
         })
@@ -60,7 +59,7 @@ impl Material for MatLambertian {
 #[derive(Clone)]
 pub struct MatMetal {
     albedo: Vec3,
-    attenuation: f32,
+    reflectiveness: f32,
     fuzz: f32,
 }
 
@@ -68,13 +67,13 @@ impl MatMetal {
     pub fn with_albedo (albedo: Vec3) -> MatMetal {
         MatMetal {
             albedo: albedo,
-            attenuation: 0.01,
+            reflectiveness: 0.99,
             fuzz: 0.0
         }
     }
 
-    pub fn with_attenuation (mut self, attenuation: f32) -> MatMetal {
-        self.attenuation = attenuation;
+    pub fn with_reflectiveness (mut self, reflectiveness: f32) -> MatMetal {
+        self.reflectiveness = reflectiveness;
         self
     }
 
@@ -104,7 +103,7 @@ impl Material for MatMetal {
         }
         let ray = Ray::new(hit_record.p.clone(), scattered);
         Some(MatRecord {
-            reflection: Some(Reflect { ray: ray, intensity: 1.0 - self.attenuation }),
+            reflection: Some(Reflect { ray: ray, intensity: self.reflectiveness }),
             refraction: None,
             albedo: self.albedo.clone()
         })
@@ -114,7 +113,7 @@ impl Material for MatMetal {
 #[derive(Clone)]
 pub struct MatDielectric {
     albedo: Vec3,
-    attenuation: f32,
+    reflectivity: f32,
     ref_index: f32,
 }
 
@@ -122,13 +121,13 @@ impl MatDielectric {
     pub fn with_albedo (albedo: Vec3) -> MatDielectric {
         MatDielectric {
             albedo: albedo,
-            attenuation: 0.0,
+            reflectivity: 1.0,
             ref_index: 1.5,
         }
     }
 
-    pub fn with_attenuation (mut self, attenuation: f32) -> MatDielectric {
-        self.attenuation = attenuation;
+    pub fn with_reflectivity (mut self, reflectivity: f32) -> MatDielectric {
+        self.reflectivity = reflectivity;
         self
     }
 
@@ -174,7 +173,7 @@ impl Material for MatDielectric {
                 let refraction_direction = refract(&ray.direction, &outward_normal, ni_over_nt).unit_vector();
                 let refraction = Refract {
                     ray: Ray::new(hit_record.p.clone(), refraction_direction),
-                    intensity: 1.0 - kr
+                    intensity: (1.0 - kr)
                 };
                 Some(refraction)
             }
@@ -183,7 +182,7 @@ impl Material for MatDielectric {
         let reflection_direction = reflect(&ray.direction, &hit_record.normal).unit_vector();
         let reflection = Reflect {
             ray: Ray::new(hit_record.p.clone(), reflection_direction),
-            intensity: kr
+            intensity: kr * self.reflectivity
         };
         let reflection = Some(reflection);
 

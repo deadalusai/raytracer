@@ -141,7 +141,7 @@ pub fn simple_scene (viewport: &Viewport) -> Scene {
     // Camera
     let look_from = Vec3::new(6.0, 3.0, -1.5);
     let look_to = Vec3::new(0.0, 1.0, 0.0);
-    let fov = 35.0;
+    let fov = 45.0;
     let aspect_ratio = viewport.width as f32 / viewport.height as f32;
     let aperture = 0.1;
     let dist_to_focus = look_from.sub(&look_to).length();
@@ -158,17 +158,27 @@ pub fn simple_scene (viewport: &Viewport) -> Scene {
     scene.add_light(PointLight::with_origin(Vec3::new(0.0, 10.0, -4.0)).with_intensity(20.0));
 
     // World sphere
-    scene.add_obj(Sphere::new(Vec3::new(0.0, -1000.0, 0.0), 1000.0, MatLambertian::with_albedo(make_albedo(0, 179, 45))));
+    let world_mat =
+        MatLambertian::with_albedo(make_albedo(0, 179, 45))
+            .with_intensity(0.1);
+    scene.add_obj(Sphere::new(Vec3::new(0.0, -1000.0, 0.0), 1000.0, world_mat));
 
-    // Mat sphere
-    scene.add_obj(Sphere::new(Vec3::new(2.0, 1.0, -2.0), 1.0, MatLambertian::with_albedo(make_albedo(179, 45, 0))));
+    // Plastic sphere
+    let mat_plastic =
+        MatLambertian::with_albedo(make_albedo(179, 45, 0));
+    scene.add_obj(Sphere::new(Vec3::new(2.0, 1.0, -2.0), 1.0, mat_plastic));
     
     // Glass sphere (hollow)
-    scene.add_obj(Sphere::new(Vec3::new(0.0, 1.0, 0.0),  1.0,   MatDielectric::with_albedo(make_albedo(255, 255, 255))));
-    // scene.add_obj(Sphere::new(Vec3::new(0.0, 1.0, 0.0),  -0.8, MatDielectric::with_albedo(make_albedo(255, 255, 255))));
+    let mat_glass =
+        MatDielectric::with_albedo(make_albedo(255, 255, 255))
+            .with_reflectivity(0.5);
+    scene.add_obj(Sphere::new(Vec3::new(0.0, 1.0, 0.0), 1.0, mat_glass));
+    // scene.add_obj(Sphere::new(Vec3::new(0.0, 1.0, 0.0), -0.8, mat_glass));
 
     // Metal sphere
-    scene.add_obj(Sphere::new(Vec3::new(-2.0, 1.0, 2.0), 1.0, MatMetal::with_albedo(make_albedo(230, 230, 230)).with_fuzz(0.001)));
+    let mat_metal =
+        MatMetal::with_albedo(make_albedo(230, 230, 230)).with_fuzz(0.001);
+    scene.add_obj(Sphere::new(Vec3::new(-2.0, 1.0, 2.0), 1.0, mat_metal));
 
     scene
 }
