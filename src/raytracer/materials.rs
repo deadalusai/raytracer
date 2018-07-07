@@ -7,6 +7,14 @@ pub use raytracer::implementation::{ Material, MatRecord, Reflect, Refract, HitR
 
 use rand::{ Rng };
 
+macro_rules! assert_in_range {
+    ($v:ident) => {
+        if ($v < 0.0 || $v > 1.0) {
+            panic!("{} must be within the range of 0.0 to 1.0", stringify!($v));
+        } 
+    };
+}
+
 //
 // Materials
 //
@@ -26,6 +34,7 @@ impl MatLambertian {
     }
 
     pub fn with_intensity (mut self, intensity: f32) -> MatLambertian {
+        assert_in_range!(intensity);
         self.intensity = intensity;
         self
     }
@@ -73,11 +82,13 @@ impl MatMetal {
     }
 
     pub fn with_reflectiveness (mut self, reflectiveness: f32) -> MatMetal {
+        assert_in_range!(reflectiveness);
         self.reflectiveness = reflectiveness;
         self
     }
 
     pub fn with_fuzz (mut self, fuzz: f32) -> MatMetal {
+        assert_in_range!(fuzz);
         self.fuzz = fuzz;
         self
     }
@@ -114,6 +125,7 @@ impl Material for MatMetal {
 pub struct MatDielectric {
     albedo: Vec3,
     reflectivity: f32,
+    opaqueness: f32,
     ref_index: f32,
 }
 
@@ -122,16 +134,25 @@ impl MatDielectric {
         MatDielectric {
             albedo: albedo,
             reflectivity: 1.0,
+            opaqueness: 0.0,
             ref_index: 1.5,
         }
     }
 
     pub fn with_reflectivity (mut self, reflectivity: f32) -> MatDielectric {
+        assert_in_range!(reflectivity);
         self.reflectivity = reflectivity;
         self
     }
 
+    pub fn with_opaqueness (mut self, opaqueness: f32) -> MatDielectric {
+        assert_in_range!(opaqueness);
+        self.opaqueness = opaqueness;
+        self
+    }
+
     pub fn with_ref_index (mut self, ref_index: f32) -> MatDielectric {
+        assert_in_range!(ref_index);
         self.ref_index = ref_index;
         self
     }
@@ -173,7 +194,7 @@ impl Material for MatDielectric {
                 let refraction_direction = refract(&ray.direction, &outward_normal, ni_over_nt).unit_vector();
                 let refraction = Refract {
                     ray: Ray::new(hit_record.p.clone(), refraction_direction),
-                    intensity: (1.0 - kr)
+                    intensity: (1.0 - kr) * (1.0 - self.opaqueness)
                 };
                 Some(refraction)
             }
