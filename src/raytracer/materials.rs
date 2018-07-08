@@ -53,15 +53,15 @@ fn random_point_in_unit_sphere (rng: &mut Rng) -> Vec3 {
 }
 
 impl Material for MatLambertian {
-    fn scatter (&self, _r: &Ray, hit_record: &HitRecord, rng: &mut Rng) -> Option<MatRecord> {
+    fn scatter (&self, _r: &Ray, hit_record: &HitRecord, rng: &mut Rng) -> MatRecord {
         let target = hit_record.p.add(&hit_record.normal).add(&random_point_in_unit_sphere(rng));
         let direction = target.sub(&hit_record.p);
         let ray = Ray::new(hit_record.p.clone(), direction);
-        Some(MatRecord {
+        MatRecord {
             reflection: Some(Reflect { ray: ray, intensity: self.reflectivity }),
             refraction: None,
             albedo: self.albedo.clone()
-        })
+        }
     }
 }
 
@@ -100,7 +100,7 @@ fn reflect (incident_direction: &Vec3, surface_normal: &Vec3) -> Vec3 {
 }
 
 impl Material for MatMetal {
-    fn scatter (&self, ray: &Ray, hit_record: &HitRecord, rng: &mut Rng) -> Option<MatRecord> {
+    fn scatter (&self, ray: &Ray, hit_record: &HitRecord, rng: &mut Rng) -> MatRecord {
         let reflected = reflect(&ray.direction, &hit_record.normal);
         let scattered =
             if self.fuzz == 0.0 {
@@ -108,16 +108,20 @@ impl Material for MatMetal {
             } else {
                 reflected.add(&random_point_in_unit_sphere(rng).mul_f(self.fuzz))
             };
-        if vec3_dot(&scattered, &hit_record.normal) <= 0.0 {
-            // TODO: Return None? Or return no reflection component?
-            return None;
-        }
-        let ray = Ray::new(hit_record.p.clone(), scattered);
-        Some(MatRecord {
-            reflection: Some(Reflect { ray: ray, intensity: self.reflectiveness }),
+
+        let reflection =
+            if vec3_dot(&scattered, &hit_record.normal) > 0.0 {
+                let ray = Ray::new(hit_record.p.clone(), scattered);
+                Some(Reflect { ray: ray, intensity: self.reflectiveness })
+            } else {
+                None
+            };
+
+        MatRecord {
+            reflection: reflection,
             refraction: None,
             albedo: self.albedo.clone()
-        })
+        }
     }
 }
 
@@ -175,7 +179,7 @@ fn schlick_reflect_prob (cosine: f32, ref_idx: f32) -> f32 {
 }
 
 impl Material for MatDielectric {
-    fn scatter (&self, ray: &Ray, hit_record: &HitRecord, rng: &mut Rng) -> Option<MatRecord> {
+    fn scatter (&self, ray: &Ray, hit_record: &HitRecord, rng: &mut Rng) -> MatRecord {
         let dot = vec3_dot(&ray.direction, &hit_record.normal);
         let (outward_normal, ni_over_nt, cosine) =
             if dot > 0.0 {
@@ -206,10 +210,10 @@ impl Material for MatDielectric {
         };
         let reflection = Some(reflection);
 
-        Some(MatRecord {
+        MatRecord {
             refraction: refraction,
             reflection: reflection,
             albedo: self.albedo.clone()
-        })
+        }
     }
 }

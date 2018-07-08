@@ -154,40 +154,40 @@ pub fn simple_scene (viewport: &Viewport) -> Scene {
     let camera = Camera::new(look_from, look_to, fov, aspect_ratio, aperture, dist_to_focus);
 
     // Scene
-    let mut scene = Scene::new(camera, SceneSky::Night);
+    let mut scene = Scene::new(camera, SceneSky::Black);
 
     // Lights
     // scene.add_light(PointLight::with_origin(Vec3::new(0.0, 10.0, 8.0)).with_color(Vec3::new(1.0, 0.0, 0.0)));
     // scene.add_light(PointLight::with_origin(Vec3::new(0.0, 10.0, -8.0)).with_color(Vec3::new(0.0, 0.0, 1.0)));
     
-    scene.add_light(PointLight::with_origin(Vec3::new(0.0, 10.0, -4.0)).with_intensity(20.0));
+    let light_pos = Vec3::new(0.0, 10.0, -4.0);
+    scene.add_light(PointLight::with_origin(light_pos.clone()).with_intensity(100.0));
 
     // World sphere
-    let world_mat =
-        MatLambertian::with_albedo(make_albedo(0, 179, 45));
-    scene.add_obj(Sphere::new(Vec3::new(0.0, -1000.0, 0.0), 1000.0, world_mat));
+    let world_mat = MatLambertian::with_albedo(make_albedo(255, 255, 255));
+    let world_pos = Vec3::new(0.0, -1000.0, 0.0);
+    scene.add_obj(Sphere::new(world_pos, 1000.0, world_mat));
 
     // Plastic sphere
-    let mat_plastic =
-        MatLambertian::with_albedo(make_albedo(179, 45, 0));
-    scene.add_obj(Sphere::new(Vec3::new(2.0, 1.0, -2.0), 1.0, mat_plastic));
-    
-    // Glass sphere
-    let mat_glass =
-        MatDielectric::with_albedo(make_albedo(0, 0, 150));
-    let p = interpolate_points(Vec3::new(0.0, 1.0, 0.0), Vec3::new(0.0, 10.0, -4.0), 0.2);
-    scene.add_obj(Sphere::new(p, 0.5, mat_glass));
+    let plastic_mat = MatLambertian::with_albedo(make_albedo(179, 45, 0));
+    let plastic_pos = Vec3::new(2.0, 1.0, -2.0);
+    scene.add_obj(Sphere::new(plastic_pos, 1.0, plastic_mat));
 
-    // Glass sphere (hollow)
-    let mat_glass =
-        MatDielectric::with_albedo(make_albedo(150, 0, 0));
-    scene.add_obj(Sphere::new(Vec3::new(0.0, 1.0, 0.0), 1.0, mat_glass));
+    // Glass sphere (large)
+    let glass_mat = MatDielectric::with_albedo(make_albedo(32, 10, 15));
+    let glass_pos = Vec3::new(0.0, 1.0, 0.0);
+    scene.add_obj(Sphere::new(glass_pos.clone(), 1.0, glass_mat));
     // scene.add_obj(Sphere::new(Vec3::new(0.0, 1.0, 0.0), -0.8, mat_glass));
+    
+    // Glass sphere (small)
+    let small_glass_mat = MatDielectric::with_albedo(make_albedo(255, 255, 255)).with_opacity(0.2);
+    let small_glass_pos = interpolate_points(glass_pos, light_pos, 0.2); // Find a point between the lamp and the large glass sphere
+    scene.add_obj(Sphere::new(small_glass_pos, 0.5, small_glass_mat));
 
     // Metal sphere
-    let mat_metal =
-        MatMetal::with_albedo(make_albedo(230, 230, 230)).with_fuzz(0.001);
-    scene.add_obj(Sphere::new(Vec3::new(-2.0, 1.0, 2.0), 1.0, mat_metal));
+    let metal_mat = MatMetal::with_albedo(make_albedo(230, 230, 230)).with_fuzz(0.001);
+    let metal_pos = Vec3::new(-2.0, 1.0, 2.0);
+    scene.add_obj(Sphere::new(metal_pos, 1.0, metal_mat));
 
     scene
 }

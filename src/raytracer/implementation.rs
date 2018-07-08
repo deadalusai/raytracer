@@ -26,7 +26,7 @@ pub struct MatRecord {
 }
 
 pub trait Material: Send + Sync {
-    fn scatter (&self, ray: &Ray, hit_record: &HitRecord, rng: &mut Rng) -> Option<MatRecord>;
+    fn scatter (&self, ray: &Ray, hit_record: &HitRecord, rng: &mut Rng) -> MatRecord;
 }
 
 // Hitables
@@ -56,7 +56,7 @@ pub trait LightSource: Send + Sync {
 
 // Scene
 
-pub enum SceneSky { Day, Night }
+pub enum SceneSky { Day, Black }
 
 pub struct Scene {
     camera: Camera,
@@ -85,15 +85,6 @@ impl Scene {
         where T: LightSource + 'static
     {
         self.lights.push(Box::new(light));
-    }
-
-    fn hit_any (&self, ray: &Ray, t_min: f32) -> Option<HitRecord> {
-        for hitable in self.hitables.iter() {
-            if let Some(record) = hitable.hit(ray, t_min, std::f32::INFINITY) {
-                return Some(record);
-            }
-        }
-        None
     }
 
     fn hit_closest (&self, ray: &Ray, t_min: f32) -> Option<HitRecord> {
@@ -178,7 +169,9 @@ fn max_f (a: f32, b: f32) -> f32 {
     a.max(b)
 }
 
-fn color_sky_night () -> Vec3 {
+// Sky
+
+fn color_sky_black () -> Vec3 {
     Vec3::zero()
 }
 
@@ -193,7 +186,43 @@ fn color_sky_day (ray: &Ray) -> Vec3 {
 fn color_sky (ray: &Ray, scene: &Scene) -> Vec3 {
     match scene.sky {
         SceneSky::Day => color_sky_day(ray),
-        SceneSky::Night => color_sky_night(),
+        SceneSky::Black => color_sky_black(),
+    }
+}
+
+// Lights and shadows
+
+// Casts a ray *back* towards a lamp, testing for possibly shadowing objects
+fn cast_light_ray (hit_point: &Vec3, light_record: &LightRecord, scene: &Scene, rng: &mut Rng) -> Vec3 {
+
+    // Get the inital light value
+    let mut light_color =
+        light_record.color
+            .mul_f(light_record.intensity);
+    
+    // Test to see if there is any shape blocking light from this lamp by casting a ray from the shadow back to the light source
+    let light_ray = Ray::new(hit_point.clone(), light_record.direction.negate());
+                
+    let mut closest_so_far = BIAS;
+
+    // Perform hit tests until we escape
+    loop {
+        if let Some(shadow_hit) = scene.hit_closest(&light_ray, closest_so_far) {
+            let shadow_mat = shadow_hit.material.scatter(&light_ray, &shadow_hit, rng);
+            if let Some(shadow_refraction) = shadow_mat.refraction {
+                // Hit transparent object
+                // Hack: simulate colored shadows by taking the albedo of transparent materials.
+                light_color = light_color.mul(&shadow_mat.albedo.mul_f(shadow_refraction.intensity));
+                closest_so_far = shadow_hit.t;
+                continue;
+            }
+
+            // Hit opaque object (in shadow)
+            return Vec3::zero();
+        }
+
+        // Escaped.
+        return light_color;
     }
 }
 
@@ -210,86 +239,63 @@ fn cast_ray (ray: &Ray, scene: &Scene, rng: &mut Rng, max_reflections: u32) -> V
         
         // Hit anything in the scene?
         if let Some(hit_record) = scene.hit_closest(ray, BIAS) {
-            if let Some(mat_record) = hit_record.material.scatter(ray, &hit_record, rng) {
+            let mat_record = hit_record.material.scatter(ray, &hit_record, rng);
 
-                // NOTE: Shadow origin slightly above p along surface normal to avoid "shadow acne"
-                let shadow_origin = hit_record.p.add(&hit_record.normal.mul_f(BIAS));
+            // NOTE: Move hit point slightly above p along surface normal to avoid "shadow acne"
+            let hit_point = hit_record.p.add(&hit_record.normal.mul_f(BIAS));
 
-                // Determine color from lights in the scene.
-                let mut color_from_lights = Vec3::zero();
+            // Determine color from lights in the scene.
+            let mut color_from_lights = Vec3::zero();
 
-                for light in scene.lights.iter() {
-                    if let Some(light_record) = light.get_direction_and_intensity(&shadow_origin) {
+            for light in scene.lights.iter() {
+                if let Some(light_record) = light.get_direction_and_intensity(&hit_point) {
 
-                        let light_color =
-                            light_record.color
-                                .mul_f(light_record.intensity) // Light color * intensity
-                                .mul(&mat_record.albedo) // Material albedo
-                                .mul_f(max_f(0.0, vec3_dot(&hit_record.normal, &light_record.direction.negate()))); // Adjust intensity as reflection normal changes
+                    let light_color =
+                        cast_light_ray(&hit_point, &light_record, scene, rng)
+                            .mul(&mat_record.albedo) // Material albedo
+                            .mul_f(max_f(0.0, vec3_dot(&hit_record.normal, &light_record.direction.negate()))); // Adjust intensity as reflection normal changes
 
-                        // Test to see if there is any shape blocking light from this lamp by casting a ray from the shadow back to the light source
-                        // TODO:
-                        //  This only takes a shadow from the first object it encounters in the scene.
-                        //  Continue to cast this ray and accumulate shadow color from all objects between the origin and the lamp
-                        let shadow_ray = Ray::new(shadow_origin.clone(), light_record.direction.negate());
-                        match scene.hit_any(&shadow_ray, BIAS) {
-                            // Not shadowed
-                            None => {
-                                // Determine color from lamp directly
-                                color_from_lights = color_from_lights.add(&light_color);
-                            },
-                            // Shadowed
-                            Some(shadow_hit) => {
-                                if let Some(shadow_mat) = shadow_hit.material.scatter(&shadow_ray, &shadow_hit, rng) {
-                                    if let Some(shadow_refraction) = shadow_mat.refraction {
-                                        // Hack: simulate colored shadows by taking the albedo of transparent materials.
-                                        let color_with_albedo = light_color.mul(&shadow_mat.albedo).mul_f(shadow_refraction.intensity);
-                                        color_from_lights = color_from_lights.add(&color_with_albedo);
-                                    }
-                                }
-                            },
-                        }
-                    }
+                    color_from_lights = color_from_lights.add(&light_color);
                 }
-
-                // We may need to recurse more than once, depending on the material we hit.
-                // In this case, split the recursion limit to avoid doubling our work.
-                let (reflect_limit, refract_limit) = {
-                    let recurse_limit = recurse_limit - 1;
-                    match (&mat_record.reflection, &mat_record.refraction) {
-                        (&Some(_), &Some(_)) => {
-                            let reflect_limit = recurse_limit / 4;
-                            let refract_limit = recurse_limit - reflect_limit;
-                            (reflect_limit, refract_limit)
-                        },
-                        (&Some(_), &None) => (recurse_limit, 0),
-                        (&None, &Some(_)) => (0, recurse_limit),
-                        (&None, &None) => panic!("Material has no reflection or refraction?")
-                    }
-                };
-
-                // Determine color from material reflection.
-                let mut color_from_reflection = Vec3::zero();
-                if let Some(reflect) = mat_record.reflection {
-                    if reflect.intensity > 0.0 {
-                        color_from_reflection =
-                            cast_ray_recursive(&reflect.ray, scene, rng, reflect_limit)
-                                .mul_f(reflect.intensity);
-                    }
-                }
-
-                // Determine color from material refraction.
-                let mut color_from_refraction = Vec3::zero();
-                if let Some(refract) = mat_record.refraction {
-                    if refract.intensity > 0.0 {
-                        color_from_refraction =
-                            cast_ray_recursive(&refract.ray, scene, rng, refract_limit)
-                                .mul_f(refract.intensity);
-                    }
-                }
-
-                return color_from_lights.add(&color_from_reflection).add(&color_from_refraction).mul(&mat_record.albedo);
             }
+
+            // We may need to recurse more than once, depending on the material we hit.
+            // In this case, split the recursion limit to avoid doubling our work.
+            let (reflect_limit, refract_limit) = {
+                let recurse_limit = recurse_limit - 1;
+                match (&mat_record.reflection, &mat_record.refraction) {
+                    (&Some(_), &Some(_)) => {
+                        let reflect_limit = recurse_limit / 2;
+                        let refract_limit = recurse_limit - reflect_limit;
+                        (reflect_limit, refract_limit)
+                    },
+                    (&Some(_), &None) => (recurse_limit, 0),
+                    (&None, &Some(_)) => (0, recurse_limit),
+                    (&None, &None)    => (0, 0)
+                }
+            };
+
+            // Determine color from material reflection.
+            let mut color_from_reflection = Vec3::zero();
+            if let Some(reflect) = mat_record.reflection {
+                if reflect.intensity > 0.0 {
+                    color_from_reflection =
+                        cast_ray_recursive(&reflect.ray, scene, rng, reflect_limit)
+                            .mul_f(reflect.intensity);
+                }
+            }
+
+            // Determine color from material refraction.
+            let mut color_from_refraction = Vec3::zero();
+            if let Some(refract) = mat_record.refraction {
+                if refract.intensity > 0.0 {
+                    color_from_refraction =
+                        cast_ray_recursive(&refract.ray, scene, rng, refract_limit)
+                            .mul_f(refract.intensity);
+                }
+            }
+
+            return color_from_lights.add(&color_from_reflection).add(&color_from_refraction).mul(&mat_record.albedo);
         }
 
         // Hit the sky instead
