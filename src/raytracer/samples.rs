@@ -137,6 +137,11 @@ pub fn random_sphere_scene (viewport: &Viewport) -> Scene {
     scene
 }
 
+fn interpolate_points (p1: Vec3, p2: Vec3, d: f32) -> Vec3 {
+    let v_between = p2.sub(&p1).mul_f(d);
+    p1.add(&v_between)
+}
+
 pub fn simple_scene (viewport: &Viewport) -> Scene {
     // Camera
     let look_from = Vec3::new(6.0, 3.0, -1.5);
@@ -167,11 +172,15 @@ pub fn simple_scene (viewport: &Viewport) -> Scene {
         MatLambertian::with_albedo(make_albedo(179, 45, 0));
     scene.add_obj(Sphere::new(Vec3::new(2.0, 1.0, -2.0), 1.0, mat_plastic));
     
+    // Glass sphere
+    let mat_glass =
+        MatDielectric::with_albedo(make_albedo(0, 0, 150));
+    let p = interpolate_points(Vec3::new(0.0, 1.0, 0.0), Vec3::new(0.0, 10.0, -4.0), 0.2);
+    scene.add_obj(Sphere::new(p, 0.5, mat_glass));
+
     // Glass sphere (hollow)
     let mat_glass =
-        MatDielectric::with_albedo(make_albedo(255, 255, 255))
-            .with_reflectivity(1.0)
-            .with_opacity(0.3);
+        MatDielectric::with_albedo(make_albedo(150, 0, 0));
     scene.add_obj(Sphere::new(Vec3::new(0.0, 1.0, 0.0), 1.0, mat_glass));
     // scene.add_obj(Sphere::new(Vec3::new(0.0, 1.0, 0.0), -0.8, mat_glass));
 

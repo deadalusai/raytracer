@@ -228,6 +228,9 @@ fn cast_ray (ray: &Ray, scene: &Scene, rng: &mut Rng, max_reflections: u32) -> V
                                 .mul_f(max_f(0.0, vec3_dot(&hit_record.normal, &light_record.direction.negate()))); // Adjust intensity as reflection normal changes
 
                         // Test to see if there is any shape blocking light from this lamp by casting a ray from the shadow back to the light source
+                        // TODO:
+                        //  This only takes a shadow from the first object it encounters in the scene.
+                        //  Continue to cast this ray and accumulate shadow color from all objects between the origin and the lamp
                         let shadow_ray = Ray::new(shadow_origin.clone(), light_record.direction.negate());
                         match scene.hit_any(&shadow_ray, BIAS) {
                             // Not shadowed
