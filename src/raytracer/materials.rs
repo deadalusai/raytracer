@@ -22,20 +22,20 @@ macro_rules! assert_in_range {
 #[derive(Clone)]
 pub struct MatLambertian {
     albedo: Vec3,
-    intensity: f32,
+    reflectivity: f32,
 }
 
 impl MatLambertian {
     pub fn with_albedo (albedo: Vec3) -> MatLambertian {
         MatLambertian { 
             albedo: albedo,
-            intensity: 0.5,
+            reflectivity: 0.01,
         }
     }
 
-    pub fn with_intensity (mut self, intensity: f32) -> MatLambertian {
-        assert_in_range!(intensity);
-        self.intensity = intensity;
+    pub fn with_reflectivity (mut self, reflectivity: f32) -> MatLambertian {
+        assert_in_range!(reflectivity);
+        self.reflectivity = reflectivity;
         self
     }
 }
@@ -58,7 +58,7 @@ impl Material for MatLambertian {
         let direction = target.sub(&hit_record.p);
         let ray = Ray::new(hit_record.p.clone(), direction);
         Some(MatRecord {
-            reflection: Some(Reflect { ray: ray, intensity: self.intensity }),
+            reflection: Some(Reflect { ray: ray, intensity: self.reflectivity }),
             refraction: None,
             albedo: self.albedo.clone()
         })
@@ -125,7 +125,7 @@ impl Material for MatMetal {
 pub struct MatDielectric {
     albedo: Vec3,
     reflectivity: f32,
-    opaqueness: f32,
+    opacity: f32,
     ref_index: f32,
 }
 
@@ -134,7 +134,7 @@ impl MatDielectric {
         MatDielectric {
             albedo: albedo,
             reflectivity: 1.0,
-            opaqueness: 0.0,
+            opacity: 0.0,
             ref_index: 1.5,
         }
     }
@@ -145,14 +145,13 @@ impl MatDielectric {
         self
     }
 
-    pub fn with_opaqueness (mut self, opaqueness: f32) -> MatDielectric {
-        assert_in_range!(opaqueness);
-        self.opaqueness = opaqueness;
+    pub fn with_opacity (mut self, opacity: f32) -> MatDielectric {
+        assert_in_range!(opacity);
+        self.opacity = opacity;
         self
     }
 
     pub fn with_ref_index (mut self, ref_index: f32) -> MatDielectric {
-        assert_in_range!(ref_index);
         self.ref_index = ref_index;
         self
     }
@@ -194,7 +193,7 @@ impl Material for MatDielectric {
                 let refraction_direction = refract(&ray.direction, &outward_normal, ni_over_nt).unit_vector();
                 let refraction = Refract {
                     ray: Ray::new(hit_record.p.clone(), refraction_direction),
-                    intensity: (1.0 - kr) * (1.0 - self.opaqueness)
+                    intensity: (1.0 - kr) * (1.0 - self.opacity)
                 };
                 Some(refraction)
             }

@@ -5,7 +5,7 @@ use raytracer::materials::{ MatLambertian, MatDielectric, MatMetal };
 use raytracer::shapes::{ Sphere };
 use raytracer::viewport::{ Viewport };
 use raytracer::lights::{ PointLight, DirectionalLight };
-use raytracer::implementation::{ Scene, Camera, Material };
+use raytracer::implementation::{ Scene, SceneSky, Camera, Material };
 
 use rand::{ Rng, StdRng, SeedableRng };
 use sha2::{ Sha256, Digest };
@@ -79,7 +79,7 @@ pub fn random_sphere_scene (viewport: &Viewport) -> Scene {
 
     // Scene
     let mut rng = create_rng_from_seed("random sphere scene");
-    let mut scene = Scene::new(camera);
+    let mut scene = Scene::new(camera, SceneSky::Day);
 
     // Lights
     let lamp_origin = Vec3::new(4.0, 100.0, 4.0);
@@ -149,7 +149,7 @@ pub fn simple_scene (viewport: &Viewport) -> Scene {
     let camera = Camera::new(look_from, look_to, fov, aspect_ratio, aperture, dist_to_focus);
 
     // Scene
-    let mut scene = Scene::new(camera);
+    let mut scene = Scene::new(camera, SceneSky::Night);
 
     // Lights
     // scene.add_light(PointLight::with_origin(Vec3::new(0.0, 10.0, 8.0)).with_color(Vec3::new(1.0, 0.0, 0.0)));
@@ -159,8 +159,7 @@ pub fn simple_scene (viewport: &Viewport) -> Scene {
 
     // World sphere
     let world_mat =
-        MatLambertian::with_albedo(make_albedo(0, 179, 45))
-            .with_intensity(0.1);
+        MatLambertian::with_albedo(make_albedo(0, 179, 45));
     scene.add_obj(Sphere::new(Vec3::new(0.0, -1000.0, 0.0), 1000.0, world_mat));
 
     // Plastic sphere
@@ -171,7 +170,8 @@ pub fn simple_scene (viewport: &Viewport) -> Scene {
     // Glass sphere (hollow)
     let mat_glass =
         MatDielectric::with_albedo(make_albedo(255, 255, 255))
-            .with_reflectivity(0.5);
+            .with_reflectivity(1.0)
+            .with_opacity(0.3);
     scene.add_obj(Sphere::new(Vec3::new(0.0, 1.0, 0.0), 1.0, mat_glass));
     // scene.add_obj(Sphere::new(Vec3::new(0.0, 1.0, 0.0), -0.8, mat_glass));
 

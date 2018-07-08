@@ -56,16 +56,20 @@ pub trait LightSource: Send + Sync {
 
 // Scene
 
+pub enum SceneSky { Day, Night }
+
 pub struct Scene {
     camera: Camera,
+    sky: SceneSky,
     lights: Vec<Box<LightSource>>,
     hitables: Vec<Box<Hitable>>,
 }
 
 impl Scene {
-    pub fn new (camera: Camera) -> Scene {
+    pub fn new (camera: Camera, sky: SceneSky) -> Scene {
         Scene {
             camera: camera,
+            sky: sky,
             lights: vec!(),
             hitables: vec!(),
         }
@@ -174,12 +178,23 @@ fn max_f (a: f32, b: f32) -> f32 {
     a.max(b)
 }
 
-fn color_sky (ray: &Ray) -> Vec3 {
+fn color_sky_night () -> Vec3 {
+    Vec3::zero()
+}
+
+fn color_sky_day (ray: &Ray) -> Vec3 {
     let unit_direction = ray.direction.unit_vector();
     let t = 0.5 * (unit_direction.y + 1.0);
     let white = Vec3::new(1.0, 1.0, 1.0);
     let sky_blue = Vec3::new(0.5, 0.7, 1.0);
     white.mul_f(1.0 - t).add(&sky_blue.mul_f(t))
+}
+
+fn color_sky (ray: &Ray, scene: &Scene) -> Vec3 {
+    match scene.sky {
+        SceneSky::Day => color_sky_day(ray),
+        SceneSky::Night => color_sky_night(),
+    }
 }
 
 /// Determines the color which the given ray resolves to.
@@ -190,7 +205,7 @@ fn cast_ray (ray: &Ray, scene: &Scene, rng: &mut Rng, max_reflections: u32) -> V
 
         // Exceeded our reflection limit?
         if recurse_limit == 0 {
-            return color_sky(ray);
+            return color_sky(ray, scene);
         }
         
         // Hit anything in the scene?
@@ -256,7 +271,6 @@ fn cast_ray (ray: &Ray, scene: &Scene, rng: &mut Rng, max_reflections: u32) -> V
                     if reflect.intensity > 0.0 {
                         color_from_reflection =
                             cast_ray_recursive(&reflect.ray, scene, rng, reflect_limit)
-                                .add(&color_from_lights) // Note: lamp color is mixed in here.
                                 .mul_f(reflect.intensity);
                     }
                 }
@@ -271,12 +285,12 @@ fn cast_ray (ray: &Ray, scene: &Scene, rng: &mut Rng, max_reflections: u32) -> V
                     }
                 }
 
-                return color_from_reflection.add(&color_from_refraction).mul(&mat_record.albedo);
+                return color_from_lights.add(&color_from_reflection).add(&color_from_refraction).mul(&mat_record.albedo);
             }
         }
 
         // Hit the sky instead
-        color_sky(ray)
+        color_sky(ray, scene)
     }
 
     cast_ray_recursive(ray, scene, rng, max_reflections).clamp()
