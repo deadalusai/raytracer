@@ -83,7 +83,7 @@ pub fn random_sphere_scene (viewport: &Viewport) -> Scene {
 
     // Lights
     let lamp_origin = Vec3::new(4.0, 100.0, 4.0);
-    let lamp_direction = Vec3::zero().sub(&lamp_origin);
+    let lamp_direction = Vec3::zero() - lamp_origin;
     scene.add_light(DirectionalLight::with_origin_and_direction(lamp_origin, lamp_direction).with_intensity(0.5));
 
     // World sphere
@@ -118,7 +118,7 @@ pub fn random_sphere_scene (viewport: &Viewport) -> Scene {
             let radius = 0.2;
 
             // Only include the sphere if it's not too close to the three large spheres..
-            if sphere_centers.iter().any(|pos| center.sub(pos).length() < 1.5) {
+            if sphere_centers.iter().any(|&pos| (center - pos).length() < 1.5) {
                 continue;
             }
 
@@ -138,8 +138,8 @@ pub fn random_sphere_scene (viewport: &Viewport) -> Scene {
 }
 
 fn interpolate_points (p1: Vec3, p2: Vec3, d: f32) -> Vec3 {
-    let v_between = p2.sub(&p1).mul_f(d);
-    p1.add(&v_between)
+    let v_between = (p2 - p1) * d;
+    p1 + v_between
 }
 
 pub fn simple_scene (viewport: &Viewport) -> Scene {
@@ -149,7 +149,7 @@ pub fn simple_scene (viewport: &Viewport) -> Scene {
     let fov = 45.0;
     let aspect_ratio = viewport.width as f32 / viewport.height as f32;
     let aperture = 0.1;
-    let dist_to_focus = look_from.sub(&look_to).length();
+    let dist_to_focus = (look_from - look_to).length();
 
     let camera = Camera::new(look_from, look_to, fov, aspect_ratio, aperture, dist_to_focus);
 

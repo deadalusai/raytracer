@@ -32,9 +32,9 @@ impl PointLight {
 }
 
 impl LightSource for PointLight {
-    fn get_direction_and_intensity (&self, p: &Vec3) -> Option<LightRecord> {
+    fn get_direction_and_intensity (&self, p: Vec3) -> Option<LightRecord> {
         // Cast a ray from point p back to the light
-        let direction = p.sub(&self.origin);
+        let direction = p - self.origin;
         // Point light intensity falls off following the inverse square law
         let intensity = self.intensity / (4.0 * std::f32::consts::PI * direction.length());
         Some(LightRecord {
@@ -75,11 +75,11 @@ impl DirectionalLight {
 }
 
 impl LightSource for DirectionalLight {
-    fn get_direction_and_intensity (&self, p: &Vec3) -> Option<LightRecord> {
+    fn get_direction_and_intensity (&self, p: Vec3) -> Option<LightRecord> {
         // Directional lights have the same direction + intensity at all locations in the scene
         Some(LightRecord {
-            direction: self.direction.clone(),
-            color: self.color.clone(),
+            direction: self.direction,
+            color: self.color,
             intensity: self.intensity
         })
     }

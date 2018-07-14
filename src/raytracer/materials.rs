@@ -2,7 +2,7 @@
 
 use std::mem::{ swap };
 
-pub use raytracer::types::{ Vec3, vec3_dot, Ray };
+pub use raytracer::types::{ Vec3, Ray };
 pub use raytracer::implementation::{ Material, MatRecord, Reflect, Refract, HitRecord };
 
 use rand::{ Rng };
@@ -44,7 +44,7 @@ fn random_point_in_unit_sphere (rng: &mut Rng) -> Vec3 {
     let unit = Vec3::new(1.0, 1.0, 1.0);
     loop {
         let random_point = Vec3::new(rng.next_f32(), rng.next_f32(), rng.next_f32());
-        let p = random_point.mul_f(2.0).sub(&unit);
+        let p = random_point * 2.0 - unit;
         // Inside our sphere?
         if p.length_squared() < 1.0 {
             return p;
@@ -54,8 +54,8 @@ fn random_point_in_unit_sphere (rng: &mut Rng) -> Vec3 {
 
 impl Material for MatLambertian {
     fn scatter (&self, _r: &Ray, hit_record: &HitRecord, rng: &mut Rng) -> MatRecord {
-        let target = hit_record.p.add(&hit_record.normal).add(&random_point_in_unit_sphere(rng));
-        let direction = target.sub(&hit_record.p);
+        let target = hit_record.p + hit_record.normal + random_point_in_unit_sphere(rng);
+        let direction = target - hit_record.p;
         let ray = Ray::new(hit_record.p.clone(), direction);
         MatRecord {
             reflection: Some(Reflect { ray: ray, intensity: self.reflectivity }),
@@ -94,24 +94,24 @@ impl MatMetal {
     }
 }
 
-fn reflect (incident_direction: &Vec3, surface_normal: &Vec3) -> Vec3 {
+fn reflect (incident_direction: Vec3, surface_normal: Vec3) -> Vec3 {
     let dir = incident_direction.unit_vector();
-    dir.sub(&surface_normal.mul_f(vec3_dot(&dir, &surface_normal)).mul_f(2.0))
+    dir - (surface_normal * Vec3::dot(dir, surface_normal) * 2.0)
 }
 
 impl Material for MatMetal {
     fn scatter (&self, ray: &Ray, hit_record: &HitRecord, rng: &mut Rng) -> MatRecord {
-        let reflected = reflect(&ray.direction, &hit_record.normal);
+        let reflected = reflect(ray.direction, hit_record.normal);
         let scattered =
             if self.fuzz == 0.0 {
                 reflected
             } else {
-                reflected.add(&random_point_in_unit_sphere(rng).mul_f(self.fuzz))
+                reflected + (random_point_in_unit_sphere(rng) * self.fuzz)
             };
 
         let reflection =
-            if vec3_dot(&scattered, &hit_record.normal) > 0.0 {
-                let ray = Ray::new(hit_record.p.clone(), scattered);
+            if Vec3::dot(scattered, hit_record.normal) > 0.0 {
+                let ray = Ray::new(hit_record.p, scattered);
                 Some(Reflect { ray: ray, intensity: self.reflectiveness })
             } else {
                 None
@@ -161,14 +161,14 @@ impl MatDielectric {
     }
 }
 
-fn refract (v: &Vec3, n: &Vec3, ni_over_nt: f32) -> Vec3 {
+fn refract (v: Vec3, n: Vec3, ni_over_nt: f32) -> Vec3 {
     let uv = v.unit_vector();
-    let dt = vec3_dot(&uv, n);
+    let dt = Vec3::dot(uv, n);
     let discriminant = 1.0 - ni_over_nt * ni_over_nt * (1.0 - dt * dt);
     if discriminant <= 0.0 {
         Vec3::zero()
     } else {
-        uv.sub(&n.mul_f(dt)).mul_f(ni_over_nt).sub(&n.mul_f(discriminant.sqrt()))
+        (uv - (n * dt)) * ni_over_nt - (n * discriminant.sqrt())
     }
 }
 
@@ -180,12 +180,12 @@ fn schlick_reflect_prob (cosine: f32, ref_idx: f32) -> f32 {
 
 impl Material for MatDielectric {
     fn scatter (&self, ray: &Ray, hit_record: &HitRecord, rng: &mut Rng) -> MatRecord {
-        let dot = vec3_dot(&ray.direction, &hit_record.normal);
+        let dot = Vec3::dot(ray.direction, hit_record.normal);
         let (outward_normal, ni_over_nt, cosine) =
             if dot > 0.0 {
-                (hit_record.normal.negate(), self.ref_index, self.ref_index * dot / ray.direction.length())
+                (-hit_record.normal, self.ref_index, self.ref_index * dot / ray.direction.length())
             } else {
-                (hit_record.normal.clone(), 1.0 / self.ref_index, -dot / ray.direction.length())
+                (hit_record.normal, 1.0 / self.ref_index, -dot / ray.direction.length())
             };
 
         let kr = schlick_reflect_prob(cosine, self.ref_index);
@@ -194,7 +194,7 @@ impl Material for MatDielectric {
         let refraction = match kr {
             kr if kr >= 1.0 => None, // Total internal reflection
             _ => {
-                let refraction_direction = refract(&ray.direction, &outward_normal, ni_over_nt).unit_vector();
+                let refraction_direction = refract(ray.direction, outward_normal, ni_over_nt).unit_vector();
                 let refraction = Refract {
                     ray: Ray::new(hit_record.p.clone(), refraction_direction),
                     intensity: (1.0 - kr) * (1.0 - self.opacity)
@@ -203,7 +203,7 @@ impl Material for MatDielectric {
             }
         };
 
-        let reflection_direction = reflect(&ray.direction, &hit_record.normal).unit_vector();
+        let reflection_direction = reflect(ray.direction, hit_record.normal).unit_vector();
         let reflection = Reflect {
             ray: Ray::new(hit_record.p.clone(), reflection_direction),
             intensity: kr * self.reflectivity
