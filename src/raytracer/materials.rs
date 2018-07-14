@@ -3,7 +3,7 @@
 use std::mem::{ swap };
 
 pub use raytracer::types::{ Vec3, Ray };
-pub use raytracer::implementation::{ Material, MatRecord, Reflect, Refract, HitRecord };
+pub use raytracer::implementation::{ Material, MatRecord, Reflect, Refract, HitRecord, random_point_in_unit_sphere };
 
 use rand::{ Rng };
 
@@ -37,18 +37,6 @@ impl MatLambertian {
         assert_in_range!(reflectivity);
         self.reflectivity = reflectivity;
         self
-    }
-}
-
-fn random_point_in_unit_sphere (rng: &mut Rng) -> Vec3 {
-    let unit = Vec3::new(1.0, 1.0, 1.0);
-    loop {
-        let random_point = Vec3::new(rng.next_f32(), rng.next_f32(), rng.next_f32());
-        let p = random_point * 2.0 - unit;
-        // Inside our sphere?
-        if p.length_squared() < 1.0 {
-            return p;
-        }
     }
 }
 

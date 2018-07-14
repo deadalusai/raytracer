@@ -7,6 +7,36 @@ use raytracer::viewport::{ ViewChunk };
 
 use rand::{ Rng };
 
+// Util
+
+const PI: f32 = std::f32::consts::PI;
+const TWO_PI: f32 = 2.0 * PI;
+const HALF_PI: f32 = PI / 2.0;
+
+pub fn random_point_in_unit_sphere (rng: &mut Rng) -> Vec3 {
+    //  Select a random point in a unit sphere using spherical co-ordinates.
+    //  Pick
+    //      - theta with range [0, 2pi)
+    //      - phi with range [-pi/2, pi/2]
+    //      - radius with range [0, 1]
+
+    let theta = rng.next_f32() * TWO_PI;
+    let phi = rng.next_f32() * HALF_PI * 2.0 - HALF_PI;
+    let r = rng.next_f32();
+    
+    let x = r * theta.cos() * phi.cos();
+    let y = r * phi.sin();
+    let z = r * theta.sin() * phi.cos();
+
+    Vec3::new(x, y, z)
+}
+
+pub fn random_point_in_unit_disk (rng: &mut Rng) -> Vec3 {
+    let p = random_point_in_unit_sphere(rng);
+    // Just lose the third co-ordinate.
+    Vec3::new(p.x, p.y, 0.0)
+}
+
 // Materials
 
 pub struct Reflect {
@@ -119,22 +149,11 @@ pub struct Camera {
     lens_radius: f32,
 }
 
-fn random_point_in_unit_disk (rng: &mut Rng) -> Vec3 {
-    let unit = Vec3::new(1.0, 1.0, 0.0);
-    loop {
-        let rand = Vec3::new(rng.next_f32(), rng.next_f32(), 0.0);
-        let p = (rand * 2.0) - unit;
-        if Vec3::dot(p, p) < 1.0 {
-            return p;
-        }
-    }
-}
-
 impl Camera {
     pub fn new (look_from: Vec3, look_at: Vec3, v_fov: f32, aspect_ratio: f32, aperture: f32, focus_dist: f32) -> Camera {
         // NOTE: Hard code v_up as vertical for now
         let v_up = Vec3::new(0.0, 1.0, 0.0);
-        let theta = v_fov * std::f32::consts::PI / 180.0;
+        let theta = v_fov * PI / 180.0;
         let half_height = (theta / 2.0).tan();
         let half_width = aspect_ratio * half_height;
         let w = (look_from - look_at).unit_vector(); // Vector from camera origin to target
