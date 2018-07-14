@@ -31,12 +31,6 @@ pub fn random_point_in_unit_sphere (rng: &mut Rng) -> Vec3 {
     Vec3::new(x, y, z)
 }
 
-pub fn random_point_in_unit_disk (rng: &mut Rng) -> Vec3 {
-    let p = random_point_in_unit_sphere(rng);
-    // Just lose the third co-ordinate.
-    Vec3::new(p.x, p.y, 0.0)
-}
-
 // Materials
 
 pub struct Reflect {
@@ -150,7 +144,7 @@ pub struct Camera {
 }
 
 impl Camera {
-    pub fn new (look_from: Vec3, look_at: Vec3, v_fov: f32, aspect_ratio: f32, aperture: f32, focus_dist: f32) -> Camera {
+    pub fn new (look_from: Vec3, look_at: Vec3, v_fov: f32, aspect_ratio: f32, lens_aperture: f32, focus_dist: f32) -> Camera {
         // NOTE: Hard code v_up as vertical for now
         let v_up = Vec3::new(0.0, 1.0, 0.0);
         let theta = v_fov * PI / 180.0;
@@ -159,7 +153,7 @@ impl Camera {
         let w = (look_from - look_at).unit_vector(); // Vector from camera origin to target
         let u = Vec3::cross(v_up, w).unit_vector();   // Vector from camera origin to camera right
         let v = Vec3::cross(w, u);                    // Vector from camera origin to camera top
-        let lens_radius = aperture / 2.0;
+        let lens_radius = lens_aperture / 2.0;
         Camera {
             lower_left_corner: look_from - (u * half_width * focus_dist) - (v * half_height * focus_dist) - (w * focus_dist),
             horizontal: u * (2.0 * half_width * focus_dist),
@@ -172,8 +166,8 @@ impl Camera {
     }
 
     pub fn get_ray (&self, s: f32, t: f32, rng: &mut Rng) -> Ray {
-        let rd = random_point_in_unit_disk(rng) * self.lens_radius;
-        let offset = (self.u * rd.x) + (self.v * rd.y);
+        let lens_deflection = random_point_in_unit_sphere(rng) * self.lens_radius;
+        let offset = (self.u * lens_deflection.x) + (self.v * lens_deflection.y);
         let origin = self.origin + offset;
         let direction = self.lower_left_corner + (self.horizontal * s) + (self.vertical * t) - self.origin - offset;
         Ray::new(origin, direction)
