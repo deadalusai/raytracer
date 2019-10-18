@@ -157,11 +157,12 @@ pub fn simple_scene (viewport: &Viewport) -> Scene {
     let mut scene = Scene::new(camera, SceneSky::Black);
 
     // Lights
-    // scene.add_light(PointLight::with_origin(Vec3::new(0.0, 10.0, 8.0)).with_color(Vec3::new(1.0, 0.0, 0.0)));
-    // scene.add_light(PointLight::with_origin(Vec3::new(0.0, 10.0, -8.0)).with_color(Vec3::new(0.0, 0.0, 1.0)));
-    
     let light_pos = Vec3::new(0.0, 10.0, -4.0);
-    scene.add_light(PointLight::with_origin(light_pos.clone()).with_intensity(100.0));
+    // scene.add_light(PointLight::with_origin(light_pos.clone()).with_intensity(100.0));
+
+    let lamp_origin = Vec3::new(-30.0, 100.0, 0.0);
+    let lamp_direction = Vec3::zero() - lamp_origin;
+    scene.add_light(DirectionalLight::with_origin_and_direction(lamp_origin, lamp_direction).with_intensity(0.5));
 
     // World sphere
     let world_mat = MatLambertian::with_albedo(make_albedo(255, 255, 255));
@@ -174,13 +175,13 @@ pub fn simple_scene (viewport: &Viewport) -> Scene {
     scene.add_obj(Sphere::new(plastic_pos, 1.0, plastic_mat));
 
     // Glass sphere (large)
-    let glass_mat = MatDielectric::with_albedo(make_albedo(32, 10, 15));
+    let glass_mat = MatDielectric::with_albedo(make_albedo(245, 227, 66));
     let glass_pos = Vec3::new(0.0, 1.0, 0.0);
     scene.add_obj(Sphere::new(glass_pos.clone(), 1.0, glass_mat));
     // scene.add_obj(Sphere::new(Vec3::new(0.0, 1.0, 0.0), -0.8, mat_glass));
     
     // Glass sphere (small)
-    let small_glass_mat = MatDielectric::with_albedo(make_albedo(255, 255, 255)).with_opacity(0.2);
+    let small_glass_mat = MatDielectric::with_albedo(make_albedo(66, 206, 245)).with_opacity(0.4);
     let small_glass_pos = interpolate_points(glass_pos, light_pos, 0.2); // Find a point between the lamp and the large glass sphere
     scene.add_obj(Sphere::new(small_glass_pos, 0.5, small_glass_mat));
 

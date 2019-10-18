@@ -24,14 +24,14 @@ mod raytracer;
 
 use raytracer::{ Scene, Viewport, ViewChunk, Rgb };
 
-const WIDTH: u32 = 800;
-const HEIGHT: u32 = 600;
-const SAMPLES_PER_PIXEL: u32 = 25;
+const WIDTH: u32 = 1440;
+const HEIGHT: u32 = 900;
+const SAMPLES_PER_PIXEL: u32 = 80;
 const MAX_REFLECTIONS: u32 = 100;
-const CHUNK_COUNT: u32 = 100;
-const RENDER_THREAD_COUNT: u32 = 4;
-const MAX_FRAMES_PER_SECOND: u64 = 30;
-const UPDATES_PER_SECOND: u64 = 10;
+const CHUNK_COUNT: u32 = 150;
+const RENDER_THREAD_COUNT: u32 = 8;
+const MAX_FRAMES_PER_SECOND: u64 = 5;
+const UPDATES_PER_SECOND: u64 = 5;
 
 struct App {
     buffer: RgbaImage,
