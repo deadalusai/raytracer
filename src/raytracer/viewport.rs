@@ -22,7 +22,6 @@ impl Viewport {
         let viewport = self.clone();
         (0..v_count)
             .flat_map(move |y| (0..h_count).map(move |x| (x, y)))
-            // .filter(|&(x, y)| x == 5 && y == 4)
             .enumerate()
             .map(move |(id, (x, y))| {
                 let top_left_x = x * chunk_width;
@@ -30,7 +29,7 @@ impl Viewport {
                 ViewChunk {
                     id: id as u32,
                     viewport: viewport.clone(),
-                    chunk_top_left: (top_left_x, top_left_y),
+                    top_left: (top_left_x, top_left_y),
                     width: chunk_width,
                     height: chunk_height,
                     data: vec!(Rgb::new(0, 0, 0); chunk_width as usize * chunk_height as usize)
@@ -46,7 +45,7 @@ pub struct ViewChunk {
     pub width: u32,
     pub height: u32,
     
-    chunk_top_left: (u32, u32),
+    top_left: (u32, u32),
     data: Vec<Rgb>,
 }
 
@@ -66,8 +65,8 @@ impl ViewChunk {
     /// Gets a pixel using view-relative co-ordinates
     pub fn get_view_relative_coords (&self, chunk_x: u32, chunk_y: u32) -> (u32, u32) {
         // Convert to chunk-relative coords
-        let view_x = self.chunk_top_left.0 + chunk_x;
-        let view_y = self.chunk_top_left.1 + chunk_y;
+        let view_x = self.top_left.0 + chunk_x;
+        let view_y = self.top_left.1 + chunk_y;
         (view_x, view_y)
     }
 }

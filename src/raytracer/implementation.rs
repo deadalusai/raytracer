@@ -151,8 +151,8 @@ impl Camera {
         let half_height = (theta / 2.0).tan();
         let half_width = aspect_ratio * half_height;
         let w = (look_from - look_at).unit_vector(); // Vector from camera origin to target
-        let u = Vec3::cross(v_up, w).unit_vector();   // Vector from camera origin to camera right
-        let v = Vec3::cross(w, u);                    // Vector from camera origin to camera top
+        let u = Vec3::cross(v_up, w).unit_vector();  // Vector from camera origin to camera right
+        let v = Vec3::cross(w, u);                   // Vector from camera origin to camera top
         let lens_radius = lens_aperture / 2.0;
         Camera {
             lower_left_corner: look_from - (u * half_width * focus_dist) - (v * half_height * focus_dist) - (w * focus_dist),
@@ -216,7 +216,7 @@ fn cast_light_ray (hit_point: Vec3, light_record: &LightRecord, scene: &Scene, r
     // Test to see if there is any shape blocking light from this lamp by casting a ray from the shadow back to the light source
     let light_ray = Ray::new(hit_point, -light_record.direction);
                 
-    let mut closest_so_far = BIAS;
+    let mut closest_so_far = 0.0;
 
     // Perform hit tests until we escape
     loop {
@@ -229,11 +229,9 @@ fn cast_light_ray (hit_point: Vec3, light_record: &LightRecord, scene: &Scene, r
                 closest_so_far = shadow_hit.t;
                 continue;
             }
-
             // Hit opaque object (in shadow)
             return Vec3::zero();
         }
-
         // Escaped.
         return light_color;
     }
@@ -324,7 +322,6 @@ pub fn cast_rays_into_scene (chunk: &mut ViewChunk, rng: &mut Rng, scene: &Scene
         for chunk_x in 0..chunk.width {
             // Convert to view-relative coordinates
             let (view_x, view_y) = chunk.get_view_relative_coords(chunk_x, chunk_y);
-            
             // Implement anti-aliasing by taking the average color of random rays cast around these x, y coordinates.
             let mut col = Vec3::new(0.0, 0.0, 0.0);
             for _ in 0..samples_per_pixel {
@@ -333,20 +330,17 @@ pub fn cast_rays_into_scene (chunk: &mut ViewChunk, rng: &mut Rng, scene: &Scene
                     1 => (0.0, 0.0),
                     _ => (rng.next_f32(), rng.next_f32())
                 };
-
                 // NOTE:
                 // View coordinates are from upper left corner, but World coordinates are from lower left corner. 
                 // Need to convert coordinate systems with (height - y)
                 let u = (view_x as f32 + rand_x) / chunk.viewport.width as f32;
                 let v = ((chunk.viewport.height - view_y) as f32 + rand_y) / chunk.viewport.height as f32;
-
                 // Cast a ray, and determine the color
                 let ray = scene.camera.get_ray(u, v, rng);
                 col = col + cast_ray(&ray, scene, rng, max_reflections);
             }
             // Find the average
             col = col / samples_per_pixel as f32;
-
             chunk.set_chunk_pixel(chunk_x, chunk_y, Rgb::from_vec3(&col));
         }
     }

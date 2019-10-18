@@ -146,8 +146,8 @@ struct RenderThread {
     total_chunks_rendered: u32,
 }
 
-fn start_background_render_threads () -> Vec<RenderThread>  {
-    (0..RENDER_THREAD_COUNT)
+fn start_background_render_threads(render_thread_count: u32) -> Vec<RenderThread>  {
+    (0..render_thread_count)
         .map(move |id| {
             let (work_sender, work_receiver) = channel::<RenderWork>();
             let (result_sender, result_receiver) = channel::<RenderResult>();
@@ -206,7 +206,7 @@ fn main() {
         buffer: RgbaImage::new(WIDTH, HEIGHT),
         scene: Arc::new(scene),
         pending_chunks: make_chunks_list(&viewport, CHUNK_COUNT),
-        threads: start_background_render_threads(),
+        threads: start_background_render_threads(RENDER_THREAD_COUNT),
     };
     
     println!("Starting main event loop");
