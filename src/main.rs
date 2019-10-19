@@ -180,12 +180,10 @@ fn main() {
     let opengl = OpenGL::V3_2;
 
     println!("Creating scene");
-
     let viewport = Viewport::new(WIDTH, HEIGHT);
     let scene = raytracer::samples::simple_scene(&viewport);
 
     println!("Creating window");
-
     let mut window: Window =
         WindowSettings::new("raytracer", [WIDTH, HEIGHT])
             .opengl(opengl)
@@ -194,13 +192,11 @@ fn main() {
             .unwrap();
 
     println!("Preparing graphics");
-    
     let font_path = Path::new("fonts/FiraSans-Regular.ttf");
     let mut font_cache = GlyphCache::new(font_path, (), TextureSettings::new()).expect("Loading font");
     let mut gl = GlGraphics::new(opengl);
     
     println!("Starting render threads");
-
     // Create a new game and run it.
     let mut app = App {
         buffer: RgbaImage::new(WIDTH, HEIGHT),
@@ -210,7 +206,6 @@ fn main() {
     };
     
     println!("Starting main event loop");
-    
     let mut events =
         Events::new(EventSettings::new())
             .max_fps(MAX_FRAMES_PER_SECOND)
@@ -220,21 +215,18 @@ fn main() {
         if let Some(r) = e.render_args() {
             app.render(&r, &mut gl, &mut font_cache);
         }
-
         if let Some(u) = e.update_args() {
             app.update(&u);
         }
     }
 
-    println!("Writing rendered image to disk");
-    
-    app.buffer.save("test.png").unwrap();
-
     println!("Waiting for render threads to terminate");
-
     for thread in app.threads {
         drop(thread.sender);
         drop(thread.receiver);
         thread.handle.join().unwrap();
     }
+
+    println!("Writing rendered image to disk");
+    app.buffer.save("test.png").unwrap();
 }
