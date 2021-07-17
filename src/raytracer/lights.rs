@@ -2,25 +2,25 @@
 
 use std;
 
-use raytracer::types::{ Vec3 };
+use raytracer::types::{ V3 };
 use raytracer::implementation::{ LightRecord, LightSource };
 
 pub struct PointLight {
-    origin: Vec3,
-    color: Vec3,
+    origin: V3,
+    color: V3,
     intensity: f32,
 }
 
 impl PointLight {
-    pub fn with_origin (origin: Vec3) -> PointLight {
+    pub fn with_origin (origin: V3) -> PointLight {
         PointLight {
             origin: origin,
-            color: Vec3::new(1.0, 1.0, 1.0),
+            color: V3(1.0, 1.0, 1.0),
             intensity: 100.0,
         }
     }
 
-    pub fn with_color (mut self, color: Vec3) -> PointLight {
+    pub fn with_color (mut self, color: V3) -> PointLight {
         self.color = color;
         self
     }
@@ -32,7 +32,7 @@ impl PointLight {
 }
 
 impl LightSource for PointLight {
-    fn get_direction_and_intensity (&self, p: Vec3) -> Option<LightRecord> {
+    fn get_direction_and_intensity (&self, p: V3) -> Option<LightRecord> {
         // Cast a ray from point p back to the light
         let direction = p - self.origin;
         // Point light intensity falls off following the inverse square law
@@ -47,23 +47,23 @@ impl LightSource for PointLight {
 
 
 pub struct DirectionalLight {
-    origin: Vec3,
-    direction: Vec3,
-    color: Vec3,
+    origin: V3,
+    direction: V3,
+    color: V3,
     intensity: f32,
 }
 
 impl DirectionalLight {
-    pub fn with_origin_and_direction (origin: Vec3, direction: Vec3) -> DirectionalLight {
+    pub fn with_origin_and_direction (origin: V3, direction: V3) -> DirectionalLight {
         DirectionalLight {
             origin: origin,
             direction: direction.unit_vector(),
-            color: Vec3::new(1.0, 1.0, 1.0),
+            color: V3(1.0, 1.0, 1.0),
             intensity: 1.0,
         }
     }
 
-    pub fn with_color (mut self, color: Vec3) -> DirectionalLight {
+    pub fn with_color (mut self, color: V3) -> DirectionalLight {
         self.color = color;
         self
     }
@@ -75,7 +75,7 @@ impl DirectionalLight {
 }
 
 impl LightSource for DirectionalLight {
-    fn get_direction_and_intensity (&self, p: Vec3) -> Option<LightRecord> {
+    fn get_direction_and_intensity (&self, p: V3) -> Option<LightRecord> {
         // Directional lights have the same direction + intensity at all locations in the scene
         Some(LightRecord {
             direction: self.direction,

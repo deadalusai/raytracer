@@ -1,5 +1,5 @@
 
-pub use raytracer::types::{ Vec3, Ray };
+pub use raytracer::types::{ V3, Ray };
 pub use raytracer::implementation::{ Material, MatRecord, Hitable, HitRecord };
 
 //
@@ -7,13 +7,13 @@ pub use raytracer::implementation::{ Material, MatRecord, Hitable, HitRecord };
 //
 
 pub struct Sphere {
-    center: Vec3,
+    center: V3,
     radius: f32,
     material: Box<dyn Material>,
 }
 
 impl Sphere {
-    pub fn new<M> (center: Vec3, radius: f32, material: M) -> Sphere
+    pub fn new<M> (center: V3, radius: f32, material: M) -> Sphere
         where M: Material + 'static
     {
         Sphere { center: center, radius: radius, material: Box::new(material) }
@@ -23,9 +23,9 @@ impl Sphere {
 impl Hitable for Sphere {
     fn hit<'a> (&'a self, ray: &Ray, t_min: f32, t_max: f32) -> Option<HitRecord<'a>> {
         let oc = ray.origin - self.center;
-        let a = Vec3::dot(ray.direction, ray.direction);
-        let b = Vec3::dot(oc, ray.direction);
-        let c = Vec3::dot(oc, oc) - self.radius * self.radius;
+        let a = V3::dot(ray.direction, ray.direction);
+        let b = V3::dot(oc, ray.direction);
+        let c = V3::dot(oc, oc) - self.radius * self.radius;
         let discriminant = b * b - a * c;
         if discriminant > 0.0 {
             let t = (-b - discriminant.sqrt()) / a;

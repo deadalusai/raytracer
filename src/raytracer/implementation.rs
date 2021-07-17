@@ -1,7 +1,7 @@
 use std;
 
 use raytracer::types::{ Rgb, rgb_from_vec3 };
-use raytracer::types::{ Vec3 };
+use raytracer::types::{ V3 };
 use raytracer::types::{ Ray };
 use raytracer::viewport::{ Viewport };
 
@@ -13,7 +13,7 @@ const PI: f32 = std::f32::consts::PI;
 const TWO_PI: f32 = 2.0 * PI;
 const HALF_PI: f32 = PI / 2.0;
 
-pub fn random_point_in_unit_sphere(rng: &mut dyn Rng) -> Vec3 {
+pub fn random_point_in_unit_sphere(rng: &mut dyn Rng) -> V3 {
     //  Select a random point in a unit sphere using spherical co-ordinates.
     //  Pick
     //      - theta with range [0, 2pi)
@@ -28,7 +28,7 @@ pub fn random_point_in_unit_sphere(rng: &mut dyn Rng) -> Vec3 {
     let y = r * phi.sin();
     let z = r * theta.sin() * phi.cos();
 
-    Vec3::new(x, y, z)
+    V3(x, y, z)
 }
 
 // Materials
@@ -46,7 +46,7 @@ pub struct Refract {
 pub struct MatRecord {
     pub reflection: Option<Reflect>,
     pub refraction: Option<Refract>,
-    pub albedo: Vec3,
+    pub albedo: V3,
 }
 
 pub trait Material: Send + Sync {
@@ -57,8 +57,8 @@ pub trait Material: Send + Sync {
 
 pub struct HitRecord<'mat> {
     pub t: f32,
-    pub p: Vec3,
-    pub normal: Vec3,
+    pub p: V3,
+    pub normal: V3,
     pub material: &'mat dyn Material,
 }
 
@@ -69,18 +69,22 @@ pub trait Hitable: Send + Sync {
 // Light sources
 
 pub struct LightRecord {
-    pub direction: Vec3,
-    pub color: Vec3,
+    pub direction: V3,
+    pub color: V3,
     pub intensity: f32,
 }
 
 pub trait LightSource: Send + Sync {
-    fn get_direction_and_intensity (&self, p: Vec3) -> Option<LightRecord>;
+    fn get_direction_and_intensity (&self, p: V3) -> Option<LightRecord>;
 }
 
 // Scene
 
-pub enum SceneSky { Day, Black }
+pub enum SceneSky { 
+    Day,
+    #[allow(unused)]
+    Black
+}
 
 pub struct Scene {
     camera: Camera,
@@ -139,25 +143,25 @@ impl Scene {
 //   Z-axis goes towards the camera (negative into the screen)
 
 pub struct Camera {
-    lower_left_corner: Vec3,
-    horizontal: Vec3,
-    vertical: Vec3,
-    origin: Vec3,
-    u: Vec3,
-    v: Vec3,
+    lower_left_corner: V3,
+    horizontal: V3,
+    vertical: V3,
+    origin: V3,
+    u: V3,
+    v: V3,
     lens_radius: f32,
 }
 
 impl Camera {
-    pub fn new (look_from: Vec3, look_at: Vec3, v_fov: f32, aspect_ratio: f32, lens_aperture: f32, focus_dist: f32) -> Camera {
+    pub fn new (look_from: V3, look_at: V3, v_fov: f32, aspect_ratio: f32, lens_aperture: f32, focus_dist: f32) -> Camera {
         // NOTE: Hard code v_up as vertical for now
-        let v_up = Vec3::new(0.0, 1.0, 0.0);
+        let v_up = V3(0.0, 1.0, 0.0);
         let theta = v_fov * PI / 180.0;
         let half_height = (theta / 2.0).tan();
         let half_width = aspect_ratio * half_height;
         let w = (look_from - look_at).unit_vector(); // Vector from camera origin to target
-        let u = Vec3::cross(v_up, w).unit_vector();  // Vector from camera origin to camera right
-        let v = Vec3::cross(w, u);                   // Vector from camera origin to camera top
+        let u = V3::cross(v_up, w).unit_vector();  // Vector from camera origin to camera right
+        let v = V3::cross(w, u);                   // Vector from camera origin to camera top
         let lens_radius = lens_aperture / 2.0;
         Camera {
             lower_left_corner: look_from - (u * half_width * focus_dist) - (v * half_height * focus_dist) - (w * focus_dist),
@@ -171,8 +175,10 @@ impl Camera {
     }
 
     pub fn get_ray (&self, s: f32, t: f32, rng: &mut dyn Rng) -> Ray {
+        // Randomize the origin point of the ray.
+        // By casting multiple rays for the same pixel in this way we can simulate camera focus.
         let lens_deflection = random_point_in_unit_sphere(rng) * self.lens_radius;
-        let offset = (self.u * lens_deflection.x) + (self.v * lens_deflection.y);
+        let offset = (self.u * lens_deflection.x()) + (self.v * lens_deflection.y());
         let origin = self.origin + offset;
         let direction = self.lower_left_corner + (self.horizontal * s) + (self.vertical * t) - self.origin - offset;
         Ray::new(origin, direction)
@@ -191,19 +197,19 @@ fn max_f (a: f32, b: f32) -> f32 {
 
 // Sky
 
-fn color_sky_black () -> Vec3 {
-    Vec3::zero()
+fn color_sky_black () -> V3 {
+    V3::zero()
 }
 
-fn color_sky_day (ray: &Ray) -> Vec3 {
+fn color_sky_day (ray: &Ray) -> V3 {
     let unit_direction = ray.direction.unit_vector();
-    let t = 0.5 * (unit_direction.y + 1.0);
-    let white = Vec3::new(1.0, 1.0, 1.0);
-    let sky_blue = Vec3::new(0.5, 0.7, 1.0);
+    let t = 0.5 * (unit_direction.y() + 1.0);
+    let white = V3(1.0, 1.0, 1.0);
+    let sky_blue = V3(0.5, 0.7, 1.0);
     white * (1.0 - t) + (sky_blue * t)
 }
 
-fn color_sky (ray: &Ray, scene: &Scene) -> Vec3 {
+fn color_sky (ray: &Ray, scene: &Scene) -> V3 {
     match scene.sky {
         SceneSky::Day => color_sky_day(ray),
         SceneSky::Black => color_sky_black(),
@@ -213,7 +219,7 @@ fn color_sky (ray: &Ray, scene: &Scene) -> Vec3 {
 // Lights and shadows
 
 // Casts a ray *back* towards a lamp, testing for possibly shadowing objects
-fn cast_light_ray (hit_point: Vec3, light_record: &LightRecord, scene: &Scene, rng: &mut dyn Rng) -> Vec3 {
+fn cast_light_ray (hit_point: V3, light_record: &LightRecord, scene: &Scene, rng: &mut dyn Rng) -> V3 {
 
     // Get the inital light value
     let mut light_color = light_record.color * light_record.intensity;
@@ -235,7 +241,7 @@ fn cast_light_ray (hit_point: Vec3, light_record: &LightRecord, scene: &Scene, r
                 continue;
             }
             // Hit opaque object (in shadow)
-            return Vec3::zero();
+            return V3::zero();
         }
         // Escaped.
         return light_color;
@@ -243,10 +249,10 @@ fn cast_light_ray (hit_point: Vec3, light_record: &LightRecord, scene: &Scene, r
 }
 
 /// Determines the color which the given ray resolves to.
-fn cast_ray (ray: &Ray, scene: &Scene, rng: &mut dyn Rng, max_reflections: u32) -> Vec3 {
+fn cast_ray (ray: &Ray, scene: &Scene, rng: &mut dyn Rng, max_reflections: u32) -> V3 {
 
     // Internal implementation
-    fn cast_ray_recursive (ray: &Ray, scene: &Scene, rng: &mut dyn Rng, recurse_limit: u32) -> Vec3 {
+    fn cast_ray_recursive (ray: &Ray, scene: &Scene, rng: &mut dyn Rng, recurse_limit: u32) -> V3 {
 
         // Exceeded our reflection limit?
         if recurse_limit == 0 {
@@ -261,7 +267,7 @@ fn cast_ray (ray: &Ray, scene: &Scene, rng: &mut dyn Rng, max_reflections: u32) 
             let hit_point = hit_record.p + (hit_record.normal * BIAS);
 
             // Determine color from lights in the scene.
-            let mut color_from_lights = Vec3::zero();
+            let mut color_from_lights = V3::zero();
 
             for light in scene.lights.iter() {
                 if let Some(light_record) = light.get_direction_and_intensity(hit_point) {
@@ -269,7 +275,7 @@ fn cast_ray (ray: &Ray, scene: &Scene, rng: &mut dyn Rng, max_reflections: u32) 
                     let light_color =
                         cast_light_ray(hit_point, &light_record, scene, rng)
                             * mat_record.albedo // Material albedo
-                            * max_f(0.0, Vec3::dot(hit_record.normal, -light_record.direction)); // Adjust intensity as reflection normal changes
+                            * max_f(0.0, V3::dot(hit_record.normal, -light_record.direction)); // Adjust intensity as reflection normal changes
 
                     color_from_lights = color_from_lights + light_color;
                 }
@@ -292,7 +298,7 @@ fn cast_ray (ray: &Ray, scene: &Scene, rng: &mut dyn Rng, max_reflections: u32) 
             };
 
             // Determine color from material reflection.
-            let mut color_from_reflection = Vec3::zero();
+            let mut color_from_reflection = V3::zero();
             if let Some(reflect) = mat_record.reflection {
                 if reflect.intensity > 0.0 {
                     color_from_reflection = cast_ray_recursive(&reflect.ray, scene, rng, reflect_limit) * reflect.intensity;
@@ -300,7 +306,7 @@ fn cast_ray (ray: &Ray, scene: &Scene, rng: &mut dyn Rng, max_reflections: u32) 
             }
 
             // Determine color from material refraction.
-            let mut color_from_refraction = Vec3::zero();
+            let mut color_from_refraction = V3::zero();
             if let Some(refract) = mat_record.refraction {
                 if refract.intensity > 0.0 {
                     color_from_refraction = cast_ray_recursive(&refract.ray, scene, rng, refract_limit) * refract.intensity;
@@ -319,7 +325,7 @@ fn cast_ray (ray: &Ray, scene: &Scene, rng: &mut dyn Rng, max_reflections: u32) 
 
 pub fn cast_ray_into_scene(settings: &RenderSettings, scene: &Scene, viewport: &Viewport, x: u32, y: u32, rng: &mut dyn Rng) -> Rgb {
     // Implement anti-aliasing by taking the average color of random rays cast around these x, y coordinates.
-    let mut col = Vec3::new(0.0, 0.0, 0.0);
+    let mut col = V3(0.0, 0.0, 0.0);
     for _ in 0..settings.samples_per_pixel {
         // When taking more than one sample (for anti-aliasing), randomize the x, y coordinates a little
         let (rand_x, rand_y) = match settings.samples_per_pixel {

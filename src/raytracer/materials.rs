@@ -2,7 +2,7 @@
 
 use std::mem::{ swap };
 
-pub use raytracer::types::{ Vec3, Ray };
+pub use raytracer::types::{ V3, Ray };
 pub use raytracer::implementation::{ Material, MatRecord, Reflect, Refract, HitRecord, random_point_in_unit_sphere };
 
 use rand::{ Rng };
@@ -21,12 +21,12 @@ macro_rules! assert_in_range {
 
 #[derive(Clone)]
 pub struct MatLambertian {
-    albedo: Vec3,
+    albedo: V3,
     reflectivity: f32,
 }
 
 impl MatLambertian {
-    pub fn with_albedo (albedo: Vec3) -> MatLambertian {
+    pub fn with_albedo (albedo: V3) -> MatLambertian {
         MatLambertian { 
             albedo: albedo,
             reflectivity: 0.01,
@@ -55,13 +55,13 @@ impl Material for MatLambertian {
 
 #[derive(Clone)]
 pub struct MatMetal {
-    albedo: Vec3,
+    albedo: V3,
     reflectiveness: f32,
     fuzz: f32,
 }
 
 impl MatMetal {
-    pub fn with_albedo (albedo: Vec3) -> MatMetal {
+    pub fn with_albedo (albedo: V3) -> MatMetal {
         MatMetal {
             albedo: albedo,
             reflectiveness: 0.99,
@@ -82,9 +82,9 @@ impl MatMetal {
     }
 }
 
-fn reflect (incident_direction: Vec3, surface_normal: Vec3) -> Vec3 {
+fn reflect (incident_direction: V3, surface_normal: V3) -> V3 {
     let dir = incident_direction.unit_vector();
-    dir - (surface_normal * Vec3::dot(dir, surface_normal) * 2.0)
+    dir - (surface_normal * V3::dot(dir, surface_normal) * 2.0)
 }
 
 impl Material for MatMetal {
@@ -98,7 +98,7 @@ impl Material for MatMetal {
             };
 
         let reflection =
-            if Vec3::dot(scattered, hit_record.normal) > 0.0 {
+            if V3::dot(scattered, hit_record.normal) > 0.0 {
                 let ray = Ray::new(hit_record.p, scattered);
                 Some(Reflect { ray: ray, intensity: self.reflectiveness })
             } else {
@@ -115,14 +115,14 @@ impl Material for MatMetal {
 
 #[derive(Clone)]
 pub struct MatDielectric {
-    albedo: Vec3,
+    albedo: V3,
     reflectivity: f32,
     opacity: f32,
     ref_index: f32,
 }
 
 impl MatDielectric {
-    pub fn with_albedo (albedo: Vec3) -> MatDielectric {
+    pub fn with_albedo (albedo: V3) -> MatDielectric {
         MatDielectric {
             albedo: albedo,
             reflectivity: 1.0,
@@ -149,12 +149,12 @@ impl MatDielectric {
     }
 }
 
-fn refract (v: Vec3, n: Vec3, ni_over_nt: f32) -> Vec3 {
+fn refract (v: V3, n: V3, ni_over_nt: f32) -> V3 {
     let uv = v.unit_vector();
-    let dt = Vec3::dot(uv, n);
+    let dt = V3::dot(uv, n);
     let discriminant = 1.0 - ni_over_nt * ni_over_nt * (1.0 - dt * dt);
     if discriminant <= 0.0 {
-        Vec3::zero()
+        V3::zero()
     } else {
         (uv - (n * dt)) * ni_over_nt - (n * discriminant.sqrt())
     }
@@ -168,7 +168,7 @@ fn schlick_reflect_prob (cosine: f32, ref_idx: f32) -> f32 {
 
 impl Material for MatDielectric {
     fn scatter (&self, ray: &Ray, hit_record: &HitRecord, rng: &mut dyn Rng) -> MatRecord {
-        let dot = Vec3::dot(ray.direction, hit_record.normal);
+        let dot = V3::dot(ray.direction, hit_record.normal);
         let (outward_normal, ni_over_nt, cosine) =
             if dot > 0.0 {
                 (-hit_record.normal, self.ref_index, self.ref_index * dot / ray.direction.length())
