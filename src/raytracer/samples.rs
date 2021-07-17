@@ -8,12 +8,9 @@ use raytracer::lights::{ PointLight, DirectionalLight };
 use raytracer::implementation::{ Scene, SceneSky, Camera, Material };
 
 use rand::{ Rng, StdRng, SeedableRng };
-use sha2::{ Sha256, Digest };
 
 fn create_rng_from_seed (seed_text: &str) -> StdRng {
-    let mut hasher = Sha256::default();
-    hasher.input(seed_text.as_bytes());
-    let bytes: Vec<_> = hasher.result().iter().map(|&b| b as usize).collect();
+    let bytes: Vec<_> = seed_text.bytes().map(|b| b as usize).collect();
     StdRng::from_seed(&bytes)
 }
 
