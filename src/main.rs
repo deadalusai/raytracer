@@ -9,7 +9,7 @@ extern crate sha2;
 use std::borrow::Borrow;
 use std::path::{ Path };
 use std::sync::{ Arc };
-use std::sync::mpsc::{ channel, Sender, Receiver };
+use std::sync::mpsc::{ channel, Sender, Receiver, SendError };
 use std::thread::{ spawn, JoinHandle };
 use std::time::{ Instant, Duration };
 
@@ -27,10 +27,10 @@ use raytracer::{ Scene, RenderSettings, ViewChunk, Viewport, Rgb, RgbOutput };
 
 const WIDTH: u32 = 1440;
 const HEIGHT: u32 = 900;
-const SAMPLES_PER_PIXEL: u32 = 1000;
-const MAX_REFLECTIONS: u32 = 100;
+const SAMPLES_PER_PIXEL: u32 = 5;
+const MAX_REFLECTIONS: u32 = 25;
 const RENDER_THREAD_COUNT: u32 = 6;
-const CHUNK_COUNT: u32 = 24;
+const CHUNK_COUNT: u32 = 6;
 const MAX_FRAMES_PER_SECOND: u64 = 5;
 const UPDATES_PER_SECOND: u64 = 5;
 
@@ -89,26 +89,23 @@ impl App {
 
         // Poll each thread for completed work
         for thread in &mut self.threads {
-            if let Ok(result) = thread.receiver.try_recv() {
-                if let WorkCompleted(chunk, rgb, elapsed) = result {
-                    // Render chunk to buffer
-                    copy_chunk_to_buffer(&mut self.buffer, &chunk, &rgb);
-                    // Update stats
-                    thread.total_time_secs += elapsed.as_secs() as f64 + elapsed.subsec_nanos() as f64 * 1e-9;
-                    thread.total_chunks_rendered += 1;
+            while let Ok(result) = thread.receiver.try_recv() {
+                match result {
+                    Frame(chunk, buf) => {
+                        // Render chunk to buffer
+                        copy_chunk_to_buffer(&mut self.buffer, &chunk, &buf);
+                        continue;
+                    },
+                    Ready => {}, // Worker thread ready to go.
+                    Done(elapsed) => {
+                        // Update stats
+                        thread.total_time_secs += elapsed.as_secs() as f64 + elapsed.subsec_nanos() as f64 * 1e-9;
+                        thread.total_chunks_rendered += 1;
+                    },
                 }
                 // Send new work
                 if let Some(chunk) = self.pending_chunks.pop() {
-                    // Hack - paint in-progress chunks green
-                    let mut chunk_buffer = RgbaImage::new(chunk.width, chunk.height);
-                    for y in 0..chunk.height {
-                        for x in 0..chunk.width {
-                            chunk_buffer.set_pixel(x, y, [0, 150, 0]);
-                        }
-                    }
-                    copy_chunk_to_buffer(&mut self.buffer, &chunk, &chunk_buffer);
-
-                    let work = RenderWork(chunk, chunk_buffer, self.render_args.clone());
+                    let work = RenderWork(chunk, self.render_args.clone());
                     thread.sender.send(work).expect("Sending work");
                 }
             }
@@ -126,33 +123,38 @@ fn copy_chunk_to_buffer(buffer: &mut RgbaImage, chunk: &ViewChunk, chunk_buffer:
     }
 }
 
-struct RenderWork (ViewChunk, RgbaImage, Arc<(Scene, RenderSettings)>);
+struct RenderWork (ViewChunk, Arc<(Scene, RenderSettings)>);
 
 enum RenderResult {
     Ready,
-    WorkCompleted(ViewChunk, RgbaImage, Duration)
+    Frame(ViewChunk, RgbaImage),
+    Done(Duration),
 }
 
-fn start_render_thread(work_receiver: Receiver<RenderWork>, result_sender: Sender<RenderResult>) {
+fn start_render_thread(work_receiver: Receiver<RenderWork>, result_sender: Sender<RenderResult>) -> Result<(), SendError<RenderResult>> {
+    use RenderResult::*;
     let mut rng = weak_rng();
-    result_sender.send(RenderResult::Ready).expect("Worker ready");
-    loop {
-        // Receive work
-        let RenderWork (chunk, mut rgb, args) = match work_receiver.recv() {
-            Err(_) => break,
-            Ok(work) => work
-        };
-        // Render
+    result_sender.send(Ready)?;
+    // Receive work
+    while let Ok(RenderWork(chunk, args)) = work_receiver.recv() {
+        // Paint in-progress chunks green
+        let mut buf = RgbaImage::new(chunk.width, chunk.height);
+        for y in 0..chunk.height {
+            for x in 0..chunk.width {
+                buf.set_pixel(x, y, [0, 150, 0]);
+            }
+        }
+        result_sender.send(Frame(chunk.clone(), buf.clone()))?;
+        // Render the scene chunk
         let (scene, render_settings) = args.borrow();
         let time = Instant::now();
-        raytracer::cast_rays_into_scene(scene, render_settings, &chunk, &mut rgb, &mut rng);
+        raytracer::cast_rays_into_scene(scene, render_settings, &chunk, &mut buf, &mut rng);
         let elapsed = time.elapsed();
-        // Send result
-        let result = RenderResult::WorkCompleted(chunk, rgb, elapsed);
-        if let Err(_) = result_sender.send(result) {
-            break;
-        }
+        // Send results
+        result_sender.send(Frame(chunk.clone(), buf))?;
+        result_sender.send(Done(elapsed))?;
     }
+    Ok(())
 }
 
 struct RenderThread {
@@ -169,7 +171,11 @@ fn start_background_render_threads(render_thread_count: u32) -> Vec<RenderThread
         .map(move |id| {
             let (work_sender, work_receiver) = channel::<RenderWork>();
             let (result_sender, result_receiver) = channel::<RenderResult>();
-            let handle = spawn(move || start_render_thread(work_receiver, result_sender));
+            let handle = spawn(move || {
+                if let Err(e) = start_render_thread(work_receiver, result_sender) {
+                    println!("Worker thread terminated with error '{}'", e);
+                }
+            });
             RenderThread {
                 id: id,
                 handle: handle,

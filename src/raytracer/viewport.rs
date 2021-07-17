@@ -37,6 +37,7 @@ impl Viewport {
     }
 }
 
+#[derive(Clone)]
 pub struct ViewChunk {
     pub id: u32,
     pub viewport: Viewport,
