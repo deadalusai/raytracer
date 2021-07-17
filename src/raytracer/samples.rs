@@ -220,7 +220,7 @@ pub fn simple_scene(viewport: &Viewport, camera_aperture: f32) -> Scene {
     // Lights
     let lamp_pos = position!(Up(10.0), East(4.0));
     let lamp_direction = WORLD_ORIGIN - lamp_pos;
-    scene.add_light(LampLight::with_origin_and_direction(lamp_pos, lamp_direction).with_intensity(0.5).with_angle(20.0));
+    scene.add_light(LampLight::with_origin_and_direction(lamp_pos, lamp_direction).with_intensity(8.0).with_angle(20.0));
 
     // let directional_origin = position!(Up(100.0), North(30.0));
     // let directional_direction = WORLD_ORIGIN - directional_origin;

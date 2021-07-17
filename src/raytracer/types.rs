@@ -165,15 +165,3 @@ impl Ray {
         self.origin + (self.direction * t)
     }
 }
-
-//
-// Rgb
-//
-
-pub type Rgb = [u8; 3];
-
-pub fn rgb_from_vec3(v: &V3) -> Rgb {
-    [(255.0 * v.0.sqrt()) as u8,
-     (255.0 * v.1.sqrt()) as u8,
-     (255.0 * v.2.sqrt()) as u8]
-}

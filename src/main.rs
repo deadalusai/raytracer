@@ -24,7 +24,7 @@ use multiqueue::{ mpmc_queue, MPMCReceiver, MPMCSender };
 
 mod raytracer;
 
-use raytracer::{ Scene, RenderSettings, ViewChunk, Viewport, Rgb };
+use raytracer::{ Scene, RenderSettings, ViewChunk, Viewport };
 
 const WIDTH: u32 = 1440;
 const HEIGHT: u32 = 900;
@@ -175,7 +175,7 @@ fn start_render_thread(work_receiver: &MPMCReceiver<RenderWork>, result_sender: 
         // Paint in-progress chunks green
         let mut buf = RgbaImage::new(chunk.width, chunk.height);
         for p in chunk.iter_pixels() {
-            write_pixel(&mut buf, p.chunk_x, p.chunk_y, [0, 150, 0]);
+            write_pixel_color(&mut buf, p.chunk_x, p.chunk_y, raytracer::V3(0.0, 0.58, 0.0));
         }
         result_sender.send(Frame(chunk.clone(), Arc::new(buf.clone())))?;
         // Render the scene chunk
@@ -184,8 +184,8 @@ fn start_render_thread(work_receiver: &MPMCReceiver<RenderWork>, result_sender: 
         // For each x, y coordinate in this view chunk, cast a ray.
         for p in chunk.iter_pixels() {
             // Convert to view-relative coordinates
-            let pixel = raytracer::cast_ray_into_scene(render_settings, scene, &chunk.viewport, p.viewport_x, p.viewport_y, &mut rng);
-            write_pixel(&mut buf, p.chunk_x, p.chunk_y, pixel);
+            let color = raytracer::cast_ray_into_scene(render_settings, scene, &chunk.viewport, p.viewport_x, p.viewport_y, &mut rng);
+            write_pixel_color(&mut buf, p.chunk_x, p.chunk_y, color);
         }
         let elapsed = time.elapsed();
         // Send final frame and results
@@ -196,12 +196,14 @@ fn start_render_thread(work_receiver: &MPMCReceiver<RenderWork>, result_sender: 
 }
 
 // Wtite a generic "RGB" value to an OpenGL image
-fn write_pixel(buf: &mut RgbaImage, x: u32, y: u32, value: Rgb) {
+fn write_pixel_color(buf: &mut RgbaImage, x: u32, y: u32, color: raytracer::V3) {
+    // Convert from RGB in sRGB color space to linear color space
+    let color = graphics::color::gamma_srgb_to_linear([color.0, color.1, color.2, 1.0]);
     let p = buf.get_pixel_mut(x, y);
-    p[0] = value[0];
-    p[1] = value[1];
-    p[2] = value[2];
-    p[3] = 255; // Alpha
+    p[0] = (255.0 * color[0].sqrt()) as u8;
+    p[1] = (255.0 * color[1].sqrt()) as u8;
+    p[2] = (255.0 * color[2].sqrt()) as u8;
+    p[3] = (255.0 * color[3].sqrt()) as u8;
 }
 
 struct RenderThread {

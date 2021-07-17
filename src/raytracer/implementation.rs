@@ -1,6 +1,5 @@
 use std;
 
-use raytracer::types::{ Rgb, rgb_from_vec3 };
 use raytracer::types::{ V3 };
 use raytracer::types::{ Ray };
 use raytracer::viewport::{ Viewport };
@@ -323,7 +322,7 @@ fn cast_ray (ray: &Ray, scene: &Scene, rng: &mut dyn Rng, max_reflections: u32) 
     cast_ray_recursive(ray, scene, rng, max_reflections).clamp()
 }
 
-pub fn cast_ray_into_scene(settings: &RenderSettings, scene: &Scene, viewport: &Viewport, x: u32, y: u32, rng: &mut dyn Rng) -> Rgb {
+pub fn cast_ray_into_scene(settings: &RenderSettings, scene: &Scene, viewport: &Viewport, x: u32, y: u32, rng: &mut dyn Rng) -> V3 {
     // Implement anti-aliasing by taking the average color of random rays cast around these x, y coordinates.
     let mut col = V3(0.0, 0.0, 0.0);
     for _ in 0..settings.samples_per_pixel {
@@ -343,5 +342,5 @@ pub fn cast_ray_into_scene(settings: &RenderSettings, scene: &Scene, viewport: &
     }
     // Find the average
     col = col / settings.samples_per_pixel as f32;
-    rgb_from_vec3(&col)
+    col // RGB color in the range 0.0 - 1.0
 }
