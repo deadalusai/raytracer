@@ -23,11 +23,11 @@ use rand::{ weak_rng };
 
 mod raytracer;
 
-use raytracer::{ Scene, RenderSettings, ViewChunk, Viewport, Rgb, RgbOutput };
+use raytracer::{ Scene, RenderSettings, ViewChunk, Viewport, Rgb };
 
 const WIDTH: u32 = 1440;
 const HEIGHT: u32 = 900;
-const SAMPLES_PER_PIXEL: u32 = 5;
+const SAMPLES_PER_PIXEL: u32 = 40;
 const MAX_REFLECTIONS: u32 = 25;
 const RENDER_THREAD_COUNT: u32 = 6;
 const CHUNK_COUNT: u32 = 6;
@@ -40,17 +40,6 @@ struct App {
     render_args: Arc<(Scene, RenderSettings)>,
     pending_chunks: Vec<ViewChunk>,
     threads: Vec<RenderThread>,
-}
-
-// Adapt our generic "RGB" interface to Rust-Graphics' OpenGL implementation.
-impl RgbOutput for RgbaImage {
-    fn set_pixel(&mut self, x: u32, y: u32, value: Rgb) {
-        let p = self.get_pixel_mut(x, y);
-        p[0] = value[0];
-        p[1] = value[1];
-        p[2] = value[2];
-        p[3] = 255; // Alpha
-    }
 }
 
 impl App {
@@ -87,6 +76,8 @@ impl App {
     fn update(&mut self, _args: &UpdateArgs) {
         use RenderResult::*;
 
+        let mut received_frame = false;
+
         // Poll each thread for completed work
         for thread in &mut self.threads {
             while let Ok(result) = thread.receiver.try_recv() {
@@ -94,6 +85,7 @@ impl App {
                     Frame(chunk, buf) => {
                         // Render chunk to buffer
                         copy_chunk_to_buffer(&mut self.buffer, &chunk, &buf);
+                        received_frame = true;
                         continue;
                     },
                     Ready => {}, // Worker thread ready to go.
@@ -111,7 +103,9 @@ impl App {
             }
         }
 
-        self.texture.update(&self.buffer);
+        if received_frame {
+            self.texture.update(&self.buffer);
+        }
     }
 }
 
@@ -139,22 +133,34 @@ fn start_render_thread(work_receiver: Receiver<RenderWork>, result_sender: Sende
     while let Ok(RenderWork(chunk, args)) = work_receiver.recv() {
         // Paint in-progress chunks green
         let mut buf = RgbaImage::new(chunk.width, chunk.height);
-        for y in 0..chunk.height {
-            for x in 0..chunk.width {
-                buf.set_pixel(x, y, [0, 150, 0]);
-            }
+        for p in chunk.iter_pixels() {
+            write_pixel(&mut buf, p.chunk_x, p.chunk_y, [0, 150, 0]);
         }
         result_sender.send(Frame(chunk.clone(), buf.clone()))?;
         // Render the scene chunk
         let (scene, render_settings) = args.borrow();
         let time = Instant::now();
-        raytracer::cast_rays_into_scene(scene, render_settings, &chunk, &mut buf, &mut rng);
+        // For each x, y coordinate in this view chunk, cast a ray.
+        for p in chunk.iter_pixels() {
+            // Convert to view-relative coordinates
+            let pixel = raytracer::cast_ray_into_scene(render_settings, scene, &chunk.viewport, p.viewport_x, p.viewport_y, &mut rng);
+            write_pixel(&mut buf, p.chunk_x, p.chunk_y, pixel);
+        }
         let elapsed = time.elapsed();
-        // Send results
+        // Send final frame and results
         result_sender.send(Frame(chunk.clone(), buf))?;
         result_sender.send(Done(elapsed))?;
     }
     Ok(())
+}
+
+// Wtite a generic "RGB" value to an OpenGL image
+fn write_pixel(buf: &mut RgbaImage, x: u32, y: u32, value: Rgb) {
+    let p = buf.get_pixel_mut(x, y);
+    p[0] = value[0];
+    p[1] = value[1];
+    p[2] = value[2];
+    p[3] = 255; // Alpha
 }
 
 struct RenderThread {

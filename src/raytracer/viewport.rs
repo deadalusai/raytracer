@@ -46,3 +46,24 @@ pub struct ViewChunk {
     pub width: u32,
     pub height: u32,
 }
+
+pub struct ViewChunkCoords {
+    pub chunk_x: u32,
+    pub chunk_y: u32,
+    pub viewport_x: u32,
+    pub viewport_y: u32,
+}
+
+impl ViewChunk {
+    //  Iterates over pixel positions within the chunk
+    pub fn iter_pixels<'a>(&'a self) -> impl Iterator<Item=ViewChunkCoords> + 'a {
+        (0..self.height)
+            .flat_map(move |y| (0..self.width)
+                .map(move |x| ViewChunkCoords {
+                    chunk_x: x,
+                    chunk_y: y,
+                    viewport_x: self.left + x,
+                    viewport_y: self.top + y
+                }))
+    }
+}

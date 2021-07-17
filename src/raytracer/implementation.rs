@@ -3,7 +3,7 @@ use std;
 use raytracer::types::{ Rgb, rgb_from_vec3 };
 use raytracer::types::{ Vec3 };
 use raytracer::types::{ Ray };
-use raytracer::viewport::{ ViewChunk };
+use raytracer::viewport::{ Viewport };
 
 use rand::{ Rng };
 
@@ -317,42 +317,25 @@ fn cast_ray (ray: &Ray, scene: &Scene, rng: &mut dyn Rng, max_reflections: u32) 
     cast_ray_recursive(ray, scene, rng, max_reflections).clamp()
 }
 
-pub trait RgbOutput {
-    fn set_pixel(&mut self, x: u32, y: u32, value: Rgb);
-}
-
-/// Gets a pixel using chunk-relative co-ordinates
-pub fn get_scene_relative_coords(chunk: &ViewChunk, x: u32, y: u32) -> (u32, u32) {
-    // Convert to scene-relative coords
-    (chunk.left + x, chunk.top + y)
-}
-
-pub fn cast_rays_into_scene(scene: &Scene, settings: &RenderSettings, chunk: &ViewChunk, output: &mut impl RgbOutput, rng: &mut dyn Rng) {
-    // For each x, y coordinate in this view chunk
-    for y in 0..chunk.height {
-        for x in 0..chunk.width {
-            // Convert to view-relative coordinates
-            let (scene_x, scene_y) = get_scene_relative_coords(chunk, x, y);
-            // Implement anti-aliasing by taking the average color of random rays cast around these x, y coordinates.
-            let mut col = Vec3::new(0.0, 0.0, 0.0);
-            for _ in 0..settings.samples_per_pixel {
-                // When taking more than one sample (for anti-aliasing), randomize the x, y coordinates a little
-                let (rand_x, rand_y) = match settings.samples_per_pixel {
-                    1 => (0.0, 0.0),
-                    _ => (rng.next_f32(), rng.next_f32())
-                };
-                // NOTE:
-                // View coordinates are from upper left corner, but World coordinates are from lower left corner. 
-                // Need to convert coordinate systems with (height - y)
-                let u = (scene_x as f32 + rand_x) / chunk.viewport.width as f32;
-                let v = ((chunk.viewport.height - scene_y) as f32 + rand_y) / chunk.viewport.height as f32;
-                // Cast a ray, and determine the color
-                let ray = scene.camera.get_ray(u, v, rng);
-                col = col + cast_ray(&ray, scene, rng, settings.max_reflections);
-            }
-            // Find the average
-            col = col / settings.samples_per_pixel as f32;
-            output.set_pixel(x, y, rgb_from_vec3(&col));
-        }
+pub fn cast_ray_into_scene(settings: &RenderSettings, scene: &Scene, viewport: &Viewport, x: u32, y: u32, rng: &mut dyn Rng) -> Rgb {
+    // Implement anti-aliasing by taking the average color of random rays cast around these x, y coordinates.
+    let mut col = Vec3::new(0.0, 0.0, 0.0);
+    for _ in 0..settings.samples_per_pixel {
+        // When taking more than one sample (for anti-aliasing), randomize the x, y coordinates a little
+        let (rand_x, rand_y) = match settings.samples_per_pixel {
+            1 => (0.0, 0.0),
+            _ => (rng.next_f32(), rng.next_f32())
+        };
+        // NOTE:
+        // View coordinates are from upper left corner, but World coordinates are from lower left corner. 
+        // Need to convert coordinate systems with (height - y)
+        let u = (x as f32 + rand_x) / viewport.width as f32;
+        let v = ((viewport.height - y) as f32 + rand_y) / viewport.height as f32;
+        // Cast a ray, and determine the color
+        let ray = scene.camera.get_ray(u, v, rng);
+        col = col + cast_ray(&ray, scene, rng, settings.max_reflections);
     }
+    // Find the average
+    col = col / settings.samples_per_pixel as f32;
+    rgb_from_vec3(&col)
 }
