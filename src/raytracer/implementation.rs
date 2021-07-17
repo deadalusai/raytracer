@@ -159,7 +159,7 @@ impl Camera {
         let theta = v_fov * PI / 180.0;
         let half_height = (theta / 2.0).tan();
         let half_width = aspect_ratio * half_height;
-        let w = (look_from - look_at).unit_vector(); // Vector from camera origin to target
+        let w = (look_from - look_at).unit_vector(); // Vector from target to camera origin 
         let u = V3::cross(v_up, w).unit_vector();  // Vector from camera origin to camera right
         let v = V3::cross(w, u);                   // Vector from camera origin to camera top
         let lens_radius = lens_aperture / 2.0;

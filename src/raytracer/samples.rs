@@ -4,7 +4,7 @@ use raytracer::types::{ V3, Ray };
 use raytracer::materials::{ MatLambertian, MatDielectric, MatMetal };
 use raytracer::shapes::{ Sphere };
 use raytracer::viewport::{ Viewport };
-use raytracer::lights::{ PointLight, DirectionalLight };
+use raytracer::lights::{ PointLight, DirectionalLight, LampLight };
 use raytracer::implementation::{ Scene, SceneSky, Camera, Material };
 
 use rand::{ Rng, StdRng, SeedableRng };
@@ -141,7 +141,7 @@ pub fn random_sphere_scene(viewport: &Viewport, camera_aperture: f32) -> Scene {
 
     // Lights
     let lamp_origin = V3(4.0, 100.0, 4.0);
-    let lamp_direction = V3::zero() - lamp_origin;
+    let lamp_direction = WORLD_ORIGIN - lamp_origin;
     scene.add_light(DirectionalLight::with_origin_and_direction(lamp_origin, lamp_direction).with_intensity(0.5));
 
     // World sphere
@@ -218,12 +218,13 @@ pub fn simple_scene(viewport: &Viewport, camera_aperture: f32) -> Scene {
     let mut scene = Scene::new(camera, SceneSky::Black);
 
     // Lights
-    let light_pos = position!(Up(10.0), East(4.0));
-    // scene.add_light(PointLight::with_origin(light_pos.clone()).with_intensity(100.0));
+    let lamp_pos = position!(Up(10.0), East(4.0));
+    let lamp_direction = WORLD_ORIGIN - lamp_pos;
+    scene.add_light(LampLight::with_origin_and_direction(lamp_pos, lamp_direction).with_intensity(0.5).with_angle(20.0));
 
-    let lamp_origin = position!(Up(100.0), North(30.0));
-    let lamp_direction = WORLD_ORIGIN - lamp_origin;
-    scene.add_light(DirectionalLight::with_origin_and_direction(lamp_origin, lamp_direction).with_intensity(0.5));
+    // let directional_origin = position!(Up(100.0), North(30.0));
+    // let directional_direction = WORLD_ORIGIN - directional_origin;
+    // scene.add_light(DirectionalLight::with_origin_and_direction(directional_origin, directional_direction).with_intensity(0.5));
 
     add_cardinal_markers(&mut scene);
 
@@ -244,7 +245,7 @@ pub fn simple_scene(viewport: &Viewport, camera_aperture: f32) -> Scene {
     
     // Glass sphere (small)
     let small_glass_mat = MatDielectric::with_albedo(rgb(66, 206, 245)).with_opacity(0.4);
-    let small_glass_pos = lerp_v3(glass_pos, light_pos, 0.2); // Find a point between the lamp and the large glass sphere
+    let small_glass_pos = lerp_v3(glass_pos, lamp_pos, 0.2); // Find a point between the lamp and the large glass sphere
     scene.add_obj(Sphere::new(small_glass_pos, 0.5, small_glass_mat));
 
     // Metal sphere

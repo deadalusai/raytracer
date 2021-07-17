@@ -1,6 +1,7 @@
 #![allow(unused)]
 
 use std;
+use std::f32::consts::PI;
 
 use raytracer::types::{ V3 };
 use raytracer::implementation::{ LightRecord, LightSource };
@@ -32,7 +33,7 @@ impl PointLight {
 }
 
 impl LightSource for PointLight {
-    fn get_direction_and_intensity (&self, p: V3) -> Option<LightRecord> {
+    fn get_direction_and_intensity(&self, p: V3) -> Option<LightRecord> {
         // Cast a ray from point p back to the light
         let direction = p - self.origin;
         // Point light intensity falls off following the inverse square law
@@ -40,6 +41,65 @@ impl LightSource for PointLight {
         Some(LightRecord {
             direction: direction.unit_vector(),
             color: self.color.clone(),
+            intensity: intensity
+        })
+    }
+}
+
+
+pub struct LampLight {
+    origin: V3,
+    direction: V3,
+    color: V3,
+    intensity: f32,
+    angle_deg: f32,
+}
+
+impl LampLight {
+    pub fn with_origin_and_direction(origin: V3, direction: V3) -> LampLight {
+        LampLight {
+            origin: origin,
+            direction: direction.unit_vector(),
+            color: V3(1.0, 1.0, 1.0),
+            intensity: 1.0,
+            angle_deg: 45.0,
+        }
+    }
+
+    pub fn with_color(mut self, color: V3) -> LampLight {
+        self.color = color;
+        self
+    }
+
+    pub fn with_intensity(mut self, intensity: f32) -> LampLight {
+        self.intensity = intensity;
+        self
+    }
+
+    pub fn with_angle(mut self, angle_deg: f32) -> LampLight {
+        self.angle_deg = angle_deg;
+        self
+    }
+}
+
+impl LightSource for LampLight {
+    fn get_direction_and_intensity(&self, p: V3) -> Option<LightRecord> {
+        // Cast a ray from the light back to point p
+        let direction_to_p = p - self.origin;
+        let direction_of_lamp = self.direction;
+        // Calculate the angle between this lamp's direction and that vector
+        //      theta_rad = acos((a . b) / (|a| * |b|))
+        let theta = (V3::dot(direction_to_p, direction_of_lamp) / (direction_to_p.length() * direction_of_lamp.length())).acos();
+        let theta_deg = theta / PI * 180.0;
+        // Does the ray fall outside the cone of light?
+        if theta_deg > self.angle_deg {
+            return None;
+        }
+        // Point light intensity falls off following the inverse square law
+        let intensity = self.intensity / (4.0 * std::f32::consts::PI * direction_to_p.length());
+        Some(LightRecord {
+            direction: direction_to_p,
+            color: self.color,
             intensity: intensity
         })
     }
@@ -75,7 +135,7 @@ impl DirectionalLight {
 }
 
 impl LightSource for DirectionalLight {
-    fn get_direction_and_intensity (&self, p: V3) -> Option<LightRecord> {
+    fn get_direction_and_intensity(&self, p: V3) -> Option<LightRecord> {
         // Directional lights have the same direction + intensity at all locations in the scene
         Some(LightRecord {
             direction: self.direction,
