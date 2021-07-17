@@ -124,7 +124,7 @@ fn make_glass<R: Rng> (rng: &mut R) -> MatDielectric {
 // Scenes
 //
 
-pub fn random_sphere_scene(viewport: &Viewport) -> Scene {
+pub fn random_sphere_scene(viewport: &Viewport, camera_aperture: f32) -> Scene {
     // Camera
     let look_from = V3(13.0, 2.0, 3.0);
     let look_to = V3(0.0, 0.0, 0.0);
@@ -133,7 +133,7 @@ pub fn random_sphere_scene(viewport: &Viewport) -> Scene {
     let aperture = 0.1;
     let dist_to_focus = 10.0; // distance to look target is 13-ish
 
-    let camera = Camera::new(look_from, look_to, fov, aspect_ratio, aperture, dist_to_focus);
+    let camera = Camera::new(look_from, look_to, fov, aspect_ratio, camera_aperture, dist_to_focus);
 
     // Scene
     let mut rng = create_rng_from_seed("random sphere scene");
@@ -197,23 +197,22 @@ pub fn random_sphere_scene(viewport: &Viewport) -> Scene {
 
 fn add_cardinal_markers(scene: &mut Scene) {
     // Direction makers
-    scene.add_obj(Sphere::new(position!(North(2.0)), 0.25, MatDielectric::with_albedo(rgb(128, 0, 0))));
+    scene.add_obj(Sphere::new(position!(North(2.0)), 0.25, MatDielectric::with_albedo(rgb(128, 0,   0))));
     scene.add_obj(Sphere::new(position!(East(2.0)),  0.25, MatDielectric::with_albedo(rgb(0,   128, 0))));
     scene.add_obj(Sphere::new(position!(West(2.0)),  0.25, MatDielectric::with_albedo(rgb(0,   0,   128))));
     scene.add_obj(Sphere::new(position!(South(2.0)), 0.25, MatDielectric::with_albedo(rgb(255, 255, 255))));
 }
 
-pub fn simple_scene(viewport: &Viewport) -> Scene {
+pub fn simple_scene(viewport: &Viewport, camera_aperture: f32) -> Scene {
 
     // Camera
     let look_from = position!(South(6.0), East(1.5), Up(3.0));
     let look_to =   position!(Up(1.0));
     let fov = 45.0;
     let aspect_ratio = viewport.width as f32 / viewport.height as f32;
-    let aperture = 0.1;
     let dist_to_focus = (look_from - look_to).length();
 
-    let camera = Camera::new(look_from, look_to, fov, aspect_ratio, aperture, dist_to_focus);
+    let camera = Camera::new(look_from, look_to, fov, aspect_ratio, camera_aperture, dist_to_focus);
 
     // Scene
     let mut scene = Scene::new(camera, SceneSky::Black);

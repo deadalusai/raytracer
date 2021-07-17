@@ -153,7 +153,7 @@ pub struct Camera {
 }
 
 impl Camera {
-    pub fn new (look_from: V3, look_at: V3, v_fov: f32, aspect_ratio: f32, lens_aperture: f32, focus_dist: f32) -> Camera {
+    pub fn new(look_from: V3, look_at: V3, v_fov: f32, aspect_ratio: f32, lens_aperture: f32, focus_dist: f32) -> Camera {
         // NOTE: Hard code v_up as vertical for now
         let v_up = V3(0.0, 1.0, 0.0);
         let theta = v_fov * PI / 180.0;
@@ -174,7 +174,7 @@ impl Camera {
         }
     }
 
-    pub fn get_ray (&self, s: f32, t: f32, rng: &mut dyn Rng) -> Ray {
+    pub fn get_ray(&self, s: f32, t: f32, rng: &mut dyn Rng) -> Ray {
         // Randomize the origin point of the ray.
         // By casting multiple rays for the same pixel in this way we can simulate camera focus.
         let lens_deflection = random_point_in_unit_sphere(rng) * self.lens_radius;

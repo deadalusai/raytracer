@@ -28,7 +28,6 @@ use raytracer::{ Scene, RenderSettings, ViewChunk, Viewport, Rgb };
 
 const WIDTH: u32 = 1440;
 const HEIGHT: u32 = 900;
-const SAMPLES_PER_PIXEL: u32 = 500;
 const MAX_REFLECTIONS: u32 = 25;
 const RENDER_THREAD_COUNT: u32 = 6;
 const CHUNK_COUNT: u32 = 128;
@@ -256,13 +255,30 @@ fn make_chunks_list(viewport: &Viewport, chunk_count: u32) -> Vec<ViewChunk> {
     chunks
 }
 
+#[derive(Debug)]
+enum Mode {
+    Quality(u32),
+    Fast,
+}
+
 fn main() {
+    let mode = match std::env::args().skip(1).next().map(|s| s.parse()) {
+        Some(Ok(quality)) => Mode::Quality(quality),
+        _ => Mode::Fast,
+    };
+
+    println!("Running in mode {:?}", mode);
+
     // Change this to OpenGL::V2_1 if not working.
     let opengl = OpenGL::V3_2;
 
     println!("Creating scene");
     let viewport = Viewport::new(WIDTH, HEIGHT);
-    let scene = raytracer::samples::simple_scene(&viewport);
+    let camera_aperture = match mode {
+        Mode::Fast => 0.0,
+        Mode::Quality(_) => 0.1,
+    };
+    let scene = raytracer::samples::simple_scene(&viewport, camera_aperture);
 
     println!("Creating window");
     let mut window: Window =
@@ -286,7 +302,10 @@ fn main() {
     println!("Starting main event loop");
     let render_settings = RenderSettings {
         max_reflections: MAX_REFLECTIONS,
-        samples_per_pixel: SAMPLES_PER_PIXEL
+        samples_per_pixel: match mode {
+            Mode::Fast => 1,
+            Mode::Quality(quality) => quality
+        },
     };
     let mut app = App::new(scene, render_settings, chunk_list, worker_handle);
     let mut events =
