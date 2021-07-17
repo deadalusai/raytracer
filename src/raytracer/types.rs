@@ -172,14 +172,14 @@ pub struct Ray {
 }
 
 impl Ray {
-    pub fn new (origin: Vec3, direction: Vec3) -> Ray {
+    pub fn new(origin: Vec3, direction: Vec3) -> Ray {
         Ray {
             origin: origin,
             direction: direction
         }
     }
 
-    pub fn point_at_parameter (&self, t: f32) -> Vec3 {
+    pub fn point_at_parameter(&self, t: f32) -> Vec3 {
         self.origin + (self.direction * t)
     }
 }
@@ -188,23 +188,10 @@ impl Ray {
 // Rgb
 //
 
-#[derive(Debug, Clone, PartialEq, Eq)]
-pub struct Rgb { 
-    pub r: u8,
-    pub g: u8,
-    pub b: u8
-}
+pub type Rgb = [u8; 3];
 
-impl Rgb {
-    pub fn new (r: u8, g: u8, b: u8) -> Rgb {
-        Rgb { r: r, g: g, b: b }
-    }
-
-    pub fn from_vec3 (v: &Vec3) -> Rgb {
-        Rgb::new(
-            (255.0 * v.x.sqrt()) as u8,
-            (255.0 * v.y.sqrt()) as u8,
-            (255.0 * v.z.sqrt()) as u8
-        )
-    }
+pub fn rgb_from_vec3(v: &Vec3) -> Rgb {
+    [(255.0 * v.x.sqrt()) as u8,
+     (255.0 * v.y.sqrt()) as u8,
+     (255.0 * v.z.sqrt()) as u8]
 }

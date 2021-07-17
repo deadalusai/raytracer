@@ -41,7 +41,7 @@ impl MatLambertian {
 }
 
 impl Material for MatLambertian {
-    fn scatter (&self, _r: &Ray, hit_record: &HitRecord, rng: &mut Rng) -> MatRecord {
+    fn scatter (&self, _r: &Ray, hit_record: &HitRecord, rng: &mut dyn Rng) -> MatRecord {
         let target = hit_record.p + hit_record.normal + random_point_in_unit_sphere(rng);
         let direction = target - hit_record.p;
         let ray = Ray::new(hit_record.p.clone(), direction);
@@ -88,7 +88,7 @@ fn reflect (incident_direction: Vec3, surface_normal: Vec3) -> Vec3 {
 }
 
 impl Material for MatMetal {
-    fn scatter (&self, ray: &Ray, hit_record: &HitRecord, rng: &mut Rng) -> MatRecord {
+    fn scatter (&self, ray: &Ray, hit_record: &HitRecord, rng: &mut dyn Rng) -> MatRecord {
         let reflected = reflect(ray.direction, hit_record.normal);
         let scattered =
             if self.fuzz == 0.0 {
@@ -167,7 +167,7 @@ fn schlick_reflect_prob (cosine: f32, ref_idx: f32) -> f32 {
 }
 
 impl Material for MatDielectric {
-    fn scatter (&self, ray: &Ray, hit_record: &HitRecord, rng: &mut Rng) -> MatRecord {
+    fn scatter (&self, ray: &Ray, hit_record: &HitRecord, rng: &mut dyn Rng) -> MatRecord {
         let dot = Vec3::dot(ray.direction, hit_record.normal);
         let (outward_normal, ni_over_nt, cosine) =
             if dot > 0.0 {

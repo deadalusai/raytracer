@@ -66,7 +66,7 @@ fn make_glass<R: Rng> (rng: &mut R) -> MatDielectric {
 // Scenes
 //
 
-pub fn random_sphere_scene (viewport: &Viewport) -> Scene {
+pub fn random_sphere_scene(viewport: &Viewport) -> Scene {
     // Camera
     let look_from = Vec3::new(13.0, 2.0, 3.0);
     let look_to = Vec3::new(0.0, 0.0, 0.0);
@@ -137,12 +137,12 @@ pub fn random_sphere_scene (viewport: &Viewport) -> Scene {
     scene
 }
 
-fn interpolate_points (p1: Vec3, p2: Vec3, d: f32) -> Vec3 {
+fn interpolate_points(p1: Vec3, p2: Vec3, d: f32) -> Vec3 {
     let v_between = (p2 - p1) * d;
     p1 + v_between
 }
 
-pub fn simple_scene (viewport: &Viewport) -> Scene {
+pub fn simple_scene(viewport: &Viewport) -> Scene {
     // Camera
     let look_from = Vec3::new(6.0, 3.0, -1.5);
     let look_to = Vec3::new(0.0, 1.0, 0.0);
