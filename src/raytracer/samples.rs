@@ -15,12 +15,73 @@ fn create_rng_from_seed (seed_text: &str) -> StdRng {
 }
 
 //
+// Easing functions
+//
+
+fn lerp_v3(p1: V3, p2: V3, d: f32) -> V3 {
+    let v_between = (p2 - p1) * d;
+    p1 + v_between
+}
+
+fn lerp_f32(p1: f32, p2: f32, d: f32) -> f32 {
+    let v_between = (p2 - p1) * d;
+    p1 + v_between
+}
+
+fn ease_in(t: f32, scale: f32) -> f32 {
+    // y = x ^ 2
+    t.powf(scale)
+}
+
+fn ease_out(t: f32, scale: f32) -> f32 {
+    // y = 1 - ((1 - x) ^ 2)
+    1.0 - (1.0 - t).powf(scale)
+}
+
+fn ease_in_out(t: f32, scale: f32) -> f32 {
+    lerp_f32(ease_in(t, scale), ease_out(t, scale), t)
+}
+
+// Positioning helpers
+
+static WORLD_ORIGIN: V3 = V3(0.0,  0.0,  0.0);
+
+#[derive(Clone, Copy)]
+enum Card {
+    North(f32),
+    South(f32),
+    East(f32),
+    West(f32),
+    Up(f32),
+    Down(f32),
+}
+
+impl Card {
+    #[inline]
+    fn v3(self) -> V3 {
+        match self {
+            Card::North(f) => V3(1.0,  0.0,  0.0)  * f,
+            Card::South(f) => V3(-1.0, 0.0,  0.0)  * f,
+            Card::East(f)  => V3(0.0,  0.0,  1.0)  * f,
+            Card::West(f)  => V3(0.0,  0.0,  -1.0) * f,
+            Card::Up(f)    => V3(0.0,  1.0,  0.0)  * f,
+            Card::Down(f)  => V3(0.0,  -1.0, 0.0)  * f,
+        }
+    }
+}
+
+macro_rules! position {
+    ( $move:tt($v:expr) ) => ( Card::$move($v).v3() );
+    ( $move:tt($v:expr), $( $rest:tt($rest_v:expr) ),* ) => ( Card::$move($v).v3() + position!($( $rest($rest_v) ),*) );
+}
+
+//
 // Sample scenes
 //
 
 // Attenuation factory
 
-fn make_albedo (r: u8, g: u8, b: u8) -> V3 {
+fn rgb (r: u8, g: u8, b: u8) -> V3 {
     V3(
         r as f32 / 255.0,
         g as f32 / 255.0,
@@ -134,15 +195,19 @@ pub fn random_sphere_scene(viewport: &Viewport) -> Scene {
     scene
 }
 
-fn interpolate_points(p1: Vec3, p2: Vec3, d: f32) -> Vec3 {
-    let v_between = (p2 - p1) * d;
-    p1 + v_between
+fn add_cardinal_markers(scene: &mut Scene) {
+    // Direction makers
+    scene.add_obj(Sphere::new(position!(North(2.0)), 0.25, MatDielectric::with_albedo(rgb(128, 0, 0))));
+    scene.add_obj(Sphere::new(position!(East(2.0)),  0.25, MatDielectric::with_albedo(rgb(0,   128, 0))));
+    scene.add_obj(Sphere::new(position!(West(2.0)),  0.25, MatDielectric::with_albedo(rgb(0,   0,   128))));
+    scene.add_obj(Sphere::new(position!(South(2.0)), 0.25, MatDielectric::with_albedo(rgb(255, 255, 255))));
 }
 
 pub fn simple_scene(viewport: &Viewport) -> Scene {
+
     // Camera
-    let look_from = V3(6.0, 3.0, -1.5);
-    let look_to = V3(0.0, 1.0, 0.0);
+    let look_from = position!(South(6.0), East(1.5), Up(3.0));
+    let look_to =   position!(Up(1.0));
     let fov = 45.0;
     let aspect_ratio = viewport.width as f32 / viewport.height as f32;
     let aperture = 0.1;
@@ -151,41 +216,72 @@ pub fn simple_scene(viewport: &Viewport) -> Scene {
     let camera = Camera::new(look_from, look_to, fov, aspect_ratio, aperture, dist_to_focus);
 
     // Scene
-    let mut scene = Scene::new(camera, SceneSky::Day);
+    let mut scene = Scene::new(camera, SceneSky::Black);
 
     // Lights
-    let light_pos = V3(0.0, 10.0, -4.0);
+    let light_pos = position!(Up(10.0), East(4.0));
     // scene.add_light(PointLight::with_origin(light_pos.clone()).with_intensity(100.0));
 
-    let lamp_origin = V3(-30.0, 100.0, 0.0);
-    let lamp_direction = V3::zero() - lamp_origin;
+    let lamp_origin = position!(Up(100.0), North(30.0));
+    let lamp_direction = WORLD_ORIGIN - lamp_origin;
     scene.add_light(DirectionalLight::with_origin_and_direction(lamp_origin, lamp_direction).with_intensity(0.5));
 
+    add_cardinal_markers(&mut scene);
+
     // World sphere
-    let world_mat = MatLambertian::with_albedo(make_albedo(255, 255, 255));
-    let world_pos = V3(0.0, -1000.0, 0.0);
+    let world_mat = MatLambertian::with_albedo(rgb(255, 255, 255));
+    let world_pos = position!(Down(1000.0));
     scene.add_obj(Sphere::new(world_pos, 1000.0, world_mat));
 
     // Plastic sphere
-    let plastic_mat = MatLambertian::with_albedo(make_albedo(179, 45, 0));
-    let plastic_pos = V3(2.0, 1.0, -2.0);
+    let plastic_mat = MatLambertian::with_albedo(rgb(179, 45, 0));
+    let plastic_pos = position!(Up(1.0), South(2.0), East(2.0));
     scene.add_obj(Sphere::new(plastic_pos, 1.0, plastic_mat));
 
     // Glass sphere (large)
-    let glass_mat = MatDielectric::with_albedo(make_albedo(245, 227, 66));
-    let glass_pos = V3(0.0, 1.0, 0.0);
+    let glass_mat = MatDielectric::with_albedo(rgb(245, 227, 66));
+    let glass_pos = position!(Up(1.0));
     scene.add_obj(Sphere::new(glass_pos.clone(), 1.0, glass_mat));
-    // scene.add_obj(Sphere::new(Vec3::new(0.0, 1.0, 0.0), -0.8, mat_glass));
     
     // Glass sphere (small)
-    let small_glass_mat = MatDielectric::with_albedo(make_albedo(66, 206, 245)).with_opacity(0.4);
+    let small_glass_mat = MatDielectric::with_albedo(rgb(66, 206, 245)).with_opacity(0.4);
     let small_glass_pos = lerp_v3(glass_pos, light_pos, 0.2); // Find a point between the lamp and the large glass sphere
     scene.add_obj(Sphere::new(small_glass_pos, 0.5, small_glass_mat));
 
     // Metal sphere
-    let metal_mat = MatMetal::with_albedo(make_albedo(230, 230, 230)).with_fuzz(0.001);
-    let metal_pos = V3(-2.0, 1.0, 2.0);
+    let metal_mat = MatMetal::with_albedo(rgb(230, 230, 230)).with_fuzz(0.001);
+    let metal_pos = position!(Up(1.0), North(2.0), West(2.0));
     scene.add_obj(Sphere::new(metal_pos, 1.0, metal_mat));
+
+
+    // Small metal spheres (buried) drawn between these points
+    let small_metal_mat = MatMetal::with_albedo(V3(0.8, 0.1, 0.1)).with_fuzz(0.001);
+    let small_metal_sphere_count = 6;
+    let small_metal_start_pos = position!(West(3.5), North(1.0));
+    let small_metal_end_pos = position!(West(2.5), South(3.5));
+    for i in 0..small_metal_sphere_count {
+        let t = i as f32 / small_metal_sphere_count as f32;
+        let small_metal_pos = lerp_v3(small_metal_start_pos, small_metal_end_pos, ease_out(t, 2.0));
+        let small_metal_radius = lerp_f32(0.5, 0.05, ease_out(t, 2.0));
+        scene.add_obj(Sphere::new(small_metal_pos, small_metal_radius, small_metal_mat.clone()));
+    }
+
+    // Small plastic spheres (buried) drawn between these points
+    let small_plastic_mat = MatDielectric::with_albedo(V3(0.1, 0.9, 0.1));
+    let small_plastic_sphere_count = 12;
+    let small_plastic_start_pos = position!(West(2.5), South(0.5));
+    let small_plastic_end_pos = position!(West(0.5), South(2.5));
+    for i in 0..small_plastic_sphere_count {
+        let t = i as f32 / small_plastic_sphere_count as f32;
+        // Ease towards the target around a curve
+        let small_plastic_pos = V3(
+            lerp_f32(small_plastic_start_pos.x(), small_plastic_end_pos.x(), ease_out(t, 2.0)),
+            0.0,
+            lerp_f32(small_plastic_start_pos.z(), small_plastic_end_pos.z(), ease_in(t, 2.0))
+        );
+        let small_plastic_radius = lerp_f32(0.10, 0.02, ease_in_out(t, 2.0));
+        scene.add_obj(Sphere::new(small_plastic_pos, small_plastic_radius, small_plastic_mat.clone()));
+    }
 
     scene
 }
