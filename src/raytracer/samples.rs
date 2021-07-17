@@ -222,9 +222,9 @@ pub fn simple_scene(viewport: &Viewport, camera_aperture: f32) -> Scene {
     let lamp_direction = WORLD_ORIGIN - lamp_pos;
     scene.add_light(LampLight::with_origin_and_direction(lamp_pos, lamp_direction).with_intensity(8.0).with_angle(20.0));
 
-    // let directional_origin = position!(Up(100.0), North(30.0));
-    // let directional_direction = WORLD_ORIGIN - directional_origin;
-    // scene.add_light(DirectionalLight::with_origin_and_direction(directional_origin, directional_direction).with_intensity(0.5));
+    let lamp_pos = position!(Up(20.0), North(4.0));
+    let lamp_direction = WORLD_ORIGIN - lamp_pos;
+    scene.add_light(LampLight::with_origin_and_direction(lamp_pos, lamp_direction).with_intensity(5.0).with_angle(12.0));
 
     add_cardinal_markers(&mut scene);
 
@@ -234,13 +234,13 @@ pub fn simple_scene(viewport: &Viewport, camera_aperture: f32) -> Scene {
     scene.add_obj(Sphere::new(world_pos, 1000.0, world_mat));
 
     // Plastic sphere
-    let plastic_mat = MatLambertian::with_albedo(rgb(179, 45, 0));
-    let plastic_pos = position!(Up(1.0), South(2.0), East(2.0));
+    let plastic_mat = MatLambertian::with_albedo(rgb(226, 226, 226));
+    let plastic_pos = position!(Up(1.0));
     scene.add_obj(Sphere::new(plastic_pos, 1.0, plastic_mat));
 
     // Glass sphere (large)
-    let glass_mat = MatDielectric::with_albedo(rgb(245, 227, 66));
-    let glass_pos = position!(Up(1.0));
+    let glass_mat = MatDielectric::with_albedo(rgb(130, 255, 140));
+    let glass_pos = position!(Up(1.0), South(2.0), East(2.0));
     scene.add_obj(Sphere::new(glass_pos.clone(), 1.0, glass_mat));
     
     // Glass sphere (small)
@@ -249,7 +249,7 @@ pub fn simple_scene(viewport: &Viewport, camera_aperture: f32) -> Scene {
     scene.add_obj(Sphere::new(small_glass_pos, 0.5, small_glass_mat));
 
     // Metal sphere
-    let metal_mat = MatMetal::with_albedo(rgb(230, 230, 230)).with_fuzz(0.001);
+    let metal_mat = MatMetal::with_albedo(rgb(147, 154, 186)).with_fuzz(0.001);
     let metal_pos = position!(Up(1.0), North(2.0), West(2.0));
     scene.add_obj(Sphere::new(metal_pos, 1.0, metal_mat));
 

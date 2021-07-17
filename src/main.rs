@@ -52,8 +52,10 @@ struct App {
 
 impl App {
     fn new(scene: Scene, render_settings: RenderSettings, pending_chunks: Vec<ViewChunk>, worker_handle: RenderWorkerHandle) -> App {
+        let mut texture_settings = TextureSettings::new();
+        texture_settings.set_convert_gamma(true);
         let buffer = RgbaImage::new(WIDTH, HEIGHT);
-        let texture = Texture::from_image(&buffer, &TextureSettings::new());
+        let texture = Texture::from_image(&buffer, &texture_settings);
         App {
             buffer,
             texture,
