@@ -98,7 +98,7 @@ pub struct RenderSettings {
 }
 
 impl Scene {
-    pub fn new (camera: Camera, sky: SceneSky) -> Scene {
+    pub fn new(camera: Camera, sky: SceneSky) -> Scene {
         Scene {
             camera: camera,
             sky: sky,
@@ -107,19 +107,19 @@ impl Scene {
         }
     }
 
-    pub fn add_obj<T> (&mut self, hitable: T)
+    pub fn add_obj<T>(&mut self, hitable: T)
         where T: Hitable + 'static
     {
         self.hitables.push(Box::new(hitable));
     }
 
-    pub fn add_light<T> (&mut self, light: T)
+    pub fn add_light<T>(&mut self, light: T)
         where T: LightSource + 'static
     {
         self.lights.push(Box::new(light));
     }
 
-    fn hit_closest (&self, ray: &Ray, t_min: f32) -> Option<HitRecord> {
+    fn hit_closest(&self, ray: &Ray, t_min: f32) -> Option<HitRecord> {
         let mut closest_hit_record = None;
         let mut closest_so_far = std::f32::INFINITY;
         for hitable in self.hitables.iter() {
@@ -218,15 +218,17 @@ fn color_sky (ray: &Ray, scene: &Scene) -> V3 {
 // Lights and shadows
 
 // Casts a ray *back* towards a lamp, testing for possibly shadowing objects
-fn cast_light_ray (hit_point: V3, light_record: &LightRecord, scene: &Scene, rng: &mut dyn Rng) -> V3 {
+fn cast_light_ray(hit_point: V3, light_record: &LightRecord, scene: &Scene, rng: &mut dyn Rng) -> V3 {
 
     // Get the inital light value
     let mut light_color = light_record.color * light_record.intensity;
-    
+
     // Test to see if there is any shape blocking light from this lamp by casting a ray from the shadow back to the light source
     let light_ray = Ray::new(hit_point, -light_record.direction);
-                
-    let mut closest_so_far = 0.0;
+
+    let mut closest_so_far = std::f32::INFINITY;
+
+    // TODO(benf): Proper light ray casting including reflection and refraction
 
     // Perform hit tests until we escape
     loop {
@@ -239,6 +241,8 @@ fn cast_light_ray (hit_point: V3, light_record: &LightRecord, scene: &Scene, rng
                 closest_so_far = shadow_hit.t;
                 continue;
             }
+            // TODO(benf): Reflective objects
+
             // Hit opaque object (in shadow)
             return V3::zero();
         }
@@ -248,10 +252,10 @@ fn cast_light_ray (hit_point: V3, light_record: &LightRecord, scene: &Scene, rng
 }
 
 /// Determines the color which the given ray resolves to.
-fn cast_ray (ray: &Ray, scene: &Scene, rng: &mut dyn Rng, max_reflections: u32) -> V3 {
+fn cast_ray(ray: &Ray, scene: &Scene, rng: &mut dyn Rng, max_reflections: u32) -> V3 {
 
     // Internal implementation
-    fn cast_ray_recursive (ray: &Ray, scene: &Scene, rng: &mut dyn Rng, recurse_limit: u32) -> V3 {
+    fn cast_ray_recursive(ray: &Ray, scene: &Scene, rng: &mut dyn Rng, recurse_limit: u32) -> V3 {
 
         // Exceeded our reflection limit?
         if recurse_limit == 0 {
