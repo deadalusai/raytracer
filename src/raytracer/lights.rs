@@ -56,10 +56,10 @@ pub struct LampLight {
 }
 
 impl LampLight {
-    pub fn with_origin_and_direction(origin: V3, direction: V3) -> LampLight {
+    pub fn with_origin_and_normal(origin: V3, normal: V3) -> LampLight {
         LampLight {
             origin: origin,
-            direction: direction.unit(),
+            direction: normal.unit(),
             color: V3(1.0, 1.0, 1.0),
             intensity: 1.0,
             angle_deg: 45.0,

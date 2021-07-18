@@ -28,7 +28,6 @@ use raytracer::{ Scene, RenderSettings, ViewChunk, Viewport };
 
 const WIDTH: u32 = 1440;
 const HEIGHT: u32 = 900;
-const MAX_REFLECTIONS: u32 = 25;
 const RENDER_THREAD_COUNT: u32 = 6;
 const CHUNK_COUNT: u32 = 128;
 const MAX_FRAMES_PER_SECOND: u64 = 10;
@@ -270,6 +269,7 @@ enum TestScene {
     RandomSpheres,
     Simple,
     Planes,
+    Mirrors,
 }
 
 fn parse_args() -> Result<(RenderMode, TestScene), String> {
@@ -279,8 +279,9 @@ fn parse_args() -> Result<(RenderMode, TestScene), String> {
         Some(s) if s == "spheres" => TestScene::RandomSpheres,
         Some(s) if s == "simple"  => TestScene::Simple,
         Some(s) if s == "planes"  => TestScene::Planes,
+        Some(s) if s == "mirrors"  => TestScene::Mirrors,
         Some(s) => return Err(format!("Invalid scene name: {}", s)),
-        None    => return Err(format!("Must specify a scene (spheres, simple, planes)")),
+        None    => return Err(format!("Must specify a scene (spheres, simple, planes, mirrors)")),
     };
 
     let mode = match args.next().and_then(|s| s.parse().ok()) {
@@ -317,6 +318,7 @@ fn main() {
         TestScene::RandomSpheres => raytracer::samples::random_sphere_scene(&viewport, camera_aperture),
         TestScene::Simple => raytracer::samples::simple_scene(&viewport, camera_aperture),
         TestScene::Planes => raytracer::samples::planes_scene(&viewport, camera_aperture),
+        TestScene::Mirrors => raytracer::samples::hall_of_mirrors(&viewport, camera_aperture),
     };
 
     println!("Creating window");
@@ -340,7 +342,10 @@ fn main() {
     
     println!("Starting main event loop");
     let render_settings = RenderSettings {
-        max_reflections: MAX_REFLECTIONS,
+        max_reflections: match render_mode {
+            RenderMode::Fast => 5,
+            RenderMode::Quality(_) => 25
+        },
         samples_per_pixel: match render_mode {
             RenderMode::Fast => 1,
             RenderMode::Quality(quality) => quality

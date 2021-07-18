@@ -27,6 +27,10 @@ impl V3 {
         V3(0.0, 0.0, 0.0)
     }
 
+    pub fn one() -> V3 {
+        V3(1.0, 1.0, 1.0)
+    }
+
     pub fn unit(self) -> V3 {
         let len = self.length();
         if len == 0.0 { self } else { self / len }

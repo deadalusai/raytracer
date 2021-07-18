@@ -216,18 +216,19 @@ pub fn simple_scene(viewport: &Viewport, camera_aperture: f32) -> Scene {
     let mut scene = Scene::new(camera, SceneSky::Black);
 
     // Lights
-    let lamp_pos = position!(Up(10.0), East(4.0));
-    let lamp_direction = WORLD_ORIGIN - lamp_pos;
-    scene.add_light(LampLight::with_origin_and_direction(lamp_pos, lamp_direction).with_intensity(8.0).with_angle(20.0));
 
     let lamp_pos = position!(Up(20.0), North(4.0));
     let lamp_direction = WORLD_ORIGIN - lamp_pos;
-    scene.add_light(LampLight::with_origin_and_direction(lamp_pos, lamp_direction).with_intensity(5.0).with_angle(12.0));
+    scene.add_light(LampLight::with_origin_and_normal(lamp_pos, lamp_direction).with_intensity(5.0).with_angle(12.0));
+
+    let lamp_pos = position!(Up(10.0), East(4.0));
+    let lamp_direction = WORLD_ORIGIN - lamp_pos;
+    scene.add_light(LampLight::with_origin_and_normal(lamp_pos, lamp_direction).with_intensity(8.0).with_angle(20.0));
 
     add_cardinal_markers(&mut scene);
 
     // World sphere
-    let world_mat = MatLambertian::with_albedo(rgb(10, 10, 10));
+    let world_mat = MatLambertian::with_albedo(rgb(200, 200, 200));
     let world_pos = position!(Down(1000.0));
     scene.add_obj(Sphere::new(world_pos, 1000.0, world_mat));
 
@@ -243,7 +244,7 @@ pub fn simple_scene(viewport: &Viewport, camera_aperture: f32) -> Scene {
     
     // Glass sphere (small)
     let small_glass_mat = MatDielectric::with_albedo(rgb(66, 206, 245)).with_opacity(0.4);
-    let small_glass_pos = lerp_v3(glass_pos, lamp_pos, 0.2); // Find a point between the lamp and the large glass sphere
+    let small_glass_pos = lerp_v3(plastic_pos, lamp_pos, 0.2); // Find a point between the lamp and the plastic sphere
     scene.add_obj(Sphere::new(small_glass_pos, 0.5, small_glass_mat));
 
     // Metal sphere
@@ -292,7 +293,7 @@ pub fn planes_scene(viewport: &Viewport, camera_aperture: f32) -> Scene {
 
     let fov = 45.0;
     let aspect_ratio = viewport.width as f32 / viewport.height as f32;
-    let dist_to_focus = (look_from - look_to).length();
+    let dist_to_focus = (look_to - look_from).length();
 
     let camera = Camera::new(look_from, look_to, fov, aspect_ratio, camera_aperture, dist_to_focus);
 
@@ -300,9 +301,9 @@ pub fn planes_scene(viewport: &Viewport, camera_aperture: f32) -> Scene {
     let mut scene = Scene::new(camera, SceneSky::Day);
 
     // Lights
-    let lamp_pos = position!(Up(10.0), East(4.0));
-    let lamp_direction = WORLD_ORIGIN - lamp_pos;
-    scene.add_light(LampLight::with_origin_and_direction(lamp_pos, lamp_direction).with_intensity(8.0).with_angle(20.0));
+    let lamp_pos = position!(Up(6.0), East(5.0));
+    let lamp_normal = position!(Up(3.0)) - lamp_pos;
+    scene.add_light(LampLight::with_origin_and_normal(lamp_pos, lamp_normal).with_intensity(8.0).with_angle(20.0));
 
     add_cardinal_markers(&mut scene);
 
@@ -313,13 +314,53 @@ pub fn planes_scene(viewport: &Viewport, camera_aperture: f32) -> Scene {
 
     let plane_mat = MatMetal::with_albedo(rgb(240, 240, 240)).with_reflectiveness(0.8);
     let plane_pos = position!(West(1.0));
-    let plane_normal = (WORLD_ORIGIN - plane_pos).unit(); // normal facing world origin
+    let plane_normal = WORLD_ORIGIN - plane_pos; // normal facing world origin
     scene.add_obj(Plane::new(plane_pos, plane_normal, plane_mat));
 
-    let disk_mat = MatLambertian::with_albedo(rgb(100, 240, 80));
-    let disk_pos = position!(Up(0.1));
-    let disk_normal = (disk_pos - WORLD_ORIGIN).unit(); // normal facing away from world origin
-    scene.add_obj(Plane::new(disk_pos, disk_normal, disk_mat).with_radius(2.0));
+    scene
+}
+
+pub fn hall_of_mirrors(viewport: &Viewport, camera_aperture: f32) -> Scene {
+
+    // Camera
+    let look_from = position!(Up(5.0), South(2.5), East(0.5));
+    let look_to =   position!(Up(0.1));
+
+    let fov = 80.0;
+    let aspect_ratio = viewport.width as f32 / viewport.height as f32;
+    let dist_to_focus = (look_to - look_from).length();
+
+    let camera = Camera::new(look_from, look_to, fov, aspect_ratio, camera_aperture, dist_to_focus);
+
+    // Scene
+    let mut scene = Scene::new(camera, SceneSky::Day);
+
+    // Lights
+    let lamp_pos = position!(Up(10.0));
+    let lamp_normal = WORLD_ORIGIN - lamp_pos;
+    scene.add_light(LampLight::with_origin_and_normal(lamp_pos, lamp_normal).with_intensity(8.0).with_angle(20.0));
+
+    add_cardinal_markers(&mut scene);
+
+    // World sphere
+    let world_mat = MatLambertian::with_albedo(rgb(255, 255, 255)).with_reflectivity(0.01);
+    let world_pos = position!(Down(1000.0));
+    scene.add_obj(Sphere::new(world_pos, 1000.0, world_mat));
+
+    let cardinals = [
+        position!(North(3.0)),
+        position!(South(3.0)),
+        position!(East(3.0)),
+        position!(West(3.0))
+    ];
+    for plane_origin in cardinals {
+        let plane_mat = MatMetal::with_albedo(V3::one()).with_reflectiveness(1.0).with_fuzz(0.0);
+        let plane_normal = WORLD_ORIGIN - plane_origin; // normal facing world origin
+        scene.add_obj(
+            Plane::new(plane_origin, plane_normal, plane_mat)
+                .with_radius(30.0)
+        );
+    }
 
     scene
 }

@@ -94,7 +94,7 @@ impl Hitable for Plane {
         // If this plane is facing towards the ray we expect an angle between them approaching 180 degrees (PI).
         // If the the angle passes perpendicular (90 degrees or PI/2) then we flip the plane normal     
         let theta = V3::theta(ray.normal, self.normal);
-        let normal = if theta < FRAC_PI_2 { self.normal * -1.0 } else { self.normal };
+        let normal = if theta < FRAC_PI_2 { -self.normal } else { self.normal };
         return Some(HitRecord { t, p, normal, material: self.material.as_ref() });
     }
 }

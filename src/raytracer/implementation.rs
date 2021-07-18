@@ -49,7 +49,7 @@ pub struct MatRecord {
 }
 
 pub trait Material: Send + Sync {
-    fn scatter (&self, ray: &Ray, hit_record: &HitRecord, rng: &mut dyn Rng) -> MatRecord;
+    fn scatter(&self, ray: &Ray, hit_record: &HitRecord, rng: &mut dyn Rng) -> MatRecord;
 }
 
 // Hitables
@@ -62,7 +62,7 @@ pub struct HitRecord<'mat> {
 }
 
 pub trait Hitable: Send + Sync {
-    fn hit<'a> (&'a self, ray: &Ray, t_min: f32, t_max: f32) -> Option<HitRecord<'a>>;
+    fn hit<'a>(&'a self, ray: &Ray, t_min: f32, t_max: f32) -> Option<HitRecord<'a>>;
 }
 
 // Light sources
@@ -74,7 +74,7 @@ pub struct LightRecord {
 }
 
 pub trait LightSource: Send + Sync {
-    fn get_direction_and_intensity (&self, p: V3) -> Option<LightRecord>;
+    fn get_direction_and_intensity(&self, p: V3) -> Option<LightRecord>;
 }
 
 // Scene
@@ -220,35 +220,34 @@ fn color_sky (ray: &Ray, scene: &Scene) -> V3 {
 // Casts a ray *back* towards a lamp, testing for possibly shadowing objects
 fn cast_light_ray(hit_point: V3, light_record: &LightRecord, scene: &Scene, rng: &mut dyn Rng) -> V3 {
 
-    // Get the inital light value
-    let mut light_color = light_record.color * light_record.intensity;
-
     // Test to see if there is any shape blocking light from this lamp by casting a ray from the shadow back to the light source
     let light_ray = Ray::new(hit_point, -light_record.direction);
 
-    let mut closest_so_far = std::f32::INFINITY;
+    // TODO(benf):
+    // Can we do reflection/refraction of light rays?
 
-    // TODO(benf): Proper light ray casting including reflection and refraction
+    let mut light_color = light_record.color * light_record.intensity;
+    let mut closest_so_far = 0.0;
 
     // Perform hit tests until we escape
-    loop {
-        if let Some(shadow_hit) = scene.hit_closest(&light_ray, closest_so_far) {
-            let shadow_mat = shadow_hit.material.scatter(&light_ray, &shadow_hit, rng);
-            if let Some(shadow_refraction) = shadow_mat.refraction {
-                // Hit transparent object
-                // Hack: simulate colored shadows by taking the albedo of transparent materials.
-                light_color = light_color * (shadow_mat.albedo * shadow_refraction.intensity);
-                closest_so_far = shadow_hit.t;
-                continue;
-            }
-            // TODO(benf): Reflective objects
+    while let Some(shadow_hit) = scene.hit_closest(&light_ray, closest_so_far) {
 
-            // Hit opaque object (in shadow)
-            return V3::zero();
+        let shadow_mat = shadow_hit.material.scatter(&light_ray, &shadow_hit, rng);
+        if let Some(shadow_refraction) = shadow_mat.refraction {
+            // Hit transparent object
+            // Hack: simulate colored shadows by taking the albedo of transparent materials.
+            light_color = light_color * (shadow_mat.albedo * shadow_refraction.intensity);
+            closest_so_far = shadow_hit.t;
+            continue;
         }
-        // Escaped.
-        return light_color;
+        // TODO(benf): Reflective objects?
+
+        // Hit opaque object (in shadow)
+        return V3::zero();
     }
+    
+    // Escaped.
+    return light_color;
 }
 
 /// Determines the color which the given ray resolves to.
@@ -257,7 +256,7 @@ fn cast_ray(ray: &Ray, scene: &Scene, rng: &mut dyn Rng, max_reflections: u32) -
     // Internal implementation
     fn cast_ray_recursive(ray: &Ray, scene: &Scene, rng: &mut dyn Rng, recurse_limit: u32) -> V3 {
 
-        // Exceeded our reflection limit?
+        // Exceeded our recusion limit?
         if recurse_limit == 0 {
             return color_sky(ray, scene);
         }
@@ -274,7 +273,6 @@ fn cast_ray(ray: &Ray, scene: &Scene, rng: &mut dyn Rng, max_reflections: u32) -
 
             for light in scene.lights.iter() {
                 if let Some(light_record) = light.get_direction_and_intensity(hit_point) {
-
                     let light_color =
                         cast_light_ray(hit_point, &light_record, scene, rng)
                             * mat_record.albedo // Material albedo
