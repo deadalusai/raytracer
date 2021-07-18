@@ -316,5 +316,10 @@ pub fn planes_scene(viewport: &Viewport, camera_aperture: f32) -> Scene {
     let plane_normal = (WORLD_ORIGIN - plane_pos).unit(); // normal facing world origin
     scene.add_obj(Plane::new(plane_pos, plane_normal, plane_mat));
 
+    let disk_mat = MatLambertian::with_albedo(rgb(100, 240, 80));
+    let disk_pos = position!(Up(0.1));
+    let disk_normal = (disk_pos - WORLD_ORIGIN).unit(); // normal facing away from world origin
+    scene.add_obj(Plane::new(disk_pos, disk_normal, disk_mat).with_radius(2.0));
+
     scene
 }

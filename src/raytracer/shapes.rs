@@ -50,13 +50,19 @@ pub struct Plane {
     origin: V3,
     normal: V3,
     material: Box<dyn Material>,
+    radius: Option<f32>,
 }
 
 impl Plane {
     pub fn new<M> (origin: V3, normal: V3, material: M) -> Self
         where M: Material + 'static
     {
-        Plane { origin, normal: normal.unit(), material: Box::new(material) }
+        Plane { origin, normal: normal.unit(), material: Box::new(material), radius: None }
+    }
+
+    pub fn with_radius(mut self, radius: f32) -> Plane {
+        self.radius = Some(radius);
+        self
     }
 }
 
@@ -64,26 +70,27 @@ impl Plane {
 
 impl Hitable for Plane {
     fn hit<'a> (&'a self, ray: &Ray, t_min: f32, t_max: f32) -> Option<HitRecord<'a>> {
-        
         // intersection of ray with a plane at point `t`
         // t = ((plane_origin - ray_origin) . plane_normal) / (ray_direction . plane_normal)
-
         let denominator = V3::dot(ray.normal, self.normal);
         // When the plane and ray are nearing parallel the denominator approaches zero.
         if denominator.abs() <= 1.0e-6 {
             return None;
         }
-
         let numerator = V3::dot(self.origin - ray.origin, self.normal);
         let t = numerator / denominator;
-
         // A negative value indicates the plane is behind the ray origin.
         // Filter for intersections inside the range we're testing for
         if t < t_min || t > t_max {
             return None;
         }
-
         let p = ray.point_at_parameter(t);
+        // If this is a disk plane, ensure the point p falls within the radius
+        if let Some(radius) = self.radius {
+            if (self.origin - p).length() > radius {
+                return None;
+            }
+        }
         // If this plane is facing towards the ray we expect an angle between them approaching 180 degrees (PI).
         // If the the angle passes perpendicular (90 degrees or PI/2) then we flip the plane normal     
         let theta = V3::theta(ray.normal, self.normal);
