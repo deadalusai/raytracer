@@ -27,7 +27,7 @@ impl V3 {
         V3(0.0, 0.0, 0.0)
     }
 
-    pub fn unit_vector(self) -> V3 {
+    pub fn unit(self) -> V3 {
         let len = self.length();
         if len == 0.0 { self } else { self / len }
     }
@@ -54,6 +54,13 @@ impl V3 {
         V3((a.1 * b.2 - a.2 * b.1),
           -(a.0 * b.2 - a.2 * b.0),
            (a.0 * b.1 - a.1 * b.0))
+    }
+
+    // Calculate the angle between two vectors
+    pub fn theta(a: V3, b: V3) -> f32 {
+        // theta_rad = acos((a . b) / (|a| * |b|))
+        let theta = (V3::dot(a, b) / (a.length() * b.length())).acos();
+        theta
     }
 }
 
@@ -150,18 +157,18 @@ impl Default for V3 {
 
 pub struct Ray {
     pub origin: V3,
-    pub direction: V3
+    pub normal: V3
 }
 
 impl Ray {
     pub fn new(origin: V3, direction: V3) -> Ray {
         Ray {
             origin: origin,
-            direction: direction
+            normal: direction
         }
     }
 
     pub fn point_at_parameter(&self, t: f32) -> V3 {
-        self.origin + (self.direction * t)
+        self.origin + (self.normal * t)
     }
 }

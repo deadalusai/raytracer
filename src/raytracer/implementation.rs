@@ -158,8 +158,8 @@ impl Camera {
         let theta = v_fov * PI / 180.0;
         let half_height = (theta / 2.0).tan();
         let half_width = aspect_ratio * half_height;
-        let w = (look_from - look_at).unit_vector(); // Vector from target to camera origin 
-        let u = V3::cross(v_up, w).unit_vector();  // Vector from camera origin to camera right
+        let w = (look_from - look_at).unit(); // Vector from target to camera origin 
+        let u = V3::cross(v_up, w).unit();  // Vector from camera origin to camera right
         let v = V3::cross(w, u);                   // Vector from camera origin to camera top
         let lens_radius = lens_aperture / 2.0;
         Camera {
@@ -201,7 +201,7 @@ fn color_sky_black () -> V3 {
 }
 
 fn color_sky_day (ray: &Ray) -> V3 {
-    let unit_direction = ray.direction.unit_vector();
+    let unit_direction = ray.normal.unit();
     let t = 0.5 * (unit_direction.y() + 1.0);
     let white = V3(1.0, 1.0, 1.0);
     let sky_blue = V3(0.5, 0.7, 1.0);

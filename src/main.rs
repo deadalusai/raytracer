@@ -260,29 +260,64 @@ fn make_chunks_list(viewport: &Viewport, chunk_count: u32) -> Vec<ViewChunk> {
 }
 
 #[derive(Debug)]
-enum Mode {
+enum RenderMode {
     Quality(u32),
     Fast,
 }
 
-fn main() {
-    let mode = match std::env::args().skip(1).next().map(|s| s.parse()) {
-        Some(Ok(quality)) => Mode::Quality(quality),
-        _ => Mode::Fast,
+#[derive(Debug)]
+enum TestScene {
+    RandomSpheres,
+    Simple,
+    Planes,
+}
+
+fn parse_args() -> Result<(RenderMode, TestScene), String> {
+    let mut args = std::env::args().skip(1);
+
+    let scene = match args.next() {
+        Some(s) if s == "spheres" => TestScene::RandomSpheres,
+        Some(s) if s == "simple"  => TestScene::Simple,
+        Some(s) if s == "planes"  => TestScene::Planes,
+        Some(s) => return Err(format!("Invalid scene name: {}", s)),
+        None    => return Err(format!("Must specify a scene (spheres, simple, planes)")),
     };
 
-    println!("Running in mode {:?}", mode);
+    let mode = match args.next().and_then(|s| s.parse().ok()) {
+        Some(quality) => RenderMode::Quality(quality),
+        _             => RenderMode::Fast,
+    };
+
+    Ok((mode, scene))
+}
+
+fn main() {
+
+    let (render_mode, test_scene) = match parse_args() {
+        Ok(r) => r,
+        Err(err) => {
+            println!("Invalid arguments: {}", err);
+            return;
+        }
+    };
+
+    println!("Running in mode {:?}", render_mode);
+    println!("Running scene {:?}", test_scene);
 
     // Change this to OpenGL::V2_1 if not working.
     let opengl = OpenGL::V3_2;
 
     println!("Creating scene");
     let viewport = Viewport::new(WIDTH, HEIGHT);
-    let camera_aperture = match mode {
-        Mode::Fast => 0.0,
-        Mode::Quality(_) => 0.1,
+    let camera_aperture = match render_mode {
+        RenderMode::Fast => 0.0,
+        RenderMode::Quality(_) => 0.1,
     };
-    let scene = raytracer::samples::simple_scene(&viewport, camera_aperture);
+    let scene = match test_scene {
+        TestScene::RandomSpheres => raytracer::samples::random_sphere_scene(&viewport, camera_aperture),
+        TestScene::Simple => raytracer::samples::simple_scene(&viewport, camera_aperture),
+        TestScene::Planes => raytracer::samples::planes_scene(&viewport, camera_aperture),
+    };
 
     println!("Creating window");
     let mut window: Window =
@@ -306,9 +341,9 @@ fn main() {
     println!("Starting main event loop");
     let render_settings = RenderSettings {
         max_reflections: MAX_REFLECTIONS,
-        samples_per_pixel: match mode {
-            Mode::Fast => 1,
-            Mode::Quality(quality) => quality
+        samples_per_pixel: match render_mode {
+            RenderMode::Fast => 1,
+            RenderMode::Quality(quality) => quality
         },
     };
     let mut app = App::new(scene, render_settings, chunk_list, worker_handle);

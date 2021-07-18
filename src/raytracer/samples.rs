@@ -2,7 +2,7 @@
 
 use raytracer::types::{ V3, Ray };
 use raytracer::materials::{ MatLambertian, MatDielectric, MatMetal };
-use raytracer::shapes::{ Sphere };
+use raytracer::shapes::{ Sphere, Plane };
 use raytracer::viewport::{ Viewport };
 use raytracer::lights::{ PointLight, DirectionalLight, LampLight };
 use raytracer::implementation::{ Scene, SceneSky, Camera, Material };
@@ -81,12 +81,10 @@ macro_rules! position {
 
 // Attenuation factory
 
-fn rgb (r: u8, g: u8, b: u8) -> V3 {
-    V3(
-        r as f32 / 255.0,
-        g as f32 / 255.0,
-        b as f32 / 255.0
-    )
+fn rgb(r: u8, g: u8, b: u8) -> V3 {
+    V3(r as f32 / 255.0,
+       g as f32 / 255.0,
+       b as f32 / 255.0)
 }
 
 // Random material factories
@@ -229,7 +227,7 @@ pub fn simple_scene(viewport: &Viewport, camera_aperture: f32) -> Scene {
     add_cardinal_markers(&mut scene);
 
     // World sphere
-    let world_mat = MatLambertian::with_albedo(rgb(255, 255, 255));
+    let world_mat = MatLambertian::with_albedo(rgb(10, 10, 10));
     let world_pos = position!(Down(1000.0));
     scene.add_obj(Sphere::new(world_pos, 1000.0, world_mat));
 
@@ -282,6 +280,41 @@ pub fn simple_scene(viewport: &Viewport, camera_aperture: f32) -> Scene {
         let small_plastic_radius = lerp_f32(0.10, 0.02, ease_in_out(t, 2.0));
         scene.add_obj(Sphere::new(small_plastic_pos, small_plastic_radius, small_plastic_mat.clone()));
     }
+
+    scene
+}
+
+pub fn planes_scene(viewport: &Viewport, camera_aperture: f32) -> Scene {
+
+    // Camera
+    let look_from = position!(South(6.0), East(1.5), Up(3.0));
+    let look_to =   position!(Up(1.0));
+
+    let fov = 45.0;
+    let aspect_ratio = viewport.width as f32 / viewport.height as f32;
+    let dist_to_focus = (look_from - look_to).length();
+
+    let camera = Camera::new(look_from, look_to, fov, aspect_ratio, camera_aperture, dist_to_focus);
+
+    // Scene
+    let mut scene = Scene::new(camera, SceneSky::Day);
+
+    // Lights
+    let lamp_pos = position!(Up(10.0), East(4.0));
+    let lamp_direction = WORLD_ORIGIN - lamp_pos;
+    scene.add_light(LampLight::with_origin_and_direction(lamp_pos, lamp_direction).with_intensity(8.0).with_angle(20.0));
+
+    add_cardinal_markers(&mut scene);
+
+    // World sphere
+    let world_mat = MatLambertian::with_albedo(rgb(255, 255, 255)).with_reflectivity(0.01);
+    let world_pos = position!(Down(1000.0));
+    scene.add_obj(Sphere::new(world_pos, 1000.0, world_mat));
+
+    let plane_mat = MatMetal::with_albedo(rgb(240, 240, 240)).with_reflectiveness(0.8);
+    let plane_pos = position!(West(1.0));
+    let plane_normal = (WORLD_ORIGIN - plane_pos).unit(); // normal facing world origin
+    scene.add_obj(Plane::new(plane_pos, plane_normal, plane_mat));
 
     scene
 }

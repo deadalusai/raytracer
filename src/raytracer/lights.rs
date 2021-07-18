@@ -39,7 +39,7 @@ impl LightSource for PointLight {
         // Point light intensity falls off following the inverse square law
         let intensity = self.intensity / (4.0 * std::f32::consts::PI * direction.length());
         Some(LightRecord {
-            direction: direction.unit_vector(),
+            direction: direction.unit(),
             color: self.color.clone(),
             intensity: intensity
         })
@@ -59,7 +59,7 @@ impl LampLight {
     pub fn with_origin_and_direction(origin: V3, direction: V3) -> LampLight {
         LampLight {
             origin: origin,
-            direction: direction.unit_vector(),
+            direction: direction.unit(),
             color: V3(1.0, 1.0, 1.0),
             intensity: 1.0,
             angle_deg: 45.0,
@@ -88,15 +88,14 @@ impl LightSource for LampLight {
         let direction_to_p = p - self.origin;
         let direction_of_lamp = self.direction;
         // Calculate the angle between this lamp's direction and that vector
-        //      theta_rad = acos((a . b) / (|a| * |b|))
-        let theta = (V3::dot(direction_to_p, direction_of_lamp) / (direction_to_p.length() * direction_of_lamp.length())).acos();
+        let theta = V3::theta(direction_to_p, direction_of_lamp);
         let theta_deg = theta / PI * 180.0;
         // Does the ray fall outside the cone of light?
         if theta_deg > self.angle_deg {
             return None;
         }
-        // Point light intensity falls off following the inverse square law
-        let intensity = self.intensity / (4.0 * std::f32::consts::PI * direction_to_p.length());
+        // Lamp light intensity falls off following the inverse square law
+        let intensity = self.intensity / (4.0 * PI * direction_to_p.length());
         Some(LightRecord {
             direction: direction_to_p,
             color: self.color,
@@ -117,7 +116,7 @@ impl DirectionalLight {
     pub fn with_origin_and_direction (origin: V3, direction: V3) -> DirectionalLight {
         DirectionalLight {
             origin: origin,
-            direction: direction.unit_vector(),
+            direction: direction.unit(),
             color: V3(1.0, 1.0, 1.0),
             intensity: 1.0,
         }
