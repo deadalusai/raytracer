@@ -195,10 +195,10 @@ pub fn random_sphere_scene(viewport: &Viewport, camera_aperture: f32) -> Scene {
 
 fn add_cardinal_markers(scene: &mut Scene) {
     // Direction makers
-    scene.add_obj(Sphere::new(position!(North(2.0)), 0.25, MatDielectric::with_albedo(rgb(128, 0,   0))));
-    scene.add_obj(Sphere::new(position!(East(2.0)),  0.25, MatDielectric::with_albedo(rgb(0,   128, 0))));
-    scene.add_obj(Sphere::new(position!(West(2.0)),  0.25, MatDielectric::with_albedo(rgb(0,   0,   128))));
-    scene.add_obj(Sphere::new(position!(South(2.0)), 0.25, MatDielectric::with_albedo(rgb(255, 255, 255))));
+    scene.add_obj(Sphere::new(position!(North(2.0)), 0.25, MatLambertian::with_albedo(rgb(128, 0,   0))));
+    scene.add_obj(Sphere::new(position!(East(2.0)),  0.25, MatLambertian::with_albedo(rgb(0,   128, 0))));
+    scene.add_obj(Sphere::new(position!(West(2.0)),  0.25, MatLambertian::with_albedo(rgb(0,   0,   128))));
+    scene.add_obj(Sphere::new(position!(South(2.0)), 0.25, MatLambertian::with_albedo(rgb(255, 255, 255))));
 }
 
 pub fn simple_scene(viewport: &Viewport, camera_aperture: f32) -> Scene {
