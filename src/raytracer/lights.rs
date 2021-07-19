@@ -63,7 +63,7 @@ impl LampLight {
             origin: origin,
             direction: normal.unit(),
             color: V3(1.0, 1.0, 1.0),
-            intensity: 1.0,
+            intensity: 80.0,
             angle_deg: 45.0,
         }
     }
