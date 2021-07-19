@@ -55,6 +55,7 @@ pub trait Material: Send + Sync {
 // Hitables
 
 pub struct HitRecord<'mat> {
+    pub object_id: Option<u32>,
     pub t: f32,
     pub p: V3,
     pub normal: V3,
@@ -68,6 +69,7 @@ pub trait Hitable: Send + Sync {
 // Light sources
 
 pub struct LightRecord {
+    pub t: f32,
     pub direction: V3,
     pub color: V3,
     pub intensity: f32,
@@ -119,9 +121,9 @@ impl Scene {
         self.lights.push(Box::new(light));
     }
 
-    fn hit_closest(&self, ray: &Ray, t_min: f32) -> Option<HitRecord> {
+    fn hit_closest(&self, ray: &Ray, t_min: f32, t_max: f32) -> Option<HitRecord> {
         let mut closest_hit_record = None;
-        let mut closest_so_far = std::f32::INFINITY;
+        let mut closest_so_far = t_max;
         for hitable in self.hitables.iter() {
             if let Some(record) = hitable.hit(ray, t_min, closest_so_far) {
                 closest_so_far = record.t;
@@ -222,6 +224,8 @@ fn cast_light_ray(hit_point: V3, light_record: &LightRecord, scene: &Scene, rng:
 
     // Test to see if there is any shape blocking light from this lamp by casting a ray from the shadow back to the light source
     let light_ray = Ray::new(hit_point, -light_record.direction);
+    // Ignore any hits from behind this light source
+    let t_max = light_record.t;
 
     // TODO(benf):
     // Can we do reflection/refraction of light rays?
@@ -230,7 +234,7 @@ fn cast_light_ray(hit_point: V3, light_record: &LightRecord, scene: &Scene, rng:
     let mut closest_so_far = 0.0;
 
     // Perform hit tests until we escape
-    while let Some(shadow_hit) = scene.hit_closest(&light_ray, closest_so_far) {
+    while let Some(shadow_hit) = scene.hit_closest(&light_ray, closest_so_far, t_max) {
 
         let shadow_mat = shadow_hit.material.scatter(&light_ray, &shadow_hit, rng);
         if let Some(shadow_refraction) = shadow_mat.refraction {
@@ -262,7 +266,7 @@ fn cast_ray(ray: &Ray, scene: &Scene, rng: &mut dyn Rng, max_reflections: u32) -
         }
         
         // Hit anything in the scene?
-        if let Some(hit_record) = scene.hit_closest(ray, BIAS) {
+        if let Some(hit_record) = scene.hit_closest(ray, BIAS, std::f32::MAX) {
             let mat_record = hit_record.material.scatter(ray, &hit_record, rng);
 
             // NOTE: Move hit point slightly above p along surface normal to avoid "shadow acne"

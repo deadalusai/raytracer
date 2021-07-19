@@ -122,7 +122,7 @@ pub struct MatDielectric {
 }
 
 impl MatDielectric {
-    pub fn with_albedo (albedo: V3) -> MatDielectric {
+    pub fn with_albedo(albedo: V3) -> MatDielectric {
         MatDielectric {
             albedo: albedo,
             reflectivity: 1.0,
@@ -131,19 +131,19 @@ impl MatDielectric {
         }
     }
 
-    pub fn with_reflectivity (mut self, reflectivity: f32) -> MatDielectric {
+    pub fn with_reflectivity(mut self, reflectivity: f32) -> MatDielectric {
         assert_in_range!(reflectivity);
         self.reflectivity = reflectivity;
         self
     }
 
-    pub fn with_opacity (mut self, opacity: f32) -> MatDielectric {
+    pub fn with_opacity(mut self, opacity: f32) -> MatDielectric {
         assert_in_range!(opacity);
         self.opacity = opacity;
         self
     }
 
-    pub fn with_ref_index (mut self, ref_index: f32) -> MatDielectric {
+    pub fn with_ref_index(mut self, ref_index: f32) -> MatDielectric {
         self.ref_index = ref_index;
         self
     }

@@ -6,6 +6,8 @@ extern crate image;
 extern crate rand;
 extern crate multiqueue;
 
+mod raytracer;
+
 use std::borrow::Borrow;
 use std::path::{ Path };
 use std::sync::{ Arc };
@@ -21,8 +23,6 @@ use opengl_graphics::{ GlGraphics, GlyphCache, OpenGL, Texture, TextureSettings 
 use image::{ RgbaImage };
 use rand::{ weak_rng };
 use multiqueue::{ mpmc_queue, MPMCReceiver, MPMCSender };
-
-mod raytracer;
 
 use raytracer::{ Scene, RenderSettings, ViewChunk, Viewport };
 

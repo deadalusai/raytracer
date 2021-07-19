@@ -9,7 +9,7 @@ use raytracer::implementation::{ Scene, SceneSky, Camera, Material };
 
 use rand::{ Rng, StdRng, SeedableRng };
 
-fn create_rng_from_seed (seed_text: &str) -> StdRng {
+fn create_rng_from_seed(seed_text: &str) -> StdRng {
     let bytes: Vec<_> = seed_text.bytes().map(|b| b as usize).collect();
     StdRng::from_seed(&bytes)
 }
@@ -138,9 +138,8 @@ pub fn random_sphere_scene(viewport: &Viewport, camera_aperture: f32) -> Scene {
     let mut scene = Scene::new(camera, SceneSky::Day);
 
     // Lights
-    let lamp_origin = V3(4.0, 100.0, 4.0);
-    let lamp_direction = WORLD_ORIGIN - lamp_origin;
-    scene.add_light(DirectionalLight::with_origin_and_direction(lamp_origin, lamp_direction).with_intensity(0.5));
+    let lamp_direction = WORLD_ORIGIN - V3(4.0, 100.0, 4.0);
+    scene.add_light(DirectionalLight::with_direction(lamp_direction).with_intensity(0.5));
 
     // World sphere
     scene.add_obj(Sphere::new(V3(0.0, -1000.0, 0.0), 1000.0, MatLambertian::with_albedo(V3(0.5, 0.5, 0.5))));

@@ -165,11 +165,8 @@ pub struct Ray {
 }
 
 impl Ray {
-    pub fn new(origin: V3, direction: V3) -> Ray {
-        Ray {
-            origin: origin,
-            normal: direction
-        }
+    pub fn new(origin: V3, normal: V3) -> Ray {
+        Ray { origin, normal }
     }
 
     pub fn point_at_parameter(&self, t: f32) -> V3 {

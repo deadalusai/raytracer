@@ -13,7 +13,7 @@ pub struct PointLight {
 }
 
 impl PointLight {
-    pub fn with_origin (origin: V3) -> PointLight {
+    pub fn with_origin(origin: V3) -> PointLight {
         PointLight {
             origin: origin,
             color: V3(1.0, 1.0, 1.0),
@@ -21,12 +21,12 @@ impl PointLight {
         }
     }
 
-    pub fn with_color (mut self, color: V3) -> PointLight {
+    pub fn with_color(mut self, color: V3) -> PointLight {
         self.color = color;
         self
     }
 
-    pub fn with_intensity (mut self, intensity: f32) -> PointLight {
+    pub fn with_intensity(mut self, intensity: f32) -> PointLight {
         self.intensity = intensity;
         self
     }
@@ -35,11 +35,13 @@ impl PointLight {
 impl LightSource for PointLight {
     fn get_direction_and_intensity(&self, p: V3) -> Option<LightRecord> {
         // Cast a ray from point p back to the light
-        let direction = p - self.origin;
+        let direction_to_p = p - self.origin;
         // Point light intensity falls off following the inverse square law
-        let intensity = self.intensity / (4.0 * std::f32::consts::PI * direction.length());
+        let t = direction_to_p.length();
+        let intensity = self.intensity / (4.0 * PI * t);
         Some(LightRecord {
-            direction: direction.unit(),
+            t,
+            direction: direction_to_p.unit(),
             color: self.color.clone(),
             intensity: intensity
         })
@@ -95,9 +97,11 @@ impl LightSource for LampLight {
             return None;
         }
         // Lamp light intensity falls off following the inverse square law
-        let intensity = self.intensity / (4.0 * PI * direction_to_p.length());
+        let t = direction_to_p.length();
+        let intensity = self.intensity / (4.0 * PI * t);
         Some(LightRecord {
-            direction: direction_to_p,
+            t,
+            direction: direction_to_p.unit(),
             color: self.color,
             intensity: intensity
         })
@@ -106,28 +110,26 @@ impl LightSource for LampLight {
 
 
 pub struct DirectionalLight {
-    origin: V3,
     direction: V3,
     color: V3,
     intensity: f32,
 }
 
 impl DirectionalLight {
-    pub fn with_origin_and_direction (origin: V3, direction: V3) -> DirectionalLight {
+    pub fn with_direction(direction: V3) -> DirectionalLight {
         DirectionalLight {
-            origin: origin,
             direction: direction.unit(),
             color: V3(1.0, 1.0, 1.0),
             intensity: 1.0,
         }
     }
 
-    pub fn with_color (mut self, color: V3) -> DirectionalLight {
+    pub fn with_color(mut self, color: V3) -> DirectionalLight {
         self.color = color;
         self
     }
 
-    pub fn with_intensity (mut self, intensity: f32) -> DirectionalLight {
+    pub fn with_intensity(mut self, intensity: f32) -> DirectionalLight {
         self.intensity = intensity;
         self
     }
@@ -137,6 +139,7 @@ impl LightSource for DirectionalLight {
     fn get_direction_and_intensity(&self, p: V3) -> Option<LightRecord> {
         // Directional lights have the same direction + intensity at all locations in the scene
         Some(LightRecord {
+            t: std::f32::MAX, // Simulate a very-far-away light source
             direction: self.direction,
             color: self.color,
             intensity: self.intensity
