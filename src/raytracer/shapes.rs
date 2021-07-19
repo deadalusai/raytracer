@@ -8,6 +8,7 @@ pub use raytracer::implementation::{ Material, MatRecord, Hitable, HitRecord };
 //
 
 pub struct Sphere {
+    object_id: Option<u32>,
     origin: V3,
     radius: f32,
     material: Box<dyn Material>,
@@ -17,12 +18,21 @@ impl Sphere {
     pub fn new<M> (origin: V3, radius: f32, material: M) -> Self
         where M: Material + 'static
     {
-        Sphere { origin, radius: radius, material: Box::new(material) }
+        Sphere { object_id: None, origin, radius: radius, material: Box::new(material) }
+    }
+
+    #[allow(unused)]
+    pub fn with_id(mut self, id: u32) -> Self {
+        self.object_id = Some(id);
+        self
     }
 }
 
 impl Hitable for Sphere {
     fn hit<'a> (&'a self, ray: &Ray, t_min: f32, t_max: f32) -> Option<HitRecord<'a>> {
+        let object_id = self.object_id;
+        let material = self.material.as_ref();
+
         let oc = ray.origin - self.origin;
         let a = V3::dot(ray.normal, ray.normal);
         let b = V3::dot(oc, ray.normal);
@@ -31,15 +41,15 @@ impl Hitable for Sphere {
         if discriminant > 0.0 {
             let t = (-b - discriminant.sqrt()) / a;
             if t < t_max && t > t_min {
-                let point = ray.point_at_parameter(t);
-                let normal = ((point - self.origin) / self.radius).unit();
-                return Some(HitRecord { t: t, p: point, normal: normal, material: self.material.as_ref() });
+                let p = ray.point_at_parameter(t);
+                let normal = ((p - self.origin) / self.radius).unit();
+                return Some(HitRecord { object_id, t, p, normal, material });
             }
             let t = (-b + discriminant.sqrt()) / a;
             if t < t_max && t > t_min {
-                let point = ray.point_at_parameter(t);
-                let normal = ((point - self.origin) / self.radius).unit();
-                return Some(HitRecord { t: t, p: point, normal: normal, material: self.material.as_ref() });
+                let p = ray.point_at_parameter(t);
+                let normal = ((p - self.origin) / self.radius).unit();
+                return Some(HitRecord { object_id, t, p, normal, material });
             }
         }
         None
@@ -47,6 +57,7 @@ impl Hitable for Sphere {
 }
 
 pub struct Plane {
+    object_id: Option<u32>,
     origin: V3,
     normal: V3,
     material: Box<dyn Material>,
@@ -57,11 +68,17 @@ impl Plane {
     pub fn new<M> (origin: V3, normal: V3, material: M) -> Self
         where M: Material + 'static
     {
-        Plane { origin, normal: normal.unit(), material: Box::new(material), radius: None }
+        Plane { object_id: None, origin, normal: normal.unit(), material: Box::new(material), radius: None }
     }
 
     pub fn with_radius(mut self, radius: f32) -> Plane {
         self.radius = Some(radius);
+        self
+    }
+
+    #[allow(unused)]
+    pub fn with_id(mut self, id: u32) -> Self {
+        self.object_id = Some(id);
         self
     }
 }
@@ -91,10 +108,13 @@ impl Hitable for Plane {
                 return None;
             }
         }
+        let object_id = self.object_id;
+        let material = self.material.as_ref();
+
         // If this plane is facing towards the ray we expect an angle between them approaching 180 degrees (PI).
         // If the the angle passes perpendicular (90 degrees or PI/2) then we flip the plane normal     
         let theta = V3::theta(ray.normal, self.normal);
         let normal = if theta < FRAC_PI_2 { -self.normal } else { self.normal };
-        return Some(HitRecord { t, p, normal, material: self.material.as_ref() });
+        return Some(HitRecord { object_id, t, p, normal, material });
     }
 }

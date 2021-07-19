@@ -339,7 +339,7 @@ pub fn hall_of_mirrors(viewport: &Viewport, camera_aperture: f32) -> Scene {
     let lamp_normal = WORLD_ORIGIN - lamp_pos;
     scene.add_light(LampLight::with_origin_and_normal(lamp_pos, lamp_normal).with_intensity(8.0).with_angle(20.0));
 
-    add_cardinal_markers(&mut scene);
+    // add_cardinal_markers(&mut scene);
 
     // World sphere
     let world_mat = MatLambertian::with_albedo(rgb(255, 255, 255)).with_reflectivity(0.01);
@@ -353,7 +353,8 @@ pub fn hall_of_mirrors(viewport: &Viewport, camera_aperture: f32) -> Scene {
         position!(West(3.0))
     ];
     for plane_origin in cardinals {
-        let plane_mat = MatMetal::with_albedo(V3::one()).with_reflectiveness(1.0).with_fuzz(0.0);
+        // let plane_mat = MatMetal::with_albedo(V3::one()).with_reflectiveness(1.0).with_fuzz(0.0);
+        let plane_mat = MatLambertian::with_albedo(V3::one());
         let plane_normal = WORLD_ORIGIN - plane_origin; // normal facing world origin
         scene.add_obj(
             Plane::new(plane_origin, plane_normal, plane_mat)
