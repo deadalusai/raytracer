@@ -231,6 +231,12 @@ pub fn simple_scene(viewport: &Viewport, camera_aperture: f32) -> Scene {
     let world_pos = position!(Down(1000.0));
     scene.add_obj(Sphere::new(world_pos, 1000.0, world_mat));
 
+    // Wall
+    let wall_mat = MatLambertian::with_albedo(rgb(200, 200, 200)).with_reflectivity(1.0);
+    let wall_pos = position!(North(4.5));
+    let wall_facing = wall_pos - WORLD_ORIGIN;
+    scene.add_obj(Plane::new(wall_pos, wall_facing, wall_mat));
+
     // Plastic sphere
     let plastic_mat = MatLambertian::with_albedo(rgb(226, 226, 226));
     let plastic_pos = position!(Up(1.0));
@@ -247,13 +253,13 @@ pub fn simple_scene(viewport: &Viewport, camera_aperture: f32) -> Scene {
     scene.add_obj(Sphere::new(small_glass_pos, 0.5, small_glass_mat));
 
     // Metal sphere
-    let metal_mat = MatMetal::with_albedo(rgb(147, 154, 186)).with_fuzz(0.001).with_reflectiveness(1.0);
+    let metal_mat = MatMetal::with_albedo(rgb(147, 154, 186)).with_fuzz(0.001).with_reflectivity(1.0);
     let metal_pos = position!(Up(1.0), North(2.0), West(2.0));
-    scene.add_obj(Sphere::new(metal_pos, 1.0, metal_mat));
+    scene.add_obj(Sphere::new(metal_pos, 1.0, metal_mat).with_id(1));
 
 
     // Small metal spheres (buried) drawn between these points
-    let small_metal_mat = MatMetal::with_albedo(V3(0.8, 0.1, 0.1)).with_fuzz(0.01).with_reflectiveness(0.4);
+    let small_metal_mat = MatMetal::with_albedo(V3(0.8, 0.1, 0.1)).with_fuzz(0.01).with_reflectivity(0.4);
     let small_metal_sphere_count = 6;
     let small_metal_start_pos = position!(West(3.5), North(1.0));
     let small_metal_end_pos = position!(West(2.5), South(3.5));
@@ -311,7 +317,7 @@ pub fn planes_scene(viewport: &Viewport, camera_aperture: f32) -> Scene {
     let world_pos = position!(Down(1000.0));
     scene.add_obj(Sphere::new(world_pos, 1000.0, world_mat));
 
-    let plane_mat = MatMetal::with_albedo(rgb(240, 240, 240)).with_reflectiveness(0.8);
+    let plane_mat = MatMetal::with_albedo(rgb(240, 240, 240)).with_reflectivity(0.8).with_fuzz(0.02);
     let plane_pos = position!(West(1.0));
     let plane_normal = WORLD_ORIGIN - plane_pos; // normal facing world origin
     scene.add_obj(Plane::new(plane_pos, plane_normal, plane_mat));
@@ -353,7 +359,7 @@ pub fn hall_of_mirrors(viewport: &Viewport, camera_aperture: f32) -> Scene {
         position!(West(3.0))
     ];
     for plane_origin in cardinals {
-        let plane_mat = MatMetal::with_albedo(V3::one()).with_reflectiveness(0.98).with_fuzz(0.01);
+        let plane_mat = MatMetal::with_albedo(V3::one()).with_reflectivity(0.98).with_fuzz(0.01);
         let plane_normal = WORLD_ORIGIN - plane_origin; // normal facing world origin
         scene.add_obj(
             Plane::new(plane_origin, plane_normal, plane_mat)

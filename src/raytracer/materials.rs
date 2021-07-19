@@ -1,5 +1,6 @@
 #![allow(unused)]
 
+use std::f32::consts::FRAC_PI_2;
 use std::mem::{ swap };
 
 pub use raytracer::types::{ V3, Ray };
@@ -26,14 +27,14 @@ pub struct MatLambertian {
 }
 
 impl MatLambertian {
-    pub fn with_albedo (albedo: V3) -> MatLambertian {
+    pub fn with_albedo(albedo: V3) -> MatLambertian {
         MatLambertian { 
             albedo: albedo,
             reflectivity: 0.01,
         }
     }
 
-    pub fn with_reflectivity (mut self, reflectivity: f32) -> MatLambertian {
+    pub fn with_reflectivity(mut self, reflectivity: f32) -> MatLambertian {
         assert_in_range!(reflectivity);
         self.reflectivity = reflectivity;
         self
@@ -41,12 +42,14 @@ impl MatLambertian {
 }
 
 impl Material for MatLambertian {
-    fn scatter (&self, _r: &Ray, hit_record: &HitRecord, rng: &mut dyn Rng) -> MatRecord {
+    fn scatter(&self, _r: &Ray, hit_record: &HitRecord, rng: &mut dyn Rng) -> MatRecord {
+        // TODO(benf): Ensure "direction" is within 90 degrees of the normal?
+        // Otherwise we're scattering backwards.
         let target = hit_record.p + hit_record.normal + random_point_in_unit_sphere(rng);
         let direction = target - hit_record.p;
         let ray = Ray::new(hit_record.p.clone(), direction);
         MatRecord {
-            reflection: Some(Reflect { ray: ray, intensity: self.reflectivity }),
+            reflection: Some(Reflect { ray, intensity: self.reflectivity }),
             refraction: None,
             albedo: self.albedo.clone()
         }
@@ -61,7 +64,7 @@ pub struct MatMetal {
 }
 
 impl MatMetal {
-    pub fn with_albedo (albedo: V3) -> MatMetal {
+    pub fn with_albedo(albedo: V3) -> MatMetal {
         MatMetal {
             albedo: albedo,
             reflectiveness: 0.99,
@@ -69,7 +72,7 @@ impl MatMetal {
         }
     }
 
-    pub fn with_reflectiveness (mut self, reflectiveness: f32) -> MatMetal {
+    pub fn with_reflectivity(mut self, reflectiveness: f32) -> MatMetal {
         assert_in_range!(reflectiveness);
         self.reflectiveness = reflectiveness;
         self
@@ -82,13 +85,13 @@ impl MatMetal {
     }
 }
 
-fn reflect (incident_direction: V3, surface_normal: V3) -> V3 {
+fn reflect(incident_direction: V3, surface_normal: V3) -> V3 {
     let dir = incident_direction.unit();
     dir - (surface_normal * V3::dot(dir, surface_normal) * 2.0)
 }
 
 impl Material for MatMetal {
-    fn scatter (&self, ray: &Ray, hit_record: &HitRecord, rng: &mut dyn Rng) -> MatRecord {
+    fn scatter(&self, ray: &Ray, hit_record: &HitRecord, rng: &mut dyn Rng) -> MatRecord {
         let reflected = reflect(ray.normal, hit_record.normal);
         let scattered =
             if self.fuzz == 0.0 {

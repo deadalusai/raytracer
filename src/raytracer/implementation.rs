@@ -266,69 +266,70 @@ fn cast_ray(ray: &Ray, scene: &Scene, rng: &mut dyn Rng, max_reflections: u32) -
         }
         
         // Hit anything in the scene?
-        if let Some(hit_record) = scene.hit_closest(ray, BIAS, std::f32::MAX) {
-            let mat_record = hit_record.material.scatter(ray, &hit_record, rng);
+        match scene.hit_closest(ray, BIAS, std::f32::MAX) {
+            // Hit the sky instead
+            None => color_sky(ray, scene),
+            // Hit an object
+            Some(hit_record) => {
 
-            // NOTE: Move hit point slightly above p along surface normal to avoid "shadow acne"
-            let hit_point = hit_record.p + (hit_record.normal * BIAS);
+                let mat_record = hit_record.material.scatter(ray, &hit_record, rng);
 
-            // Determine color from lights in the scene.
-            let mut color_from_lights = V3::zero();
+                // NOTE: Move hit point slightly above p along surface normal to avoid "shadow acne"
+                let hit_point = hit_record.p + (hit_record.normal * BIAS);
 
-            for light in scene.lights.iter() {
-                if let Some(light_record) = light.get_direction_and_intensity(hit_point) {
-                    let light_color =
-                        cast_light_ray(hit_point, &light_record, scene, rng)
-                            * mat_record.albedo // Material albedo
-                            * max_f(0.0, V3::dot(hit_record.normal, -light_record.direction)); // Adjust intensity as reflection normal changes
+                // Determine color from lights in the scene.
+                let mut color_from_lights = V3::zero();
 
-                    color_from_lights = color_from_lights + light_color;
+                for light in scene.lights.iter() {
+                    if let Some(light_record) = light.get_direction_and_intensity(hit_point) {
+                        let light_color =
+                            cast_light_ray(hit_point, &light_record, scene, rng)
+                                * mat_record.albedo // Material albedo
+                                * max_f(0.0, V3::dot(hit_record.normal, -light_record.direction)); // Adjust intensity as reflection normal changes
+
+                        color_from_lights = color_from_lights + light_color;
+                    }
                 }
+
+                // We may need to recurse more than once, depending on the material we hit.
+                // In this case, split the recursion limit to avoid doubling our work.
+                let (reflect_limit, refract_limit) = {
+                    let recurse_limit = recurse_limit - 1;
+                    match (&mat_record.reflection, &mat_record.refraction) {
+                        (&Some(_), &Some(_)) => {
+                            let reflect_limit = recurse_limit / 2;
+                            let refract_limit = recurse_limit - reflect_limit;
+                            (reflect_limit, refract_limit)
+                        },
+                        (&Some(_), &None) => (recurse_limit, 0),
+                        (&None, &Some(_)) => (0, recurse_limit),
+                        (&None, &None)    => (0, 0)
+                    }
+                };
+
+                // Determine color from material reflection.
+                let mut color_from_reflection = V3::zero();
+                if let Some(reflect) = mat_record.reflection {
+                    if reflect.intensity > 0.0 {
+                        color_from_reflection = cast_ray_recursive(&reflect.ray, scene, rng, reflect_limit) * reflect.intensity;
+                        // HACK: Make highly reflective objects reflect less color from lights
+                        color_from_lights = color_from_lights * (1.0 - reflect.intensity);
+                    }
+                }
+
+                // Determine color from material refraction.
+                let mut color_from_refraction = V3::zero();
+                if let Some(refract) = mat_record.refraction {
+                    if refract.intensity > 0.0 {
+                        color_from_refraction = cast_ray_recursive(&refract.ray, scene, rng, refract_limit) * refract.intensity;
+                        // HACK: Make highly refractive objects reflect less color from lights
+                        color_from_lights = color_from_lights * (1.0 - refract.intensity);
+                    }
+                }
+
+                (color_from_lights + color_from_reflection + color_from_refraction) * mat_record.albedo
             }
-
-            // We may need to recurse more than once, depending on the material we hit.
-            // In this case, split the recursion limit to avoid doubling our work.
-            let (reflect_limit, refract_limit) = {
-                let recurse_limit = recurse_limit - 1;
-                match (&mat_record.reflection, &mat_record.refraction) {
-                    (&Some(_), &Some(_)) => {
-                        let reflect_limit = recurse_limit / 2;
-                        let refract_limit = recurse_limit - reflect_limit;
-                        (reflect_limit, refract_limit)
-                    },
-                    (&Some(_), &None) => (recurse_limit, 0),
-                    (&None, &Some(_)) => (0, recurse_limit),
-                    (&None, &None)    => (0, 0)
-                }
-            };
-
-            // Determine color from material reflection.
-            let mut color_from_reflection = V3::zero();
-            if let Some(reflect) = mat_record.reflection {
-                if reflect.intensity > 0.0 {
-                    color_from_reflection = cast_ray_recursive(&reflect.ray, scene, rng, reflect_limit) * reflect.intensity;
-                    // HACK: Highly reflective objects
-                    // reflect less color from lights
-                    color_from_lights = color_from_lights * (1.0 - reflect.intensity);
-                }
-            }
-
-            // Determine color from material refraction.
-            let mut color_from_refraction = V3::zero();
-            if let Some(refract) = mat_record.refraction {
-                if refract.intensity > 0.0 {
-                    color_from_refraction = cast_ray_recursive(&refract.ray, scene, rng, refract_limit) * refract.intensity;
-                    // HACK: Highly refractive objects
-                    // reflect less color from lights
-                    color_from_lights = color_from_lights * (1.0 - refract.intensity);
-                }
-            }
-
-            return (color_from_lights + color_from_reflection + color_from_refraction) * mat_record.albedo;
         }
-
-        // Hit the sky instead
-        color_sky(ray, scene)
     }
 
     cast_ray_recursive(ray, scene, rng, max_reflections).clamp()
