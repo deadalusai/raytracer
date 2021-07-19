@@ -307,6 +307,9 @@ fn cast_ray(ray: &Ray, scene: &Scene, rng: &mut dyn Rng, max_reflections: u32) -
             if let Some(reflect) = mat_record.reflection {
                 if reflect.intensity > 0.0 {
                     color_from_reflection = cast_ray_recursive(&reflect.ray, scene, rng, reflect_limit) * reflect.intensity;
+                    // HACK: Highly reflective objects
+                    // reflect less color from lights
+                    color_from_lights = color_from_lights * (1.0 - reflect.intensity);
                 }
             }
 
@@ -315,6 +318,9 @@ fn cast_ray(ray: &Ray, scene: &Scene, rng: &mut dyn Rng, max_reflections: u32) -
             if let Some(refract) = mat_record.refraction {
                 if refract.intensity > 0.0 {
                     color_from_refraction = cast_ray_recursive(&refract.ray, scene, rng, refract_limit) * refract.intensity;
+                    // HACK: Highly refractive objects
+                    // reflect less color from lights
+                    color_from_lights = color_from_lights * (1.0 - refract.intensity);
                 }
             }
 

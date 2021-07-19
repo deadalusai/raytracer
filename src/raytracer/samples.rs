@@ -242,18 +242,18 @@ pub fn simple_scene(viewport: &Viewport, camera_aperture: f32) -> Scene {
     scene.add_obj(Sphere::new(glass_pos.clone(), 1.0, glass_mat));
     
     // Glass sphere (small)
-    let small_glass_mat = MatDielectric::with_albedo(rgb(66, 206, 245)).with_opacity(0.4);
+    let small_glass_mat = MatDielectric::with_albedo(rgb(66, 206, 245)).with_opacity(0.01).with_reflectivity(0.98);
     let small_glass_pos = lerp_v3(plastic_pos, lamp_pos, 0.2); // Find a point between the lamp and the plastic sphere
     scene.add_obj(Sphere::new(small_glass_pos, 0.5, small_glass_mat));
 
     // Metal sphere
-    let metal_mat = MatMetal::with_albedo(rgb(147, 154, 186)).with_fuzz(0.001);
+    let metal_mat = MatMetal::with_albedo(rgb(147, 154, 186)).with_fuzz(0.001).with_reflectiveness(1.0);
     let metal_pos = position!(Up(1.0), North(2.0), West(2.0));
     scene.add_obj(Sphere::new(metal_pos, 1.0, metal_mat));
 
 
     // Small metal spheres (buried) drawn between these points
-    let small_metal_mat = MatMetal::with_albedo(V3(0.8, 0.1, 0.1)).with_fuzz(0.001);
+    let small_metal_mat = MatMetal::with_albedo(V3(0.8, 0.1, 0.1)).with_fuzz(0.01).with_reflectiveness(0.4);
     let small_metal_sphere_count = 6;
     let small_metal_start_pos = position!(West(3.5), North(1.0));
     let small_metal_end_pos = position!(West(2.5), South(3.5));
