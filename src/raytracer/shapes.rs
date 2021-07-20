@@ -94,9 +94,9 @@ impl Hitable for Plane {
         if denominator.abs() <= 1.0e-6 {
             return None;
         }
-        let numerator = V3::dot(self.origin - ray.origin, self.normal);
+        let numerator = -V3::dot(ray.origin - self.origin, self.normal);
         let t = numerator / denominator;
-        // A negative value indicates the plane is behind the ray origin.
+        // NOTE: A negative value indicates the plane is behind the ray origin.
         // Filter for intersections inside the range we're testing for
         if t < t_min || t > t_max {
             return None;
@@ -110,7 +110,6 @@ impl Hitable for Plane {
         }
         let object_id = self.object_id;
         let material = self.material.as_ref();
-
         // If this plane is facing towards the ray we expect an angle between them approaching 180 degrees (PI).
         // If the the angle passes perpendicular (90 degrees or PI/2) then we flip the plane normal     
         let theta = V3::theta(ray.normal, self.normal);
