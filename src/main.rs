@@ -271,6 +271,7 @@ enum TestScene {
     Planes,
     Mirrors,
     Triangles,
+    Mesh,
 }
 
 fn parse_args() -> Result<(RenderMode, TestScene), String> {
@@ -282,8 +283,9 @@ fn parse_args() -> Result<(RenderMode, TestScene), String> {
         Some(s) if s == "planes"  => TestScene::Planes,
         Some(s) if s == "mirrors"  => TestScene::Mirrors,
         Some(s) if s == "triangles"  => TestScene::Triangles,
+        Some(s) if s == "mesh"  => TestScene::Mesh,
         Some(s) => return Err(format!("Invalid scene name: {}", s)),
-        None    => return Err(format!("Must specify a scene (spheres, simple, planes, mirrors, triangles)")),
+        None    => return Err(format!("Must specify a scene (spheres, simple, planes, mirrors, triangles, mesh)")),
     };
 
     let mode = match args.next().and_then(|s| s.parse().ok()) {
@@ -321,6 +323,7 @@ fn main() {
         TestScene::Planes => raytracer::samples::planes_scene(&viewport, camera_aperture),
         TestScene::Mirrors => raytracer::samples::hall_of_mirrors(&viewport, camera_aperture),
         TestScene::Triangles => raytracer::samples::triangle_world(&viewport, camera_aperture),
+        TestScene::Mesh => raytracer::samples::mesh_demo(&viewport, camera_aperture),
     };
 
     println!("Creating window");
