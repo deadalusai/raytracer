@@ -29,6 +29,8 @@ impl std::convert::From<std::num::ParseFloatError> for ParseMeshErr {
     }
 }
 
+// Mesh parser
+
 pub struct MeshFile {
     faces: Vec<(usize, usize, usize)>,
     vertices: Vec<V3>,
@@ -36,12 +38,12 @@ pub struct MeshFile {
 
 impl MeshFile {
     #[allow(unused)]
-    pub fn read_from_string(s: &str) -> Result<MeshFile, ParseMeshErr> {
+    pub fn read_from_string(s: &str) -> Result<Self, ParseMeshErr> {
         parse_mesh_file(s.as_bytes())
     }
 
     #[allow(unused)]
-    pub fn read_from_file(f: &std::fs::File) -> Result<MeshFile, ParseMeshErr> {
+    pub fn read_from_file(f: &std::fs::File) -> Result<Self, ParseMeshErr> {
         parse_mesh_file(f)
     }
 
@@ -72,13 +74,13 @@ pub fn parse_face_line(line: &str) -> Result<(usize, usize, usize), ParseMeshErr
 pub fn parse_vertex_line(line: &str) -> Result<V3, ParseMeshErr> {
     use self::ParseMeshErr::*;
     let mut parts = line.trim().split(char::is_whitespace);
-    let a = parts.next().ok_or(InvalidVertex("expected x component"))?.parse()?;
-    let b = parts.next().ok_or(InvalidVertex("expected y component"))?.parse()?;
-    let c = parts.next().ok_or(InvalidVertex("expected z component"))?.parse()?;
+    let x = parts.next().ok_or(InvalidVertex("expected x component"))?.parse()?;
+    let y = parts.next().ok_or(InvalidVertex("expected y component"))?.parse()?;
+    let z = parts.next().ok_or(InvalidVertex("expected z component"))?.parse()?;
     if parts.next().is_some() {
         return Err(InvalidVertex("unexpected extra component"));
     }
-    Ok(V3(a, b, c))
+    Ok(V3(x, y, z))
 }
 
 pub fn parse_mesh_file(source: impl Read) -> Result<MeshFile, ParseMeshErr> {
@@ -112,4 +114,70 @@ pub fn parse_mesh_file(source: impl Read) -> Result<MeshFile, ParseMeshErr> {
     }
 
     Ok(MeshFile { vertices, faces })
+}
+
+// Mesh parser
+
+pub struct RawFile {
+    faces: Vec<(V3, V3, V3)>,
+}
+
+impl RawFile {
+    #[allow(unused)]
+    pub fn read_from_string(s: &str) -> Result<Self, ParseMeshErr> {
+        parse_raw_file(s.as_bytes())
+    }
+
+    #[allow(unused)]
+    pub fn read_from_file(f: &std::fs::File) -> Result<Self, ParseMeshErr> {
+        parse_raw_file(f)
+    }
+
+    pub fn get_triangles(&self) -> Vec<(V3, V3, V3)> {
+        self.faces.clone()
+    }
+}
+
+pub fn parse_raw_line(line: &str) -> Result<(V3, V3, V3), ParseMeshErr> {
+    use self::ParseMeshErr::*;
+    let mut parts = line.trim().split(char::is_whitespace);
+
+    let x = parts.next().ok_or(InvalidVertex("expected x component for a vertex"))?.parse()?;
+    let y = parts.next().ok_or(InvalidVertex("expected y component for a vertex"))?.parse()?;
+    let z = parts.next().ok_or(InvalidVertex("expected z component for a vertex"))?.parse()?;
+    let a = V3(x, y, z);
+    
+    let x = parts.next().ok_or(InvalidVertex("expected x component for b vertex"))?.parse()?;
+    let y = parts.next().ok_or(InvalidVertex("expected y component for b vertex"))?.parse()?;
+    let z = parts.next().ok_or(InvalidVertex("expected z component for b vertex"))?.parse()?;
+    let b = V3(x, y, z);
+    
+    let x = parts.next().ok_or(InvalidVertex("expected x component for c vertex"))?.parse()?;
+    let y = parts.next().ok_or(InvalidVertex("expected y component for c vertex"))?.parse()?;
+    let z = parts.next().ok_or(InvalidVertex("expected z component for c vertex"))?.parse()?;
+    let c = V3(x, y, z);
+
+    if parts.next().is_some() {
+        return Err(InvalidVertex("unexpected extra component"));
+    }
+
+    Ok((a, b, c))
+}
+
+pub fn parse_raw_file(source: impl Read) -> Result<RawFile, ParseMeshErr> {
+    let lines = std::io::BufReader::new(source)
+        .lines()
+        .collect::<Result<Vec<_>, _>>()?;
+
+    // Clean up the input
+    let lines = lines.iter()
+        .map(|line| line.trim())
+        .filter(|line| line.len() > 0);
+
+    let mut faces = Vec::new();
+    for line in lines {
+        faces.push(parse_raw_line(line)?);
+    }
+
+    Ok(RawFile { faces })
 }

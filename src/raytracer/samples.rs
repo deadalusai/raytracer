@@ -6,7 +6,7 @@ use raytracer::shapes::{ Sphere, Plane, Triangle, Mesh };
 use raytracer::viewport::{ Viewport };
 use raytracer::lights::{ PointLight, DirectionalLight, LampLight };
 use raytracer::implementation::{ Scene, SceneSky, Camera, Material };
-use raytracer::mesh_file::{ MeshFile };
+use raytracer::mesh_formats::{ MeshFile, RawFile };
 
 use rand::{ Rng, StdRng, SeedableRng };
 
@@ -464,9 +464,15 @@ pub fn mesh_demo(viewport: &Viewport, camera_aperture: f32) -> Scene {
 
     // Mesh
     let cube_mat = MatLambertian::with_albedo(rgb(36, 193, 89)).with_reflectivity(0.0);
-    let cube_origin = WORLD_ORIGIN - V3(0.5, 0.0, 0.5);
-    let cube_mesh = MeshFile::read_from_string(include_str!("../../cube.mesh")).expect("reading cube mesh");
+    let cube_origin = position!(South(1.5), West(1.5));
+    let cube_mesh = MeshFile::read_from_string(include_str!("../../meshes/cube.mesh")).expect("reading cube mesh");
     scene.add_obj(Mesh::new(cube_origin, cube_mesh.get_triangles(), cube_mat));
+
+    // Raw
+    let raw_mat = MatLambertian::with_albedo(rgb(255, 135, 71)).with_reflectivity(0.0);
+    let raw_origin = position!(North(0.5), East(0.5));
+    let raw_mesh = RawFile::read_from_string(include_str!("../../meshes/cube.raw")).expect("reading cube raw");
+    scene.add_obj(Mesh::new(raw_origin, raw_mesh.get_triangles(), raw_mat));
 
     scene
 }

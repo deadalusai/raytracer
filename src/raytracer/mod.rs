@@ -6,7 +6,7 @@ mod lights;
 mod implementation;
 mod viewport;
 pub mod samples;
-pub mod mesh_file;
+pub mod mesh_formats;
 
 pub use self::types::*;
 pub use self::materials::*;

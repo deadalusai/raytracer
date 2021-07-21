@@ -8,7 +8,6 @@ extern crate multiqueue;
 
 mod raytracer;
 
-use std::borrow::Borrow;
 use std::path::{ Path };
 use std::sync::{ Arc };
 use std::thread::{ spawn, JoinHandle };
@@ -180,7 +179,7 @@ fn start_render_thread(work_receiver: &MPMCReceiver<RenderWork>, result_sender: 
         }
         result_sender.send(Frame(chunk.clone(), Arc::new(buf.clone())))?;
         // Render the scene chunk
-        let (scene, render_settings) = args.borrow();
+        let (scene, render_settings) = args.as_ref();
         let time = Instant::now();
         // For each x, y coordinate in this view chunk, cast a ray.
         for p in chunk.iter_pixels() {
@@ -297,6 +296,7 @@ fn parse_args() -> Result<(RenderMode, TestScene), String> {
 }
 
 fn main() {
+
     let (render_mode, test_scene) = match parse_args() {
         Ok(r) => r,
         Err(err) => {
