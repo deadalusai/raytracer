@@ -293,7 +293,19 @@ fn parse_args() -> Result<(RenderMode, TestScene), String> {
 }
 
 fn main() {
+    let vertices = (
+        raytracer::V3(-1.0, -1.0, 0.0),
+        raytracer::V3( 1.0, -1.0, 0.0),
+        raytracer::V3( 0.0,  1.0, 0.0)
+    );
+    let material = raytracer::MatDielectric::with_albedo(raytracer::V3(1.0, 1.0, 1.0));
+    let triangle = raytracer::Triangle::new(vertices, material);
 
+    let ray = raytracer::Ray::new(raytracer::V3(0.0, 0.0, 0.0), raytracer::V3(1.0, 1.0, 1.0));
+    raytracer::Hitable::hit(&triangle, &ray, 0.0, 0.0);
+
+
+    
     let (render_mode, test_scene) = match parse_args() {
         Ok(r) => r,
         Err(err) => {

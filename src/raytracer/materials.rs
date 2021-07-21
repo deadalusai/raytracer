@@ -92,7 +92,7 @@ fn reflect(incident_direction: V3, surface_normal: V3) -> V3 {
 
 impl Material for MatMetal {
     fn scatter(&self, ray: &Ray, hit_record: &HitRecord, rng: &mut dyn Rng) -> MatRecord {
-        let reflected = reflect(ray.normal, hit_record.normal);
+        let reflected = reflect(ray.direction, hit_record.normal);
         let scattered =
             if self.fuzz == 0.0 {
                 reflected
@@ -171,12 +171,12 @@ fn schlick_reflect_prob (cosine: f32, ref_idx: f32) -> f32 {
 
 impl Material for MatDielectric {
     fn scatter (&self, ray: &Ray, hit_record: &HitRecord, rng: &mut dyn Rng) -> MatRecord {
-        let dot = V3::dot(ray.normal, hit_record.normal);
+        let dot = V3::dot(ray.direction, hit_record.normal);
         let (outward_normal, ni_over_nt, cosine) =
             if dot > 0.0 {
-                (-hit_record.normal, self.ref_index, self.ref_index * dot / ray.normal.length())
+                (-hit_record.normal, self.ref_index, self.ref_index * dot / ray.direction.length())
             } else {
-                (hit_record.normal, 1.0 / self.ref_index, -dot / ray.normal.length())
+                (hit_record.normal, 1.0 / self.ref_index, -dot / ray.direction.length())
             };
 
         let kr = schlick_reflect_prob(cosine, self.ref_index);
@@ -185,7 +185,7 @@ impl Material for MatDielectric {
         let refraction = match kr {
             kr if kr >= 1.0 => None, // Total internal reflection
             _ => {
-                let refraction_direction = refract(ray.normal, outward_normal, ni_over_nt).unit();
+                let refraction_direction = refract(ray.direction, outward_normal, ni_over_nt).unit();
                 let refraction = Refract {
                     ray: Ray::new(hit_record.p.clone(), refraction_direction),
                     intensity: (1.0 - kr) * (1.0 - self.opacity)
@@ -194,7 +194,7 @@ impl Material for MatDielectric {
             }
         };
 
-        let reflection_direction = reflect(ray.normal, hit_record.normal).unit();
+        let reflection_direction = reflect(ray.direction, hit_record.normal).unit();
         let reflection = Reflect {
             ray: Ray::new(hit_record.p.clone(), reflection_direction),
             intensity: kr * self.reflectivity

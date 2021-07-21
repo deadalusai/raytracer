@@ -203,7 +203,7 @@ fn color_sky_black () -> V3 {
 }
 
 fn color_sky_day (ray: &Ray) -> V3 {
-    let unit_direction = ray.normal.unit();
+    let unit_direction = ray.direction.unit();
     let t = 0.5 * (unit_direction.y() + 1.0);
     let white = V3(1.0, 1.0, 1.0);
     let sky_blue = V3(0.5, 0.7, 1.0);

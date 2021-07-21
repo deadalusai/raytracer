@@ -200,6 +200,13 @@ fn add_cardinal_markers(scene: &mut Scene) {
     scene.add_obj(Sphere::new(position!(South(2.0)), 0.25, MatLambertian::with_albedo(rgb(255, 255, 255))));
 }
 
+fn add_coordinates_marker(scene: &mut Scene) {
+    // Direction makers
+    scene.add_obj(Sphere::new(V3(1.0, 0.0, 0.0), 0.05, MatLambertian::with_albedo(rgb(128, 0,   0))));
+    scene.add_obj(Sphere::new(V3(0.0, 1.0, 0.0), 0.05, MatLambertian::with_albedo(rgb(0,   128, 0))));
+    scene.add_obj(Sphere::new(V3(0.0, 0.0, 1.0), 0.05, MatLambertian::with_albedo(rgb(0,   0,   128))));
+}
+
 pub fn simple_scene(viewport: &Viewport, camera_aperture: f32) -> Scene {
 
     // Camera
@@ -346,6 +353,8 @@ pub fn hall_of_mirrors(viewport: &Viewport, camera_aperture: f32) -> Scene {
     scene.add_light(LampLight::with_origin_and_normal(lamp_pos, lamp_normal).with_intensity(80.0).with_angle(20.0));
 
     add_cardinal_markers(&mut scene);
+
+    add_coordinates_marker(&mut scene);
 
     // World sphere
     let world_mat = MatLambertian::with_albedo(rgb(255, 255, 255)).with_reflectivity(0.01);
