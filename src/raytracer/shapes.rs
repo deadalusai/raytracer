@@ -1,5 +1,3 @@
-use std::f32::consts::{ FRAC_PI_2 };
-
 pub use raytracer::types::{ V3, Ray };
 pub use raytracer::implementation::{ Material, MatRecord, Hitable, HitRecord };
 
@@ -115,10 +113,9 @@ impl Hitable for Plane {
         }
         let object_id = self.object_id;
         let material = self.material.as_ref();
-        // If this plane is facing towards the ray we expect an angle between them approaching 180 degrees (PI).
-        // If the the angle passes perpendicular (90 degrees or PI/2) then we flip the plane normal     
-        let theta = V3::theta(ray.direction, self.normal);
-        let normal = if theta < FRAC_PI_2 { -self.normal } else { self.normal };
+        // If this plane is facing away from the ray we want to flip the reported normal
+        // so that reflections work in both directions.
+        let normal = if V3::dot(ray.direction, self.normal) > 0.0 { -self.normal } else { self.normal };
         return Some(HitRecord { object_id, t, p, normal, material });
     }
 }
@@ -145,24 +142,29 @@ impl Triangle {
 
 impl Hitable for Triangle {
     fn hit<'a> (&'a self, ray: &Ray, t_min: f32, t_max: f32) -> Option<HitRecord<'a>> {
-
+        // Ref: https://www.scratchapixel.com/lessons/3d-basic-rendering/ray-tracing-rendering-a-triangle/ray-triangle-intersection-geometric-solution
         let (v0, v1, v2) = self.vertices;
-
-        // Find the edges and normal of the triangle
-        let v0v1 = v1 - v0;
-        let v0v2 = v2 - v0;
-        let normal = V3::cross(v0v1, v0v2).unit();
-
+        // Find the normal of the triangle, using v0 as the origin
+        let normal = V3::cross(v1 - v0, v2 - v0).unit();
         // Find the intesection `p` with the tiangle plane
         let t = intersect_plane(ray, v0, normal)?;
         if t < t_min || t > t_max {
             return None;
         }
+        // `p` is a point on the same plane as all three vertices of the triangle
         let p = ray.point_at_parameter(t);
-
-        // Test if `p` is a point inside the triangle
-        
-        
-        None
+        // Test if `p` is a point inside the triangle by determining if it is "left" of each edge.
+        // (The cross product of the angle of `p` with each point should align with the normal)
+        if V3::dot(normal, V3::cross(v1 - v0, p - v0)) < 0.0 ||
+            V3::dot(normal, V3::cross(v2 - v1, p - v1)) < 0.0 ||
+            V3::dot(normal, V3::cross(v0 - v2, p - v2)) < 0.0 {
+            return None;
+        }
+        let object_id = self.object_id;
+        let material = self.material.as_ref();
+        // If this plane is facing away from the ray we want to flip the reported normal
+        // so that reflections work in both directions.
+        let normal = if V3::dot(ray.direction, normal) > 0.0 { -normal } else { normal };
+        Some(HitRecord { object_id, p, t, normal, material })
     }
 }

@@ -2,7 +2,7 @@
 
 use raytracer::types::{ V3, Ray };
 use raytracer::materials::{ MatLambertian, MatDielectric, MatMetal };
-use raytracer::shapes::{ Sphere, Plane };
+use raytracer::shapes::{ Sphere, Plane, Triangle };
 use raytracer::viewport::{ Viewport };
 use raytracer::lights::{ PointLight, DirectionalLight, LampLight };
 use raytracer::implementation::{ Scene, SceneSky, Camera, Material };
@@ -375,6 +375,58 @@ pub fn hall_of_mirrors(viewport: &Viewport, camera_aperture: f32) -> Scene {
                 .with_radius(30.0)
         );
     }
+
+    scene
+}
+
+pub fn triangle_world(viewport: &Viewport, camera_aperture: f32) -> Scene {
+
+    // Camera
+    let look_from = position!(Up(5.0), South(6.0), East(1.5));
+    let look_to =   position!(Up(0.0));
+    let fov = 45.0;
+    let aspect_ratio = viewport.width as f32 / viewport.height as f32;
+    let dist_to_focus = (look_from - look_to).length();
+
+    let camera = Camera::new(look_from, look_to, fov, aspect_ratio, camera_aperture, dist_to_focus);
+
+    // Scene
+    let mut scene = Scene::new(camera, SceneSky::Black);
+
+    // Lights
+
+    let lamp_pos = position!(Up(20.0), North(4.0));
+    let lamp_direction = WORLD_ORIGIN - lamp_pos;
+    scene.add_light(LampLight::with_origin_and_normal(lamp_pos, lamp_direction).with_intensity(80.0).with_angle(12.0));
+
+    let lamp_pos = position!(Up(10.0), East(4.0));
+    let lamp_direction = WORLD_ORIGIN - lamp_pos;
+    scene.add_light(LampLight::with_origin_and_normal(lamp_pos, lamp_direction).with_intensity(80.0).with_angle(20.0));
+
+    add_cardinal_markers(&mut scene);
+
+    // World sphere
+    let world_mat = MatLambertian::with_albedo(rgb(200, 200, 200));
+    let world_pos = position!(Down(1000.0));
+    scene.add_obj(Sphere::new(world_pos, 1000.0, world_mat));
+
+    // Triangle
+    let tri_mat = MatLambertian::with_albedo(rgb(200, 100, 80)).with_reflectivity(0.0);
+    let tri_vertices = (
+        position!(Up(0.2), North(1.0)),
+        position!(Up(0.4), South(1.0)),
+        position!(Up(0.6), West(1.0))
+    );
+    scene.add_obj(Triangle::new(tri_vertices, tri_mat));
+
+    let tri_mat = MatLambertian::with_albedo(rgb(100, 100, 200)).with_reflectivity(0.0);
+    let tri_vertices = (
+        position!(Up(1.4), North(1.0)),
+        position!(Up(1.8), South(1.0)),
+        position!(Up(1.6), East(1.0))
+    );
+    scene.add_obj(Triangle::new(tri_vertices, tri_mat));
+
 
     scene
 }

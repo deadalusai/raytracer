@@ -270,6 +270,7 @@ enum TestScene {
     Simple,
     Planes,
     Mirrors,
+    Triangles,
 }
 
 fn parse_args() -> Result<(RenderMode, TestScene), String> {
@@ -280,8 +281,9 @@ fn parse_args() -> Result<(RenderMode, TestScene), String> {
         Some(s) if s == "simple"  => TestScene::Simple,
         Some(s) if s == "planes"  => TestScene::Planes,
         Some(s) if s == "mirrors"  => TestScene::Mirrors,
+        Some(s) if s == "triangles"  => TestScene::Triangles,
         Some(s) => return Err(format!("Invalid scene name: {}", s)),
-        None    => return Err(format!("Must specify a scene (spheres, simple, planes, mirrors)")),
+        None    => return Err(format!("Must specify a scene (spheres, simple, planes, mirrors, triangles)")),
     };
 
     let mode = match args.next().and_then(|s| s.parse().ok()) {
@@ -293,19 +295,6 @@ fn parse_args() -> Result<(RenderMode, TestScene), String> {
 }
 
 fn main() {
-    let vertices = (
-        raytracer::V3(-1.0, -1.0, 0.0),
-        raytracer::V3( 1.0, -1.0, 0.0),
-        raytracer::V3( 0.0,  1.0, 0.0)
-    );
-    let material = raytracer::MatDielectric::with_albedo(raytracer::V3(1.0, 1.0, 1.0));
-    let triangle = raytracer::Triangle::new(vertices, material);
-
-    let ray = raytracer::Ray::new(raytracer::V3(0.0, 0.0, 0.0), raytracer::V3(1.0, 1.0, 1.0));
-    raytracer::Hitable::hit(&triangle, &ray, 0.0, 0.0);
-
-
-    
     let (render_mode, test_scene) = match parse_args() {
         Ok(r) => r,
         Err(err) => {
@@ -331,6 +320,7 @@ fn main() {
         TestScene::Simple => raytracer::samples::simple_scene(&viewport, camera_aperture),
         TestScene::Planes => raytracer::samples::planes_scene(&viewport, camera_aperture),
         TestScene::Mirrors => raytracer::samples::hall_of_mirrors(&viewport, camera_aperture),
+        TestScene::Triangles => raytracer::samples::triangle_world(&viewport, camera_aperture),
     };
 
     println!("Creating window");
