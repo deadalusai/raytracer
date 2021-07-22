@@ -447,7 +447,7 @@ pub fn mesh_demo(viewport: &Viewport, camera_aperture: f32) -> Scene {
     let mut scene = Scene::new(camera, SceneSky::Black);
 
     // Lights
-    let lamp_pos = position!(Up(5.0), East(4.0), North(3.0));
+    let lamp_pos = position!(Up(5.0), East(4.0));
     let lamp_direction = WORLD_ORIGIN - lamp_pos;
     scene.add_light(LampLight::with_origin_and_normal(lamp_pos, lamp_direction).with_intensity(80.0).with_angle(20.0));
     
@@ -472,13 +472,22 @@ pub fn mesh_demo(viewport: &Viewport, camera_aperture: f32) -> Scene {
     scene.add_obj(Mesh::new(cube_origin, cube_tris, cube_mat));
 
     // Thing
-    let thing_mat = MatMetal::with_albedo(rgb(255, 135, 71)).with_reflectivity(0.8).with_fuzz(0.02);
-    let thing_origin = position!(North(0.5), East(0.5));
+    let thing_mat = MatMetal::with_albedo(rgb(89, 172, 255)).with_reflectivity(0.8).with_fuzz(0.02);
+    let thing_origin = position!(North(1.5), East(1.5));
     let thing_tris = ObjFile::read_from_string(include_str!("../../meshes/thing.obj"))
         .expect("reading thing mesh")
         .make_triangle_list("Thing")
         .expect("building thing mesh");
     scene.add_obj(Mesh::new(thing_origin, thing_tris, thing_mat));
+
+    // Suzanne
+    let suz_mat = MatLambertian::with_albedo(rgb(255, 137, 58)).with_reflectivity(0.0);
+    let suz_origin = WORLD_ORIGIN;
+    let suz_tris = ObjFile::read_from_string(include_str!("../../meshes/suzanne.obj"))
+        .expect("reading cube mesh")
+        .make_triangle_list("Suzanne")
+        .expect("building cube mesh");
+    scene.add_obj(Mesh::new(suz_origin, suz_tris, suz_mat));
 
     scene
 }

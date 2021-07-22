@@ -5,6 +5,21 @@ pub use raytracer::implementation::{ Material, MatRecord, Hitable, HitRecord };
 // Shapes
 //
 
+fn intersect_sphere(ray: &Ray, origin: V3, radius: f32) -> Option<[f32; 2]> {
+    let oc = ray.origin - origin;
+    let a = V3::dot(ray.direction, ray.direction);
+    let b = V3::dot(oc, ray.direction);
+    let c = V3::dot(oc, oc) - radius * radius;
+    let discriminant = b * b - a * c;
+    if discriminant > 0.0 {
+        // Every ray must necessarily intersect with the sphere twice
+        let t0 = (-b - discriminant.sqrt()) / a;
+        let t1 = (-b + discriminant.sqrt()) / a;
+        return Some([t0, t1]);
+    }
+    None
+}
+
 pub struct Sphere {
     object_id: Option<u32>,
     origin: V3,
@@ -31,25 +46,16 @@ impl Hitable for Sphere {
         let object_id = self.object_id;
         let material = self.material.as_ref();
 
-        let oc = ray.origin - self.origin;
-        let a = V3::dot(ray.direction, ray.direction);
-        let b = V3::dot(oc, ray.direction);
-        let c = V3::dot(oc, oc) - self.radius * self.radius;
-        let discriminant = b * b - a * c;
-        if discriminant > 0.0 {
-            let t = (-b - discriminant.sqrt()) / a;
-            if t < t_max && t > t_min {
-                let p = ray.point_at_parameter(t);
-                let normal = ((p - self.origin) / self.radius).unit();
-                return Some(HitRecord { object_id, t, p, normal, material });
-            }
-            let t = (-b + discriminant.sqrt()) / a;
-            if t < t_max && t > t_min {
+        if let Some(ts) = intersect_sphere(ray, self.origin, self.radius) {
+            // Identify the best candidate intersection point
+            let t = ts.iter().cloned().filter(|&t| t_min < t && t < t_max).reduce(f32::min);
+            if let Some(t) = t {
                 let p = ray.point_at_parameter(t);
                 let normal = ((p - self.origin) / self.radius).unit();
                 return Some(HitRecord { object_id, t, p, normal, material });
             }
         }
+
         None
     }
 }
@@ -178,6 +184,8 @@ pub type TriangleList = Box<[(V3, V3, V3)]>;
 pub struct Mesh {
     object_id: Option<u32>,
     origin: V3,
+    hit_origin: V3,
+    hit_radius: f32,
     triangles: TriangleList,
     material: Box<dyn Material>,
 }
@@ -186,13 +194,34 @@ impl Mesh {
     pub fn new<M>(origin: V3, triangles: TriangleList, material: M) -> Self
         where M: Material + 'static
     {
-        Mesh { object_id: None, origin, triangles, material: Box::new(material) }
+        // Hack: make a "hit sphere" by finding the centroid and furtherest vertex of the mesh.
+        // Find centroid of all tris
+        let centroid: V3 = triangles.iter()
+            .flat_map(|&(a, b, c)| [a, b, c])
+            .reduce(|a, b| a + b)
+            .map(|x| x / (triangles.len() as f32 * 3.0))
+            .unwrap();
+        // Find the furthest vertex from the centroid
+        let hit_radius: f32 = triangles.iter()
+            .flat_map(|&(a, b, c)| [a, b, c])
+            .map(|x| (x - centroid).length())
+            .reduce(f32::max)
+            .unwrap();
+        let hit_origin = origin + centroid;
+
+        println!("{:?} {:?} {}", origin, centroid, hit_radius);
+
+        Mesh { object_id: None, origin, hit_origin, hit_radius, triangles, material: Box::new(material) }
     }
 
     #[allow(unused)]
     pub fn with_id(mut self, id: u32) -> Self {
         self.object_id = Some(id);
         self
+    }
+
+    fn test_hit_sphere(&self, ray: &Ray) -> bool {
+        intersect_sphere(ray, self.hit_origin, self.hit_radius).is_some()
     }
 
     fn hit_nearest_triangle(&self, ray: &Ray, t_min: f32, t_max: f32) -> Option<(V3, V3, f32)> {
@@ -217,6 +246,9 @@ impl Mesh {
 
 impl Hitable for Mesh {
     fn hit<'a> (&'a self, ray: &Ray, t_min: f32, t_max: f32) -> Option<HitRecord<'a>> {
+        if !self.test_hit_sphere(ray) {
+            return None;
+        }
 
         let (p, normal, t) = self.hit_nearest_triangle(ray, t_min, t_max)?;
         
