@@ -209,8 +209,6 @@ impl Mesh {
             .unwrap();
         let hit_origin = origin + centroid;
 
-        println!("{:?} {:?} {}", origin, centroid, hit_radius);
-
         Mesh { object_id: None, origin, hit_origin, hit_radius, triangles, material: Box::new(material) }
     }
 
@@ -232,11 +230,11 @@ impl Mesh {
         for &(v0, v1, v2) in self.triangles.iter() {
             if let Some((p, normal, t)) = intersect_tri(ray, self.origin + v0, self.origin + v1, self.origin + v2) {
                 // Is this triangle in our search range?
-                if t < t_min || t > t_max || t > nearest_t {
-                    continue;
+                // Is this triangle closer than the last one?
+                if t_min < t && t < t_max && t < nearest_t {
+                    nearest_t = t;
+                    nearest = Some((p, normal, t));
                 }
-                nearest_t = t;
-                nearest = Some((p, normal, t));
             }
         }
 

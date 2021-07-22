@@ -30,7 +30,7 @@ impl MatLambertian {
     pub fn with_albedo(albedo: V3) -> MatLambertian {
         MatLambertian { 
             albedo: albedo,
-            reflectivity: 0.01,
+            reflectivity: 0.0,
         }
     }
 
