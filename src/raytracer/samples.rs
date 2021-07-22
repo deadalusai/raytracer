@@ -226,11 +226,11 @@ pub fn simple_scene(viewport: &Viewport, camera_aperture: f32) -> Scene {
 
     let lamp_pos = position!(Up(20.0), North(4.0));
     let lamp_direction = WORLD_ORIGIN - lamp_pos;
-    scene.add_light(LampLight::with_origin_and_normal(lamp_pos, lamp_direction).with_intensity(80.0).with_angle(12.0));
+    scene.add_light(LampLight::with_origin_and_direction(lamp_pos, lamp_direction).with_intensity(80.0).with_angle(12.0));
 
     let lamp_pos = position!(Up(10.0), East(4.0));
     let lamp_direction = WORLD_ORIGIN - lamp_pos;
-    scene.add_light(LampLight::with_origin_and_normal(lamp_pos, lamp_direction).with_intensity(80.0).with_angle(20.0));
+    scene.add_light(LampLight::with_origin_and_direction(lamp_pos, lamp_direction).with_intensity(80.0).with_angle(20.0));
 
     add_cardinal_markers(&mut scene);
 
@@ -316,7 +316,7 @@ pub fn planes_scene(viewport: &Viewport, camera_aperture: f32) -> Scene {
     // Lights
     let lamp_pos = position!(Up(6.0), East(5.0));
     let lamp_normal = position!(Up(3.0)) - lamp_pos;
-    scene.add_light(LampLight::with_origin_and_normal(lamp_pos, lamp_normal).with_intensity(80.0).with_angle(20.0));
+    scene.add_light(LampLight::with_origin_and_direction(lamp_pos, lamp_normal).with_intensity(80.0).with_angle(20.0));
 
     add_cardinal_markers(&mut scene);
 
@@ -351,7 +351,7 @@ pub fn hall_of_mirrors(viewport: &Viewport, camera_aperture: f32) -> Scene {
     // Lights
     let lamp_pos = position!(Up(10.0));
     let lamp_normal = WORLD_ORIGIN - lamp_pos;
-    scene.add_light(LampLight::with_origin_and_normal(lamp_pos, lamp_normal).with_intensity(80.0).with_angle(20.0));
+    scene.add_light(LampLight::with_origin_and_direction(lamp_pos, lamp_normal).with_intensity(80.0).with_angle(20.0));
 
     add_cardinal_markers(&mut scene);
 
@@ -398,11 +398,11 @@ pub fn triangle_world(viewport: &Viewport, camera_aperture: f32) -> Scene {
 
     let lamp_pos = position!(Up(20.0), North(4.0));
     let lamp_direction = WORLD_ORIGIN - lamp_pos;
-    scene.add_light(LampLight::with_origin_and_normal(lamp_pos, lamp_direction).with_intensity(80.0).with_angle(12.0));
+    scene.add_light(LampLight::with_origin_and_direction(lamp_pos, lamp_direction).with_intensity(80.0).with_angle(12.0));
 
     let lamp_pos = position!(Up(10.0), East(4.0));
     let lamp_direction = WORLD_ORIGIN - lamp_pos;
-    scene.add_light(LampLight::with_origin_and_normal(lamp_pos, lamp_direction).with_intensity(80.0).with_angle(20.0));
+    scene.add_light(LampLight::with_origin_and_direction(lamp_pos, lamp_direction).with_intensity(80.0).with_angle(20.0));
 
     add_cardinal_markers(&mut scene);
 
@@ -449,11 +449,11 @@ pub fn mesh_demo(viewport: &Viewport, camera_aperture: f32) -> Scene {
     // Lights
     let lamp_pos = position!(Up(5.0), East(4.0));
     let lamp_direction = WORLD_ORIGIN - lamp_pos;
-    scene.add_light(LampLight::with_origin_and_normal(lamp_pos, lamp_direction).with_intensity(80.0).with_angle(20.0));
+    scene.add_light(LampLight::with_origin_and_direction(lamp_pos, lamp_direction).with_intensity(80.0).with_angle(20.0));
     
     let lamp_pos = position!(Up(3.0), West(6.0), North(1.5));
     let lamp_direction = WORLD_ORIGIN - lamp_pos;
-    scene.add_light(LampLight::with_origin_and_normal(lamp_pos, lamp_direction).with_intensity(80.0).with_angle(20.0));
+    scene.add_light(LampLight::with_origin_and_direction(lamp_pos, lamp_direction).with_intensity(80.0).with_angle(20.0));
 
     add_cardinal_markers(&mut scene);
 
