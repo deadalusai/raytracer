@@ -6,7 +6,7 @@ use raytracer::shapes::{ Sphere, Plane, Triangle, Mesh };
 use raytracer::viewport::{ Viewport };
 use raytracer::lights::{ PointLight, DirectionalLight, LampLight };
 use raytracer::implementation::{ Scene, SceneSky, Camera, Material };
-use raytracer::mesh_formats::{ MeshFile, RawFile };
+use raytracer::obj_format::{ ObjFile };
 
 use rand::{ Rng, StdRng, SeedableRng };
 
@@ -462,17 +462,23 @@ pub fn mesh_demo(viewport: &Viewport, camera_aperture: f32) -> Scene {
     let world_pos = position!(Down(1000.0));
     scene.add_obj(Sphere::new(world_pos, 1000.0, world_mat));
 
-    // Mesh
+    // Cube
     let cube_mat = MatLambertian::with_albedo(rgb(36, 193, 89)).with_reflectivity(0.0);
     let cube_origin = position!(South(1.5), West(1.5));
-    let cube_mesh = MeshFile::read_from_string(include_str!("../../meshes/cube.mesh")).expect("reading cube mesh");
-    scene.add_obj(Mesh::new(cube_origin, cube_mesh.get_triangles(), cube_mat));
+    let cube_tris = ObjFile::read_from_string(include_str!("../../meshes/cube.obj"))
+        .expect("reading cube mesh")
+        .make_triangle_list("Cube")
+        .expect("building cube mesh");
+    scene.add_obj(Mesh::new(cube_origin, cube_tris, cube_mat));
 
-    // Raw
-    let raw_mat = MatLambertian::with_albedo(rgb(255, 135, 71)).with_reflectivity(0.0);
-    let raw_origin = position!(North(0.5), East(0.5));
-    let raw_mesh = RawFile::read_from_string(include_str!("../../meshes/cube.raw")).expect("reading cube raw");
-    scene.add_obj(Mesh::new(raw_origin, raw_mesh.get_triangles(), raw_mat));
+    // Thing
+    let thing_mat = MatMetal::with_albedo(rgb(255, 135, 71)).with_reflectivity(0.8).with_fuzz(0.02);
+    let thing_origin = position!(North(0.5), East(0.5));
+    let thing_tris = ObjFile::read_from_string(include_str!("../../meshes/thing.obj"))
+        .expect("reading thing mesh")
+        .make_triangle_list("Thing")
+        .expect("building thing mesh");
+    scene.add_obj(Mesh::new(thing_origin, thing_tris, thing_mat));
 
     scene
 }

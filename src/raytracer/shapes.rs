@@ -173,15 +173,17 @@ impl Hitable for Triangle {
     }
 }
 
+pub type TriangleList = Box<[(V3, V3, V3)]>;
+
 pub struct Mesh {
     object_id: Option<u32>,
     origin: V3,
-    triangles: Vec<(V3, V3, V3)>,
+    triangles: TriangleList,
     material: Box<dyn Material>,
 }
 
 impl Mesh {
-    pub fn new<M>(origin: V3, triangles: Vec<(V3, V3, V3)>, material: M) -> Self
+    pub fn new<M>(origin: V3, triangles: TriangleList, material: M) -> Self
         where M: Material + 'static
     {
         Mesh { object_id: None, origin, triangles, material: Box::new(material) }
@@ -198,7 +200,7 @@ impl Mesh {
         let mut nearest_t = std::f32::MAX;
         let mut nearest = None;
 
-        for &(v0, v1, v2) in &self.triangles {
+        for &(v0, v1, v2) in self.triangles.iter() {
             if let Some((p, normal, t)) = intersect_tri(ray, self.origin + v0, self.origin + v1, self.origin + v2) {
                 // Is this triangle in our search range?
                 if t < t_min || t > t_max || t > nearest_t {
