@@ -56,7 +56,7 @@ impl ObjFile {
 
 pub fn parse_triple<T: std::str::FromStr>(line: &str) -> Result<(T, T, T), ObjParseError> {
     let structure_error = || ObjParseError::ParserError("expected triple");
-    let parse_error = |_| ObjParseError::ParserError("expected triple");
+    let parse_error = |_| ObjParseError::ParserError("error parsing triple component");
 
     let mut parts = line.split(char::is_whitespace);
     let p0 = parts.next().ok_or_else(structure_error)?.parse().map_err(parse_error)?;
@@ -89,9 +89,10 @@ pub fn parse_obj_file(source: impl Read) -> Result<ObjFile, ObjParseError> {
             // Object
             Some('o') => {
                 if let Some(name) = current_object.take() {
-                    let vertices = std::mem::replace(&mut current_vertices, Vec::new());
-                    let faces = std::mem::replace(&mut current_faces, Vec::new());
-                    objects.entry(name).or_insert(ObjObject { vertices, faces });
+                    objects.insert(name, ObjObject {
+                        vertices: std::mem::replace(&mut current_vertices, Vec::new()),
+                        faces: std::mem::replace(&mut current_faces, Vec::new()),
+                    });
                 }
                 let name = &line[2..];
                 current_object = Some(name.to_string());
@@ -106,16 +107,15 @@ pub fn parse_obj_file(source: impl Read) -> Result<ObjFile, ObjParseError> {
                 let (a, b, c) = parse_triple(&line[2..])?;
                 current_faces.push(ObjFace(a, b, c));
             },
-            _ => {
-                continue;
-            }
+            _ => {}
         }
     }
 
     if let Some(name) = current_object.take() {
-        let vertices = std::mem::replace(&mut current_vertices, Vec::new());
-        let faces = std::mem::replace(&mut current_faces, Vec::new());
-        objects.entry(name).or_insert(ObjObject { vertices, faces });
+        objects.insert(name, ObjObject {
+            vertices: current_vertices,
+            faces: current_faces,
+        });
     }
 
     // Ignore comments
@@ -124,14 +124,13 @@ pub fn parse_obj_file(source: impl Read) -> Result<ObjFile, ObjParseError> {
 
 // Convert Obj face/vertex lists into a list of triangles
 fn make_triangles(obj: &ObjObject) -> TriangleList {
+    let vert_error = |i, v| format!("face {}: could not find vertex {}", i, v);
     let mut tris = Vec::new();
-
-    for &ObjFace(a, b, c) in obj.faces.iter() {
-        let va = obj.vertices.get(a - 1).expect(&format!("could not find vertex {}", a));
-        let vb = obj.vertices.get(b - 1).expect(&format!("could not find vertex {}", b));
-        let vc = obj.vertices.get(c - 1).expect(&format!("could not find vertex {}", c));
-        tris.push((*va, *vb, *vc));
+    for (i, face) in obj.faces.iter().enumerate() {
+        let va = obj.vertices.get(face.0 - 1).expect(&vert_error(i, face.0));
+        let vb = obj.vertices.get(face.1 - 1).expect(&vert_error(i, face.1));
+        let vc = obj.vertices.get(face.2 - 1).expect(&vert_error(i, face.2));
+        tris.push((*va, *vb, *vc))
     }
-
     tris.into_boxed_slice()
 }
