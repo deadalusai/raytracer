@@ -197,13 +197,11 @@ fn start_render_thread(work_receiver: &MPMCReceiver<RenderWork>, result_sender: 
 
 // Wtite a generic "RGB" value to an OpenGL image
 fn write_pixel_color(buf: &mut RgbaImage, x: u32, y: u32, color: raytracer::V3) {
-    // Convert from RGB in sRGB color space to linear color space
-    let color = graphics::color::gamma_srgb_to_linear([color.0, color.1, color.2, 1.0]);
     let p = buf.get_pixel_mut(x, y);
-    p[0] = (255.0 * color[0].sqrt()) as u8;
-    p[1] = (255.0 * color[1].sqrt()) as u8;
-    p[2] = (255.0 * color[2].sqrt()) as u8;
-    p[3] = (255.0 * color[3].sqrt()) as u8;
+    p[0] = (255.0 * color.0.sqrt()) as u8;
+    p[1] = (255.0 * color.1.sqrt()) as u8;
+    p[2] = (255.0 * color.2.sqrt()) as u8;
+    p[3] = 255; // Alpha
 }
 
 struct RenderThread {
@@ -381,5 +379,18 @@ fn main() {
     }
 
     println!("Writing rendered image to disk");
+    // Hack: Convert from RGB in linear color space to sRGB color space
+    for pixel in app.buffer.pixels_mut() {
+        let color = [
+            ((pixel[0] as f32) / 255.0).powf(2.0), 
+            ((pixel[1] as f32) / 255.0).powf(2.0), 
+            ((pixel[2] as f32) / 255.0).powf(2.0), 
+            1.0
+        ];
+        let color = graphics::color::gamma_linear_to_srgb(color);
+        pixel[0] = (255.0 * color[0].sqrt()) as u8;
+        pixel[1] = (255.0 * color[1].sqrt()) as u8;
+        pixel[2] = (255.0 * color[2].sqrt()) as u8;
+    }
     app.buffer.save("test.png").expect("Writing render to disk");
 }
