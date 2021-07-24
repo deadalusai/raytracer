@@ -435,8 +435,8 @@ pub fn triangle_world(viewport: &Viewport, camera_aperture: f32) -> Scene {
 pub fn mesh_demo(viewport: &Viewport, camera_aperture: f32) -> Scene {
     
     // Camera
-    let look_from = position!(Up(5.0), South(6.0), East(1.5));
-    let look_to =   position!(Up(0.0));
+    let look_from = position!(Up(0.5), East(3.5));
+    let look_to =   position!(Up(1.0));
     let fov = 45.0;
     let aspect_ratio = viewport.width as f32 / viewport.height as f32;
     let dist_to_focus = (look_from - look_to).length();
@@ -455,12 +455,12 @@ pub fn mesh_demo(viewport: &Viewport, camera_aperture: f32) -> Scene {
     let lamp_direction = WORLD_ORIGIN - lamp_pos;
     scene.add_light(LampLight::with_origin_and_direction(lamp_pos, lamp_direction).with_intensity(80.0).with_angle(20.0));
 
-    add_cardinal_markers(&mut scene);
+    // add_cardinal_markers(&mut scene);
 
     // World sphere
     let world_mat = MatLambertian::with_albedo(rgb(200, 200, 200));
     let world_pos = position!(Down(1000.0));
-    scene.add_obj(Sphere::new(world_pos, 1000.0, world_mat));
+    scene.add_obj(Sphere::new(world_pos, 1000.0, world_mat).with_id(0));
 
     // Cube
     let cube_mat = MatLambertian::with_albedo(rgb(36, 193, 89)).with_reflectivity(0.0);
@@ -469,7 +469,7 @@ pub fn mesh_demo(viewport: &Viewport, camera_aperture: f32) -> Scene {
         .expect("reading cube mesh")
         .make_triangle_list("Cube")
         .expect("building cube mesh");
-    scene.add_obj(Mesh::new(cube_origin, cube_tris, cube_mat));
+    scene.add_obj(Mesh::new(cube_origin, cube_tris, cube_mat).with_id(1));
 
     // Thing
     let thing_mat = MatMetal::with_albedo(rgb(89, 172, 255)).with_reflectivity(0.8).with_fuzz(0.02);
@@ -478,16 +478,16 @@ pub fn mesh_demo(viewport: &Viewport, camera_aperture: f32) -> Scene {
         .expect("reading thing mesh")
         .make_triangle_list("Thing")
         .expect("building thing mesh");
-    scene.add_obj(Mesh::new(thing_origin, thing_tris, thing_mat));
+    scene.add_obj(Mesh::new(thing_origin, thing_tris, thing_mat).with_id(2));
 
     // Suzanne
-    let suz_mat = MatLambertian::with_albedo(rgb(255, 137, 58)).with_reflectivity(0.0);
+    let suz_mat = MatDielectric::with_albedo(rgb(255, 137, 58)).with_opacity(0.2).with_ref_index(0.8).with_reflectivity(0.0);
     let suz_origin = WORLD_ORIGIN;
     let suz_tris = ObjFile::read_from_string(include_str!("../../meshes/suzanne.obj"))
         .expect("reading cube mesh")
         .make_triangle_list("Suzanne")
         .expect("building cube mesh");
-    scene.add_obj(Mesh::new(suz_origin, suz_tris, suz_mat));
+    scene.add_obj(Mesh::new(suz_origin, suz_tris, suz_mat).with_id(3));
 
     scene
 }
