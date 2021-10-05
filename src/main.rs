@@ -1,3 +1,9 @@
+mod app;
+
+use app::App;
+
 fn main() {
-    println!("Hello, world!");
+    let app = App::default();
+    let native_options = eframe::NativeOptions::default();
+    eframe::run_native(Box::new(app), native_options);
 }
