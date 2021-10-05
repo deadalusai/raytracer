@@ -9,7 +9,8 @@ use multiqueue::{ mpmc_queue, MPMCReceiver, MPMCSender };
 use raytracer::{ Scene, RenderSettings, RenderChunk, Viewport };
 
 use crate::frame_history::{ FrameHistory };
-use crate::settings::{ SettingsWidget, Settings, RenderMode, TestScene };
+use crate::thread_stats::{ ThreadStats };
+use crate::settings::{ SettingsWidget, Settings, TestScene };
 
 fn duration_total_secs(elapsed: Duration) -> f64 {
     elapsed.as_secs() as f64 + elapsed.subsec_nanos() as f64 * 1e-9
@@ -92,7 +93,6 @@ impl App {
         if let Some(render_job) = self.render_job.take() {
             // Start shutdown of all threads
             render_job.worker_handle.halt_flag.store(true, Ordering::Relaxed);
-            // Detatch work queues
             render_job.worker_handle.work_sender.unsubscribe();
         }
 
@@ -100,10 +100,7 @@ impl App {
 
         // Create render work arguments
         let viewport = Viewport::new(st.width, st.height);
-        let camera_aperture = match st.render_mode {
-            RenderMode::Fast => 0.0,
-            RenderMode::Quality => st.quality_camera_aperture,
-        };
+        let camera_aperture = st.camera_aperture;
         let scene = match st.scene {
             TestScene::RandomSpheres => raytracer::samples::random_sphere_scene(&viewport, camera_aperture),
             TestScene::Simple => raytracer::samples::simple_scene(&viewport, camera_aperture),
@@ -113,14 +110,8 @@ impl App {
             TestScene::Mesh => raytracer::samples::mesh_demo(&viewport, camera_aperture),
         };
         let settings = RenderSettings {
-            max_reflections: match st.render_mode {
-                RenderMode::Fast => 5,
-                RenderMode::Quality => st.quality_max_reflections
-            },
-            anti_alias: match st.render_mode {
-                RenderMode::Fast => false,
-                RenderMode::Quality => true
-            },
+            max_reflections: st.max_reflections,
+            samples_per_ray: st.samples_per_ray,
         };
 
         // Chunks are popped from this list as they are rendered.
@@ -311,10 +302,11 @@ impl epi::App for App {
         if buffer_updated {
             // Update the texture
             if let Some(ref mut job) = self.render_job {
+                let allocator = frame.tex_allocator();
                 if let Some((texture_id, _)) = self.output_texture.take() {
-                    frame.tex_allocator().free(texture_id);
+                    allocator.free(texture_id);
                 }
-                let texture_id = frame.tex_allocator().alloc_srgba_premultiplied(
+                let texture_id = allocator.alloc_srgba_premultiplied(
                     (job.buffer.width, job.buffer.height),
                     &job.buffer.data
                 );
@@ -332,6 +324,16 @@ impl epi::App for App {
                     self.start_job();
                 }
             });
+
+            if let Some(ref job) = self.render_job {
+                for thread in job.worker_handle.thread_handles.iter() {
+                    ui.add(ThreadStats {
+                        id: thread.id,
+                        total_chunks_rendered: thread.total_chunks_rendered,
+                        total_time_secs: thread.total_time_secs,
+                    });
+                }
+            }
 
             ui.with_layout(egui::Layout::bottom_up(egui::Align::Min), |ui| {
                 self.frame_history.ui(ui);

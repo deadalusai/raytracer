@@ -1,12 +1,6 @@
 use eframe::{ egui };
 
 #[derive(Debug, Eq, PartialEq, Copy, Clone, serde::Deserialize, serde::Serialize)]
-pub enum RenderMode {
-    Quality,
-    Fast,
-}
-
-#[derive(Debug, Eq, PartialEq, Copy, Clone, serde::Deserialize, serde::Serialize)]
 pub enum TestScene {
     RandomSpheres,
     Simple,
@@ -23,9 +17,9 @@ pub struct Settings {
     pub height: u32,
     pub chunk_count: u32,
     pub thread_count: u32,
-    pub render_mode: RenderMode,
-    pub quality_camera_aperture: f32,
-    pub quality_max_reflections: u32,
+    pub samples_per_ray: u32,
+    pub camera_aperture: f32,
+    pub max_reflections: u32,
 }
 
 impl Default for Settings {
@@ -36,9 +30,9 @@ impl Default for Settings {
             height: 768,
             chunk_count: 128,
             thread_count: 8,
-            render_mode: RenderMode::Fast,
-            quality_camera_aperture: 0.1,
-            quality_max_reflections: 15,
+            samples_per_ray: 1,
+            camera_aperture: 0.1,
+            max_reflections: 5,
         }
     }
 }
@@ -102,31 +96,32 @@ impl<'a> egui::Widget for SettingsWidget<'a> {
                 ui.add(egui::DragValue::new(&mut st.chunk_count).clamp_range(1..=256));
                 ui.end_row();
                 
-                // Render mode
-                ui.label("Render mode");
-                ui.horizontal(|ui| {
-                    ui.radio_value(&mut st.render_mode, RenderMode::Fast, "Fast");
-                    ui.radio_value(&mut st.render_mode, RenderMode::Quality, "Quality");
-                });
+                // Samples per ray
+                ui.label("Samples per ray");
+                ui.add(egui::DragValue::new(&mut st.samples_per_ray).clamp_range(1..=25));
                 ui.end_row();
                 
-                if st.render_mode == RenderMode::Quality {
-
-                    // Camera aperture
-                    ui.label("Camera aperture");
-                    ui.add(egui::DragValue::new(&mut st.quality_camera_aperture)
-                        .clamp_range(0.0..=1.0)
-                        .suffix("°")
+                // Camera aperture
+                ui.label("Camera aperture");
+                ui.horizontal(|ui| {
+                    ui.add(egui::DragValue::new(&mut st.camera_aperture)
+                        .clamp_range(0.0..=15.0)
                         .speed(0.05)
                         .max_decimals(2));
-                    ui.end_row();
 
-                    // Max reflections
-                    ui.label("Max reflections");
-                    ui.add(egui::DragValue::new(&mut st.quality_max_reflections)
-                        .clamp_range(1..=25));
-                    ui.end_row();
-                }
+                    if st.samples_per_ray == 1 {
+                        ui.add(egui::Label::new("⚠")
+                            .text_color(egui::Color32::RED))
+                            .on_hover_text("Camera aperture ignored with 1 sample per ray");
+                    }
+                });
+                ui.end_row();
+
+                // Max reflections
+                ui.label("Max reflections");
+                ui.add(egui::DragValue::new(&mut st.max_reflections)
+                    .clamp_range(1..=25));
+                ui.end_row();
             })
             .response
     }
