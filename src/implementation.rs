@@ -96,7 +96,7 @@ pub struct Scene {
 
 pub struct RenderSettings {
     pub max_reflections: u32,
-    pub anti_alias: bool,
+    pub samples_per_ray: u32,
 }
 
 impl Scene {
@@ -336,31 +336,27 @@ fn cast_ray(ray: &Ray, scene: &Scene, rng: &mut dyn Rng, max_reflections: u32) -
     cast_ray_recursive(ray, scene, rng, max_reflections).clamp()
 }
 
-const ANTI_ALIAS_OFFSETS: [f32; 3] = [-1.0, 0.0, 1.0];
-const SINGLE_RAY_OFFSETS: [f32; 1] = [0.0];
-
 pub fn cast_ray_into_scene(settings: &RenderSettings, scene: &Scene, viewport: &Viewport, x: u32, y: u32, rng: &mut impl Rng) -> V3 {
     let mut col = V3(0.0, 0.0, 0.0);
-    let offsets = match settings.anti_alias {
-        true => &ANTI_ALIAS_OFFSETS[..],
-        false => &SINGLE_RAY_OFFSETS[..],
-    };
     // Implement anti-aliasing by taking the average color of ofsett rays cast around these x, y coordinates.
-    for off_x in offsets {
-        for off_y in offsets {
-            // NOTE:
-            // View coordinates are from upper left corner, but World coordinates are from lower left corner. 
-            // Need to convert coordinate systems with (height - y)
-            let u = (x as f32 + off_x) / viewport.width as f32;
-            let v = ((viewport.height - y) as f32 + off_y) / viewport.height as f32;
-            // Apply lens deflection for focus blur
-            let lens_deflection = (0.0, 0.0);
-            // Cast a ray, and determine the color
-            let ray = scene.camera.get_ray(u, v, lens_deflection);
-            col = col + cast_ray(&ray, scene, rng, settings.max_reflections);
-        }
+    for _ in 0..settings.samples_per_ray {
+        // NOTE:
+        // View coordinates are from upper left corner, but World coordinates are from lower left corner. 
+        // Need to convert coordinate systems with (height - y)
+        let u = x as f32 / viewport.width as f32;
+        let v = (viewport.height - y) as f32 / viewport.height as f32;
+        // Apply lens deflection for focus blur
+        let lens_deflection = if settings.samples_per_ray > 1 {
+            let p = random_point_in_unit_sphere(rng);
+            (p.x(), p.y())
+        } else {
+            (0.0, 0.0)
+        };
+        // Cast a ray, and determine the color
+        let ray = scene.camera.get_ray(u, v, lens_deflection);
+        col = col + cast_ray(&ray, scene, rng, settings.max_reflections);
     }
     // Find the average
-    col = col / offsets.len() as f32;
+    col = col / settings.samples_per_ray as f32;
     col // RGB color in the range 0.0 - 1.0
 }
