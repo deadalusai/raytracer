@@ -1,0 +1,17 @@
+[package]
+name = "raytracer_ui"
+version = "0.1.0"
+authors = ["Benjamin Fox <deadalus.ai@gmail.com>"]
+edition = "2018"
+
+[dependencies]
+# Gives us egui, epi and web+native backends
+eframe = "0.14.0"
+# Support for state serialization 
+serde = { version = "1", features = ["derive"] }
+# Thread management
+multiqueue = "0.3.2"
+
+[features]
+default = ["persistence"]
+persistence = ["eframe/persistence", "serde"] # Enable if you want to persist app state on shutdown
