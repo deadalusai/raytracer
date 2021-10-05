@@ -1,8 +1,8 @@
 use std;
 
-use raytracer::types::{ V3 };
-use raytracer::types::{ Ray };
-use raytracer::viewport::{ Viewport };
+use crate::types::{ V3 };
+use crate::types::{ Ray };
+use crate::viewport::{ Viewport };
 
 use rand::{ Rng };
 

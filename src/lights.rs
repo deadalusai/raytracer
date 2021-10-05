@@ -3,8 +3,8 @@
 use std;
 use std::f32::consts::PI;
 
-use raytracer::types::{ V3 };
-use raytracer::implementation::{ LightRecord, LightSource };
+use crate::types::{ V3 };
+use crate::implementation::{ LightRecord, LightSource };
 
 pub struct PointLight {
     origin: V3,

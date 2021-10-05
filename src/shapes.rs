@@ -1,5 +1,5 @@
-pub use raytracer::types::{ V3, Ray };
-pub use raytracer::implementation::{ Material, MatRecord, Hitable, HitRecord };
+pub use crate::types::{ V3, Ray };
+pub use crate::implementation::{ Material, MatRecord, Hitable, HitRecord };
 
 //
 // Shapes
