@@ -70,6 +70,7 @@ pub struct App {
     output_texture: Option<(egui::TextureId, (f32, f32))>,
     render_job: Option<RenderJob>,
     frame_history: FrameHistory,
+    show_settings_panel: bool,
 }
 
 impl Default for App {
@@ -81,6 +82,7 @@ impl Default for App {
             output_texture: None,
             render_job: None,
             frame_history: FrameHistory::default(),
+            show_settings_panel: true,
         }
     }
 }
@@ -185,6 +187,10 @@ impl App {
         }
 
         buffer_updated
+    }
+
+    fn save_render_buffer(&self) {
+        
     }
 }
 
@@ -319,42 +325,62 @@ impl epi::App for App {
             }
         }
 
-        egui::SidePanel::left("side_panel").show(ctx, |ui| {
-            ui.heading("Settings");
-            ui.separator();
-
-            ui.add(SettingsWidget::new(&mut self.settings));
-            ui.separator();
-
-            ui.with_layout(egui::Layout::top_down_justified(egui::Align::Center), |ui| {
-                if ui.button("Start render").clicked() {
-                    self.start_job();
-                }
-            });
-
-            if let Some(ref job) = self.render_job {
-                for thread in job.worker_handle.thread_handles.iter() {
-                    ui.add(ThreadStats {
-                        id: thread.id,
-                        total_chunks_rendered: thread.total_chunks_rendered,
-                        total_time_secs: thread.total_time_secs,
+        egui::TopBottomPanel::top("menu_bar")
+            .show(ctx, |ui| {
+                use egui::menu;
+                menu::bar(ui, |ui| {
+                    menu::menu(ui, "File", |ui| {
+                        if ui.button("Save render buffer").clicked() {
+                            self.save_render_buffer();
+                        }
+                        ui.checkbox(&mut self.show_settings_panel, "Show settings");
                     });
-                }
-            }
-
-            ui.with_layout(egui::Layout::bottom_up(egui::Align::Min), |ui| {
-                self.frame_history.ui(ui);
+                });
             });
-        });
 
-        egui::CentralPanel::default().show(ctx, |ui| {
+        if self.show_settings_panel {
 
-            if let Some((output_texture_id, dim)) = self.output_texture {
-                let container_dim = (ui.available_width(), ui.available_height());
-                let (width, height) = internal_dimensions(dim, container_dim);
-                ui.image(output_texture_id, [width, height]);
-            }
-        });
+            egui::SidePanel::left("side_panel")
+                .resizable(false)
+                .show(ctx, |ui| {
+                    ui.heading("Settings");
+                    ui.separator();
+
+                    ui.add(SettingsWidget::new(&mut self.settings));
+                    ui.separator();
+
+                    ui.with_layout(egui::Layout::top_down_justified(egui::Align::Center), |ui| {
+                        if ui.button("Start render").clicked() {
+                            self.start_job();
+                        }
+                    });
+
+                    if let Some(ref job) = self.render_job {
+                        for thread in job.worker_handle.thread_handles.iter() {
+                            ui.add(ThreadStats {
+                                id: thread.id,
+                                total_chunks_rendered: thread.total_chunks_rendered,
+                                total_time_secs: thread.total_time_secs,
+                            });
+                        }
+                    }
+
+                    ui.with_layout(egui::Layout::bottom_up(egui::Align::Min), |ui| {
+                        self.frame_history.ui(ui);
+                    });
+                });
+        }
+
+        if let Some((output_texture_id, dim)) = self.output_texture {
+            egui::CentralPanel::default()
+                .show(ctx, |ui| {
+                    ui.centered_and_justified(|ui| {
+                        let container_dim = (ui.available_width(), ui.available_height());
+                        let (width, height) = internal_dimensions(dim, container_dim);
+                        ui.image(output_texture_id, [width, height]);
+                    });
+                });
+        }
     }
 }
 
