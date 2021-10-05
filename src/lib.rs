@@ -1,3 +1,4 @@
+extern crate rand;
 
 mod types;
 mod materials;

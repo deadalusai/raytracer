@@ -14,7 +14,7 @@ impl Viewport {
         Viewport { width: width, height: height }
     }
 
-    pub fn create_view_chunks(&self, chunk_count: u32) -> Vec<ViewChunk> {
+    pub fn create_render_chunks(&self, chunk_count: u32) -> Vec<RenderChunk> {
         let divisions = (chunk_count as f32).sqrt();
         let h_divisions = divisions.ceil() as u32;
         let v_divisions = divisions.floor() as u32;
@@ -24,7 +24,7 @@ impl Viewport {
             .flat_map(move |y| (0..h_divisions).map(move |x| (x, y)))
             .enumerate()
             .map(move |(id, (x, y))| {
-                ViewChunk {
+                RenderChunk {
                     id: id as u32,
                     viewport: self.clone(),
                     top: y * chunk_height,
@@ -38,7 +38,7 @@ impl Viewport {
 }
 
 #[derive(Clone)]
-pub struct ViewChunk {
+pub struct RenderChunk {
     pub id: u32,
     pub viewport: Viewport,
     pub top: u32,
@@ -54,7 +54,7 @@ pub struct ViewChunkCoords {
     pub viewport_y: u32,
 }
 
-impl ViewChunk {
+impl RenderChunk {
     //  Iterates over pixel positions within the chunk
     pub fn iter_pixels<'a>(&'a self) -> impl Iterator<Item=ViewChunkCoords> + 'a {
         (0..self.height)

@@ -1,12 +1,12 @@
 #![allow(unused)]
 
-use raytracer::types::{ V3, Ray };
-use raytracer::materials::{ MatLambertian, MatDielectric, MatMetal };
-use raytracer::shapes::{ Sphere, Plane, Triangle, Mesh };
-use raytracer::viewport::{ Viewport };
-use raytracer::lights::{ PointLight, DirectionalLight, LampLight };
-use raytracer::implementation::{ Scene, SceneSky, Camera, Material };
-use raytracer::obj_format::{ ObjFile };
+use crate::types::{ V3, Ray };
+use crate::materials::{ MatLambertian, MatDielectric, MatMetal };
+use crate::shapes::{ Sphere, Plane, Triangle, Mesh };
+use crate::viewport::{ Viewport };
+use crate::lights::{ PointLight, DirectionalLight, LampLight };
+use crate::implementation::{ Scene, SceneSky, Camera, Material };
+use crate::obj_format::{ ObjFile };
 
 use rand::{ Rng, StdRng, SeedableRng };
 
@@ -465,7 +465,7 @@ pub fn mesh_demo(viewport: &Viewport, camera_aperture: f32) -> Scene {
     // Cube
     let cube_mat = MatLambertian::with_albedo(rgb(36, 193, 89)).with_reflectivity(0.0);
     let cube_origin = position!(South(1.5), West(1.5));
-    let cube_tris = ObjFile::read_from_string(include_str!("../../meshes/cube.obj"))
+    let cube_tris = ObjFile::read_from_string(include_str!("../meshes/cube.obj"))
         .expect("reading cube mesh")
         .make_triangle_list("Cube")
         .expect("building cube mesh");
@@ -474,7 +474,7 @@ pub fn mesh_demo(viewport: &Viewport, camera_aperture: f32) -> Scene {
     // Thing
     let thing_mat = MatMetal::with_albedo(rgb(89, 172, 255)).with_reflectivity(0.8).with_fuzz(0.02);
     let thing_origin = position!(North(1.5), East(1.5));
-    let thing_tris = ObjFile::read_from_string(include_str!("../../meshes/thing.obj"))
+    let thing_tris = ObjFile::read_from_string(include_str!("../meshes/thing.obj"))
         .expect("reading thing mesh")
         .make_triangle_list("Thing")
         .expect("building thing mesh");
@@ -483,7 +483,7 @@ pub fn mesh_demo(viewport: &Viewport, camera_aperture: f32) -> Scene {
     // Suzanne
     let suz_mat = MatDielectric::with_albedo(rgb(255, 137, 58)).with_opacity(0.2).with_ref_index(0.8).with_reflectivity(0.0);
     let suz_origin = WORLD_ORIGIN;
-    let suz_tris = ObjFile::read_from_string(include_str!("../../meshes/suzanne.obj"))
+    let suz_tris = ObjFile::read_from_string(include_str!("../meshes/suzanne.obj"))
         .expect("reading cube mesh")
         .make_triangle_list("Suzanne")
         .expect("building cube mesh");
