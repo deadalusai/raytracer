@@ -122,6 +122,15 @@ impl<'a> egui::Widget for SettingsWidget<'a> {
                 ui.add(egui::DragValue::new(&mut st.max_reflections)
                     .clamp_range(1..=25));
                 ui.end_row();
+                
+                // Reset button
+                ui.label("");
+                ui.centered_and_justified(|ui| {
+                    if ui.button("Reset").clicked() {
+                        *st = Settings::default();
+                    }
+                });
+                ui.end_row();
             })
             .response
     }

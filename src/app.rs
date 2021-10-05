@@ -294,6 +294,11 @@ impl epi::App for App {
         }
     }
 
+    /// Called by the frame work to save state before shutdown.
+    fn save(&mut self, storage: &mut dyn epi::Storage) {
+        epi::set_value(storage, epi::APP_KEY, &self.settings);
+    }
+
     fn update(&mut self, ctx: &egui::CtxRef, frame: &mut epi::Frame<'_>) {
 
         self.frame_history.on_new_frame(ctx.input().time, frame.info().cpu_usage);
@@ -316,11 +321,13 @@ impl epi::App for App {
 
         egui::SidePanel::left("side_panel").show(ctx, |ui| {
             ui.heading("Settings");
+            ui.separator();
 
             ui.add(SettingsWidget::new(&mut self.settings));
+            ui.separator();
 
             ui.with_layout(egui::Layout::top_down_justified(egui::Align::Center), |ui| {
-                if ui.button("Start").clicked() {
+                if ui.button("Start render").clicked() {
                     self.start_job();
                 }
             });
