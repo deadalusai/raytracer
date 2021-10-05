@@ -9,48 +9,13 @@ use multiqueue::{ mpmc_queue, MPMCReceiver, MPMCSender };
 use raytracer::{ Scene, RenderSettings, RenderChunk, Viewport };
 
 use crate::frame_history::{ FrameHistory };
-
-const WIDTH: u32 = 1440;
-const HEIGHT: u32 = 900;
-const RENDER_THREAD_COUNT: u32 = 6;
-const CHUNK_COUNT: u32 = 128;
+use crate::settings::{ SettingsWidget, Settings, RenderMode, TestScene };
 
 fn duration_total_secs(elapsed: Duration) -> f64 {
     elapsed.as_secs() as f64 + elapsed.subsec_nanos() as f64 * 1e-9
 }
 
 type BoxError = Box<dyn std::error::Error + 'static>;
-
-#[derive(Debug, serde::Deserialize, serde::Serialize)]
-enum RenderMode {
-    Quality(u32),
-    Fast,
-}
-
-#[derive(Debug, serde::Deserialize, serde::Serialize)]
-enum TestScene {
-    RandomSpheres,
-    Simple,
-    Planes,
-    Mirrors,
-    Triangles,
-    Mesh,
-}
-
-#[derive(Debug, serde::Deserialize, serde::Serialize)]
-pub struct State {
-    render_mode: RenderMode,
-    selected_scene: TestScene,
-}
-
-impl Default for State {
-    fn default() -> Self {
-        State {
-            render_mode: RenderMode::Fast,
-            selected_scene: TestScene::RandomSpheres,
-        }
-    }
-}
 
 #[derive(Clone)]
 struct ColorBuffer {
@@ -99,9 +64,9 @@ struct RenderJob {
 
 pub struct App {
     // Persistent state
-    state: State,
+    settings: Settings,
     // Temporal state
-    output_texture_id: Option<egui::TextureId>,
+    output_texture: Option<(egui::TextureId, (f32, f32))>,
     render_job: Option<RenderJob>,
     frame_history: FrameHistory,
 }
@@ -110,9 +75,9 @@ impl Default for App {
     fn default() -> Self {
         App {
             // Persistent state
-            state: State::default(),
+            settings: Settings::default(),
             // Temporal state
-            output_texture_id: None,
+            output_texture: None,
             render_job: None,
             frame_history: FrameHistory::default(),
         }
@@ -131,36 +96,36 @@ impl App {
             render_job.worker_handle.work_sender.unsubscribe();
         }
 
-        // Create render work arguments
-        let viewport = Viewport::new(WIDTH, HEIGHT);
-        let camera_aperture = match self.state.render_mode {
-            RenderMode::Fast => 0.0,
-            RenderMode::Quality(_) => 0.1,
-        };
-        // let scene = match self.state.test_scene {
-        //     TestScene::RandomSpheres => raytracer::samples::random_sphere_scene(&viewport, camera_aperture),
-        //     TestScene::Simple => raytracer::samples::simple_scene(&viewport, camera_aperture),
-        //     TestScene::Planes => raytracer::samples::planes_scene(&viewport, camera_aperture),
-        //     TestScene::Mirrors => raytracer::samples::hall_of_mirrors(&viewport, camera_aperture),
-        //     TestScene::Triangles => raytracer::samples::triangle_world(&viewport, camera_aperture),
-        //     TestScene::Mesh => raytracer::samples::mesh_demo(&viewport, camera_aperture),
-        // };
-        let scene = raytracer::samples::random_sphere_scene(&viewport, camera_aperture);
+        let st = &self.settings;
 
+        // Create render work arguments
+        let viewport = Viewport::new(st.width, st.height);
+        let camera_aperture = match st.render_mode {
+            RenderMode::Fast => 0.0,
+            RenderMode::Quality => st.quality_camera_aperture,
+        };
+        let scene = match st.scene {
+            TestScene::RandomSpheres => raytracer::samples::random_sphere_scene(&viewport, camera_aperture),
+            TestScene::Simple => raytracer::samples::simple_scene(&viewport, camera_aperture),
+            TestScene::Planes => raytracer::samples::planes_scene(&viewport, camera_aperture),
+            TestScene::Mirrors => raytracer::samples::hall_of_mirrors(&viewport, camera_aperture),
+            TestScene::Triangles => raytracer::samples::triangle_world(&viewport, camera_aperture),
+            TestScene::Mesh => raytracer::samples::mesh_demo(&viewport, camera_aperture),
+        };
         let settings = RenderSettings {
-            max_reflections: match self.state.render_mode {
+            max_reflections: match st.render_mode {
                 RenderMode::Fast => 5,
-                RenderMode::Quality(_) => 25
+                RenderMode::Quality => st.quality_max_reflections
             },
-            anti_alias: match self.state.render_mode {
+            anti_alias: match st.render_mode {
                 RenderMode::Fast => false,
-                RenderMode::Quality(_) => true
+                RenderMode::Quality => true
             },
         };
 
         // Chunks are popped from this list as they are rendered.
         // Reverse the list so the top of the image is rendered first.
-        let mut chunks = viewport.create_render_chunks(CHUNK_COUNT);
+        let mut chunks = viewport.create_render_chunks(st.chunk_count);
         chunks.reverse();
 
         self.render_job = Some(RenderJob {
@@ -170,8 +135,8 @@ impl App {
             pending_chunks: chunks,
             start_time: Instant::now(),
             render_time_secs: 0_f64,
-            buffer: ColorBuffer::new(WIDTH, HEIGHT),
-            worker_handle: start_background_render_threads(RENDER_THREAD_COUNT),
+            buffer: ColorBuffer::new(st.width, st.height),
+            worker_handle: start_background_render_threads(st.thread_count),
         });
     }
 
@@ -243,8 +208,6 @@ enum RenderResult {
     Done(Duration),
 }
 
-// TODO(benf): Refactor to remove atomic flag for halting work?
-
 fn start_render_thread(halt_flag: Arc<AtomicBool>, work_receiver: &MPMCReceiver<RenderWork>, result_sender: &Sender<RenderResult>) -> Result<(), BoxError> {
     use RenderResult::*;
     let mut rng = weak_rng();
@@ -280,6 +243,7 @@ fn start_render_thread(halt_flag: Arc<AtomicBool>, work_receiver: &MPMCReceiver<
     }
 }
 
+#[allow(unused)]
 struct RenderThread {
     id: u32,
     handle: JoinHandle<()>,
@@ -335,7 +299,7 @@ impl epi::App for App {
     /// Called once before the first frame.
     fn setup(&mut self, _ctx: &egui::CtxRef, _frame: &mut epi::Frame<'_>, storage: Option<&dyn epi::Storage>) {
         if let Some(storage) = storage {
-            self.state = epi::get_value(storage, epi::APP_KEY).unwrap_or_default()
+            self.settings = epi::get_value(storage, epi::APP_KEY).unwrap_or_default()
         }
     }
 
@@ -344,41 +308,54 @@ impl epi::App for App {
         self.frame_history.on_new_frame(ctx.input().time, frame.info().cpu_usage);
 
         let buffer_updated = self.update();
-
-        if let Some(ref mut job) = self.render_job {
+        if buffer_updated {
             // Update the texture
-            if buffer_updated {
-                if let Some(texture_id) = self.output_texture_id.take() {
+            if let Some(ref mut job) = self.render_job {
+                if let Some((texture_id, _)) = self.output_texture.take() {
                     frame.tex_allocator().free(texture_id);
                 }
                 let texture_id = frame.tex_allocator().alloc_srgba_premultiplied(
                     (job.buffer.width, job.buffer.height),
                     &job.buffer.data
                 );
-                self.output_texture_id = Some(texture_id);
+                self.output_texture = Some((texture_id, (job.buffer.width as f32, job.buffer.height as f32)));
             }
         }
 
         egui::SidePanel::left("side_panel").show(ctx, |ui| {
-            ui.heading("Raytracer");
+            ui.heading("Settings");
 
-            if ui.button("Start").clicked() {
-                self.start_job();
-            }
+            ui.add(SettingsWidget::new(&mut self.settings));
 
-            ui.with_layout(egui::Layout::bottom_up(egui::Align::Center).with_cross_justify(true), |ui| {
+            ui.with_layout(egui::Layout::top_down_justified(egui::Align::Center), |ui| {
+                if ui.button("Start").clicked() {
+                    self.start_job();
+                }
+            });
 
+            ui.with_layout(egui::Layout::bottom_up(egui::Align::Min), |ui| {
                 self.frame_history.ui(ui);
             });
         });
 
         egui::CentralPanel::default().show(ctx, |ui| {
 
-            if let Some(output_texture_id) = self.output_texture_id {
-
-                // TODO: Stretch over Width or Height
-                ui.image(output_texture_id, [ui.available_width(), ui.available_height()]);
+            if let Some((output_texture_id, dim)) = self.output_texture {
+                let container_dim = (ui.available_width(), ui.available_height());
+                let (width, height) = internal_dimensions(dim, container_dim);
+                ui.image(output_texture_id, [width, height]);
             }
         });
+    }
+}
+
+fn internal_dimensions((iw, ih): (f32, f32), (cw, ch): (f32, f32)) -> (f32, f32) {
+    let iratio = iw / ih;
+    let cratio = cw / ch;
+    match (cw < ch, iratio > cratio) {
+        | (true,  true)  => (cw, cw * (1.0 / iratio)),
+        | (false, true)  => (cw, cw * (1.0 / iratio)),
+        | (true,  false) => (ch * iratio, ch),
+        | (false, false) => (ch * iratio, ch),
     }
 }
