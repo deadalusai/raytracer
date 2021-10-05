@@ -349,9 +349,9 @@ fn main() {
             RenderMode::Fast => 5,
             RenderMode::Quality(_) => 25
         },
-        samples_per_pixel: match render_mode {
-            RenderMode::Fast => 1,
-            RenderMode::Quality(quality) => quality
+        anti_alias: match render_mode {
+            RenderMode::Fast => false,
+            RenderMode::Quality(_) => true
         },
     };
     let mut app = App::new(scene, render_settings, chunk_list, worker_handle);

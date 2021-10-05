@@ -96,7 +96,7 @@ pub struct Scene {
 
 pub struct RenderSettings {
     pub max_reflections: u32,
-    pub samples_per_pixel: u32,
+    pub anti_alias: bool,
 }
 
 impl Scene {
@@ -175,13 +175,14 @@ impl Camera {
         }
     }
 
-    pub fn get_ray(&self, s: f32, t: f32, rng: &mut dyn Rng) -> Ray {
-        // Randomize the origin point of the ray.
+    pub fn get_ray(&self, x: f32, y: f32, lens_deflection: (f32, f32)) -> Ray {
+        // Deflect the origin point of the ray.
         // By casting multiple rays for the same pixel in this way we can simulate camera focus.
-        let lens_deflection = random_point_in_unit_sphere(rng) * self.lens_radius;
-        let offset = (self.u * lens_deflection.x()) + (self.v * lens_deflection.y());
+        let lens_deflection_x = lens_deflection.0 * self.lens_radius;
+        let lens_deflection_y = lens_deflection.1 * self.lens_radius;
+        let offset = (self.u * lens_deflection_x) + (self.v * lens_deflection_y);
         let origin = self.origin + offset;
-        let direction = self.lower_left_corner + (self.horizontal * s) + (self.vertical * t) - self.origin - offset;
+        let direction = self.lower_left_corner + (self.horizontal * x) + (self.vertical * y) - self.origin - offset;
         Ray::new(origin, direction)
     }
 }
@@ -335,25 +336,31 @@ fn cast_ray(ray: &Ray, scene: &Scene, rng: &mut dyn Rng, max_reflections: u32) -
     cast_ray_recursive(ray, scene, rng, max_reflections).clamp()
 }
 
+const ANTI_ALIAS_OFFSETS: [f32; 3] = [-1.0, 0.0, 1.0];
+const SINGLE_RAY_OFFSETS: [f32; 1] = [0.0];
+
 pub fn cast_ray_into_scene(settings: &RenderSettings, scene: &Scene, viewport: &Viewport, x: u32, y: u32, rng: &mut dyn Rng) -> V3 {
-    // Implement anti-aliasing by taking the average color of random rays cast around these x, y coordinates.
     let mut col = V3(0.0, 0.0, 0.0);
-    for _ in 0..settings.samples_per_pixel {
-        // When taking more than one sample (for anti-aliasing), randomize the x, y coordinates a little
-        let (rand_x, rand_y) = match settings.samples_per_pixel {
-            1 => (0.0, 0.0),
-            _ => (rng.next_f32(), rng.next_f32())
-        };
-        // NOTE:
-        // View coordinates are from upper left corner, but World coordinates are from lower left corner. 
-        // Need to convert coordinate systems with (height - y)
-        let u = (x as f32 + rand_x) / viewport.width as f32;
-        let v = ((viewport.height - y) as f32 + rand_y) / viewport.height as f32;
-        // Cast a ray, and determine the color
-        let ray = scene.camera.get_ray(u, v, rng);
-        col = col + cast_ray(&ray, scene, rng, settings.max_reflections);
+    let offsets = match settings.anti_alias {
+        true => &ANTI_ALIAS_OFFSETS[..],
+        false => &SINGLE_RAY_OFFSETS[..],
+    };
+    // Implement anti-aliasing by taking the average color of ofsett rays cast around these x, y coordinates.
+    for off_x in offsets {
+        for off_y in offsets {
+            // NOTE:
+            // View coordinates are from upper left corner, but World coordinates are from lower left corner. 
+            // Need to convert coordinate systems with (height - y)
+            let u = (x as f32 + off_x) / viewport.width as f32;
+            let v = ((viewport.height - y) as f32 + off_y) / viewport.height as f32;
+            // Apply lens deflection for focus blur
+            let lens_deflection = (0.0, 0.0);
+            // Cast a ray, and determine the color
+            let ray = scene.camera.get_ray(u, v, lens_deflection);
+            col = col + cast_ray(&ray, scene, rng, settings.max_reflections);
+        }
     }
     // Find the average
-    col = col / settings.samples_per_pixel as f32;
+    col = col / offsets.len() as f32;
     col // RGB color in the range 0.0 - 1.0
 }
