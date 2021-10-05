@@ -188,10 +188,6 @@ impl App {
 
         buffer_updated
     }
-
-    fn save_render_buffer(&self) {
-        
-    }
 }
 
 #[derive(Clone)]
@@ -327,14 +323,8 @@ impl epi::App for App {
 
         egui::TopBottomPanel::top("menu_bar")
             .show(ctx, |ui| {
-                use egui::menu;
-                menu::bar(ui, |ui| {
-                    menu::menu(ui, "File", |ui| {
-                        if ui.button("Save render buffer").clicked() {
-                            self.save_render_buffer();
-                        }
-                        ui.checkbox(&mut self.show_settings_panel, "Show settings");
-                    });
+                egui::menu::bar(ui, |ui| {
+                    ui.checkbox(&mut self.show_settings_panel, "Show settings");
                 });
             });
 

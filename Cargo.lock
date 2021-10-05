@@ -1243,6 +1243,7 @@ dependencies = [
 [[package]]
 name = "raytracer"
 version = "0.1.0"
+source = "git+https://github.com/deadalusai/raytracer?rev=afa14f8#afa14f895f92bbc03edd39c343deccd900829e36"
 dependencies = [
  "rand",
 ]
