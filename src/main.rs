@@ -1,4 +1,5 @@
 mod app;
+mod frame_history;
 
 use app::App;
 

@@ -1,4 +1,4 @@
-use std::sync::{ Arc };
+use std::sync::{ Arc, atomic::{ AtomicBool, Ordering } };
 use std::thread::{ spawn, JoinHandle };
 use std::time::{ Instant, Duration };
 use std::sync::mpsc::{ Receiver, Sender, channel };
@@ -8,12 +8,12 @@ use rand::{ weak_rng };
 use multiqueue::{ mpmc_queue, MPMCReceiver, MPMCSender };
 use raytracer::{ Scene, RenderSettings, RenderChunk, Viewport };
 
+use crate::frame_history::{ FrameHistory };
+
 const WIDTH: u32 = 1440;
 const HEIGHT: u32 = 900;
 const RENDER_THREAD_COUNT: u32 = 6;
 const CHUNK_COUNT: u32 = 128;
-const MAX_FRAMES_PER_SECOND: u64 = 10;
-const UPDATES_PER_SECOND: u64 = 10;
 
 fn duration_total_secs(elapsed: Duration) -> f64 {
     elapsed.as_secs() as f64 + elapsed.subsec_nanos() as f64 * 1e-9
@@ -103,6 +103,7 @@ pub struct App {
     // Temporal state
     output_texture_id: Option<egui::TextureId>,
     render_job: Option<RenderJob>,
+    frame_history: FrameHistory,
 }
 
 impl Default for App {
@@ -113,30 +114,22 @@ impl Default for App {
             // Temporal state
             output_texture_id: None,
             render_job: None,
+            frame_history: FrameHistory::default(),
         }
     }
 }
 
 impl App {
 
-    // TODO
-    fn shutdown(&mut self) {
-        // Clean up worker threads
-        if let Some(render_job) = self.render_job.take() {
-            // TODO: Push "shutdown" message
-            // Detatch work queues
-            render_job.worker_handle.work_sender.unsubscribe();
-            // Wait for threads to terminate
-            for thread in render_job.worker_handle.thread_handles {
-                drop(thread.result_receiver);
-                thread.handle.join().expect("Waiting for worker to terminate");
-            }
-        }
-    }
-
     fn start_job(&mut self) {
 
-        // TODO: Stop running worker threads if an existing job is in progress
+        // Stop running worker threads if an existing job is in progress
+        if let Some(render_job) = self.render_job.take() {
+            // Start shutdown of all threads
+            render_job.worker_handle.halt_flag.store(true, Ordering::Relaxed);
+            // Detatch work queues
+            render_job.worker_handle.work_sender.unsubscribe();
+        }
 
         // Create render work arguments
         let viewport = Viewport::new(WIDTH, HEIGHT);
@@ -215,12 +208,12 @@ impl App {
             use std::sync::mpsc::TrySendError;
             while let Some(chunk) = job.pending_chunks.pop() {
                 let work = RenderWork(chunk, job.render_args.clone());
-                match job.worker_handle.work_sender.try_send(ThreadMessage::Work(work)) {
+                match job.worker_handle.work_sender.try_send(work) {
                     Ok(_) => {
                         // Move to next thread
                         continue;
                     },
-                    Err(TrySendError::Full(ThreadMessage::Work(RenderWork(v, _)))) => {
+                    Err(TrySendError::Full(RenderWork(v, _))) => {
                         // Queue full, try again later
                         job.pending_chunks.push(v);
                         break;
@@ -242,11 +235,6 @@ impl App {
 #[derive(Clone)]
 struct RenderWork (RenderChunk, Arc<(Scene, RenderSettings)>);
 
-#[derive(Clone)]
-enum ThreadMessage {
-    Work(RenderWork),
-    Stop
-}
 
 #[derive(Clone)]
 enum RenderResult {
@@ -255,44 +243,41 @@ enum RenderResult {
     Done(Duration),
 }
 
-fn start_render_thread(work_receiver: &MPMCReceiver<ThreadMessage>, result_sender: &Sender<RenderResult>) -> Result<(), BoxError> {
+// TODO(benf): Refactor to remove atomic flag for halting work?
+
+fn start_render_thread(halt_flag: Arc<AtomicBool>, work_receiver: &MPMCReceiver<RenderWork>, result_sender: &Sender<RenderResult>) -> Result<(), BoxError> {
+    use RenderResult::*;
     let mut rng = weak_rng();
     result_sender.send(RenderResult::Ready)?;
     // Receive messages
     loop {
-        let work = match work_receiver.recv()? {
-            ThreadMessage::Stop => break,
-            ThreadMessage::Work(work) => work
-        };
-        render_thread_handler(work, result_sender, &mut rng)?;
+        if halt_flag.load(Ordering::Relaxed) {
+            return Ok(());
+        }
+        let RenderWork(chunk, args) = work_receiver.recv()?;
+        // Paint in-progress chunks green
+        let mut buffer = ColorBuffer::new(chunk.width, chunk.height);
+        for p in chunk.iter_pixels() {
+            buffer.put_pixel(p.chunk_x, p.chunk_y, v3_to_color32(raytracer::V3(0.0, 0.58, 0.0)));
+        }
+        result_sender.send(Frame(chunk.clone(), buffer.clone()))?;
+        // Render the scene chunk
+        let (scene, render_settings) = args.as_ref();
+        let time = Instant::now();
+        // For each x, y coordinate in this view chunk, cast a ray.
+        for p in chunk.iter_pixels() {
+            if halt_flag.load(Ordering::Relaxed) {
+                return Ok(());
+            }
+            // Convert to view-relative coordinates
+            let color = raytracer::cast_ray_into_scene(render_settings, scene, &chunk.viewport, p.viewport_x, p.viewport_y, &mut rng);
+            buffer.put_pixel(p.chunk_x, p.chunk_y, v3_to_color32(color));
+        }
+        let elapsed = time.elapsed();
+        // Send final frame and results
+        result_sender.send(Frame(chunk.clone(), buffer))?;
+        result_sender.send(Done(elapsed))?;
     }
-    // Done
-    Ok(())
-}
-
-fn render_thread_handler(work: RenderWork, result_sender: &Sender<RenderResult>, rng: &mut impl rand::Rng) -> Result<(), BoxError> {
-    use RenderResult::*;
-    let RenderWork(chunk, args) = work;
-    // Paint in-progress chunks green
-    let mut buf = ColorBuffer::new(chunk.width, chunk.height);
-    for p in chunk.iter_pixels() {
-        buf.put_pixel(p.chunk_x, p.chunk_y, v3_to_color32(raytracer::V3(0.0, 0.58, 0.0)));
-    }
-    result_sender.send(Frame(chunk.clone(), buf.clone()))?;
-    // Render the scene chunk
-    let (scene, render_settings) = args.as_ref();
-    let time = Instant::now();
-    // For each x, y coordinate in this view chunk, cast a ray.
-    for p in chunk.iter_pixels() {
-        // Convert to view-relative coordinates
-        let color = raytracer::cast_ray_into_scene(render_settings, scene, &chunk.viewport, p.viewport_x, p.viewport_y, rng);
-        buf.put_pixel(p.chunk_x, p.chunk_y, v3_to_color32(color));
-    }
-    let elapsed = time.elapsed();
-    // Send final frame and results
-    result_sender.send(Frame(chunk.clone(), buf))?;
-    result_sender.send(Done(elapsed))?;
-    Ok(())
 }
 
 struct RenderThread {
@@ -304,20 +289,22 @@ struct RenderThread {
 }
 
 struct RenderWorkerHandle {
-    work_sender: MPMCSender<ThreadMessage>,
+    halt_flag: Arc<AtomicBool>,
+    work_sender: MPMCSender<RenderWork>,
     thread_handles: Vec<RenderThread>,
 }
 
 fn start_background_render_threads(render_thread_count: u32) -> RenderWorkerHandle {
-    let (work_sender, work_receiver) = mpmc_queue::<ThreadMessage>(render_thread_count as u64 * 2);
+    let halt_flag = Arc::new(AtomicBool::new(false));
+    let (work_sender, work_receiver) = mpmc_queue::<RenderWork>(render_thread_count as u64 * 2);
 
     let thread_handles = (0..render_thread_count)
-        .map(move |id| {
+        .map(|id| {
+            let halt_flag = halt_flag.clone();
             let work_receiver = work_receiver.clone();
             let (result_sender, result_receiver) = channel::<RenderResult>();
             let handle = spawn(move || {
-                if let Err(err) = start_render_thread(&work_receiver, &result_sender) {
-                    // TODO: Error logs
+                if let Err(err) = start_render_thread(halt_flag, &work_receiver, &result_sender) {
                     println!("Worker thread {} terminated: {}", id, err);
                 }
                 work_receiver.unsubscribe();
@@ -333,6 +320,7 @@ fn start_background_render_threads(render_thread_count: u32) -> RenderWorkerHand
         .collect::<Vec<_>>();
 
     RenderWorkerHandle {
+        halt_flag,
         work_sender,
         thread_handles
     }
@@ -346,13 +334,14 @@ impl epi::App for App {
 
     /// Called once before the first frame.
     fn setup(&mut self, _ctx: &egui::CtxRef, _frame: &mut epi::Frame<'_>, storage: Option<&dyn epi::Storage>) {
-
         if let Some(storage) = storage {
             self.state = epi::get_value(storage, epi::APP_KEY).unwrap_or_default()
         }
     }
 
     fn update(&mut self, ctx: &egui::CtxRef, frame: &mut epi::Frame<'_>) {
+
+        self.frame_history.on_new_frame(ctx.input().time, frame.info().cpu_usage);
 
         let buffer_updated = self.update();
 
@@ -376,6 +365,11 @@ impl epi::App for App {
             if ui.button("Start").clicked() {
                 self.start_job();
             }
+
+            ui.with_layout(egui::Layout::bottom_up(egui::Align::Center).with_cross_justify(true), |ui| {
+
+                self.frame_history.ui(ui);
+            });
         });
 
         egui::CentralPanel::default().show(ctx, |ui| {
