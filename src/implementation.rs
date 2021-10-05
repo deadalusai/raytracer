@@ -339,7 +339,7 @@ fn cast_ray(ray: &Ray, scene: &Scene, rng: &mut dyn Rng, max_reflections: u32) -
 const ANTI_ALIAS_OFFSETS: [f32; 3] = [-1.0, 0.0, 1.0];
 const SINGLE_RAY_OFFSETS: [f32; 1] = [0.0];
 
-pub fn cast_ray_into_scene(settings: &RenderSettings, scene: &Scene, viewport: &Viewport, x: u32, y: u32, rng: &mut dyn Rng) -> V3 {
+pub fn cast_ray_into_scene(settings: &RenderSettings, scene: &Scene, viewport: &Viewport, x: u32, y: u32, rng: &mut impl Rng) -> V3 {
     let mut col = V3(0.0, 0.0, 0.0);
     let offsets = match settings.anti_alias {
         true => &ANTI_ALIAS_OFFSETS[..],
