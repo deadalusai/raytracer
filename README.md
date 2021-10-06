@@ -1,4 +1,4 @@
-# Ray Tracer
+# Raytracer
 
 Originally based on the book [Ray Tracing in a Weekend][ray-tracing-in-a-weekend]
 
@@ -12,3 +12,7 @@ Further improvements based on the articles at [scratchapixel][intro-to-shading]
 [intro-to-shading]: http://www.scratchapixel.com/lessons/3d-basic-rendering/introduction-to-shading/
 [reference-source-rtbook]: http://www.cs.utah.edu/~shirley/rtbook1/
 [reference-source-scratch]: http://www.scratchapixel.com/code.php?id=13&origin=/lessons/3d-basic-rendering/introduction-to-shading
+
+# Raytracer UI
+
+UI based on [egui](https://github.com/emilk/egui) project.
