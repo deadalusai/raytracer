@@ -96,7 +96,7 @@ pub struct Scene {
 
 pub struct RenderSettings {
     pub max_reflections: u32,
-    pub samples_per_ray: u32,
+    pub samples_per_pixel: u32,
 }
 
 impl Scene {
@@ -336,17 +336,17 @@ fn cast_ray(ray: &Ray, scene: &Scene, rng: &mut dyn Rng, max_reflections: u32) -
     cast_ray_recursive(ray, scene, rng, max_reflections).clamp()
 }
 
-pub fn cast_ray_into_scene(settings: &RenderSettings, scene: &Scene, viewport: &Viewport, x: u32, y: u32, rng: &mut impl Rng) -> V3 {
+pub fn cast_rays_into_scene(settings: &RenderSettings, scene: &Scene, viewport: &Viewport, x: u32, y: u32, rng: &mut impl Rng) -> V3 {
     let mut col = V3(0.0, 0.0, 0.0);
     // Implement anti-aliasing by taking the average color of ofsett rays cast around these x, y coordinates.
-    for _ in 0..settings.samples_per_ray {
+    for _ in 0..settings.samples_per_pixel {
         // NOTE:
         // View coordinates are from upper left corner, but World coordinates are from lower left corner. 
         // Need to convert coordinate systems with (height - y)
         let u = x as f32 / viewport.width as f32;
         let v = (viewport.height - y) as f32 / viewport.height as f32;
         // Apply lens deflection for focus blur
-        let lens_deflection = if settings.samples_per_ray > 1 {
+        let lens_deflection = if settings.samples_per_pixel > 1 {
             let p = random_point_in_unit_sphere(rng);
             (p.x(), p.y())
         } else {
@@ -357,6 +357,6 @@ pub fn cast_ray_into_scene(settings: &RenderSettings, scene: &Scene, viewport: &
         col = col + cast_ray(&ray, scene, rng, settings.max_reflections);
     }
     // Find the average
-    col = col / settings.samples_per_ray as f32;
+    col = col / settings.samples_per_pixel as f32;
     col // RGB color in the range 0.0 - 1.0
 }

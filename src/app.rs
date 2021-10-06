@@ -70,7 +70,6 @@ pub struct App {
     output_texture: Option<(egui::TextureId, (f32, f32))>,
     render_job: Option<RenderJob>,
     frame_history: FrameHistory,
-    show_settings_panel: bool,
 }
 
 impl Default for App {
@@ -82,7 +81,6 @@ impl Default for App {
             output_texture: None,
             render_job: None,
             frame_history: FrameHistory::default(),
-            show_settings_panel: true,
         }
     }
 }
@@ -113,7 +111,7 @@ impl App {
         };
         let settings = RenderSettings {
             max_reflections: st.max_reflections,
-            samples_per_ray: st.samples_per_ray,
+            samples_per_pixel: st.samples_per_pixel,
         };
 
         // Chunks are popped from this list as they are rendered.
@@ -226,7 +224,7 @@ fn start_render_thread(halt_flag: Arc<AtomicBool>, work_receiver: &MPMCReceiver<
                 return Ok(());
             }
             // Convert to view-relative coordinates
-            let color = raytracer::cast_ray_into_scene(render_settings, scene, &chunk.viewport, p.viewport_x, p.viewport_y, &mut rng);
+            let color = raytracer::cast_rays_into_scene(render_settings, scene, &chunk.viewport, p.viewport_x, p.viewport_y, &mut rng);
             buffer.put_pixel(p.chunk_x, p.chunk_y, v3_to_color32(color));
         }
         let elapsed = time.elapsed();
@@ -307,74 +305,72 @@ impl epi::App for App {
 
         let buffer_updated = self.update();
         if buffer_updated {
-            // Update the texture
-            if let Some(ref mut job) = self.render_job {
-                let allocator = frame.tex_allocator();
-                if let Some((texture_id, _)) = self.output_texture.take() {
-                    allocator.free(texture_id);
-                }
-                let texture_id = allocator.alloc_srgba_premultiplied(
-                    (job.buffer.width, job.buffer.height),
-                    &job.buffer.data
-                );
-                self.output_texture = Some((texture_id, (job.buffer.width as f32, job.buffer.height as f32)));
+            let job = self.render_job.as_ref().unwrap();
+            // Update the output texture
+            let allocator = frame.tex_allocator();
+            if let Some((texture_id, _)) = self.output_texture.take() {
+                allocator.free(texture_id);
+            }
+            let texture_id = allocator.alloc_srgba_premultiplied(
+                (job.buffer.width, job.buffer.height),
+                &job.buffer.data
+            );
+            self.output_texture = Some((texture_id, (job.buffer.width as f32, job.buffer.height as f32)));
+        }
+
+        // Ensure we keep updating the UI as long as there's an active job,
+        // as we rely on the update loop to keep feeding the worker threads and updating the in-progress image
+        if let Some(job) = self.render_job.as_ref() {
+            if job.completed_chunk_count != job.total_chunk_count {
+                // Tell the backend to repaint as soon as possible
+                ctx.request_repaint();
             }
         }
 
-        egui::TopBottomPanel::top("menu_bar")
+        egui::CentralPanel::default().show(ctx, |ui| {
+
+            // Output
+            if let Some((output_texture_id, dim)) = self.output_texture {
+                ui.centered_and_justified(|ui| {
+                    let container_dim = (ui.available_width(), ui.available_height());
+                    let (width, height) = scale_to_container_dimensions(dim, container_dim);
+                    ui.image(output_texture_id, [width, height]);
+                });
+            }
+        });
+
+        // Settings UI
+        egui::Window::new("Settings")
+            .resizable(false)
+            .default_width(200.0)
             .show(ctx, |ui| {
-                egui::menu::bar(ui, |ui| {
-                    ui.checkbox(&mut self.show_settings_panel, "Show settings");
+                ui.add(SettingsWidget::new(&mut self.settings));
+                ui.separator();
+
+                ui.with_layout(egui::Layout::top_down_justified(egui::Align::Center), |ui| {
+                    if ui.button("Start render").clicked() {
+                        self.start_job();
+                    }
+                });
+
+                if let Some(job) = self.render_job.as_ref() {
+                    for thread in job.worker_handle.thread_handles.iter() {
+                        ui.add(ThreadStats {
+                            id: thread.id,
+                            total_chunks_rendered: thread.total_chunks_rendered,
+                            total_time_secs: thread.total_time_secs,
+                        });
+                    }
+                }
+
+                ui.with_layout(egui::Layout::bottom_up(egui::Align::Min), |ui| {
+                    self.frame_history.ui(ui);
                 });
             });
-
-        if self.show_settings_panel {
-
-            egui::SidePanel::left("side_panel")
-                .resizable(false)
-                .show(ctx, |ui| {
-                    ui.heading("Settings");
-                    ui.separator();
-
-                    ui.add(SettingsWidget::new(&mut self.settings));
-                    ui.separator();
-
-                    ui.with_layout(egui::Layout::top_down_justified(egui::Align::Center), |ui| {
-                        if ui.button("Start render").clicked() {
-                            self.start_job();
-                        }
-                    });
-
-                    if let Some(ref job) = self.render_job {
-                        for thread in job.worker_handle.thread_handles.iter() {
-                            ui.add(ThreadStats {
-                                id: thread.id,
-                                total_chunks_rendered: thread.total_chunks_rendered,
-                                total_time_secs: thread.total_time_secs,
-                            });
-                        }
-                    }
-
-                    ui.with_layout(egui::Layout::bottom_up(egui::Align::Min), |ui| {
-                        self.frame_history.ui(ui);
-                    });
-                });
-        }
-
-        if let Some((output_texture_id, dim)) = self.output_texture {
-            egui::CentralPanel::default()
-                .show(ctx, |ui| {
-                    ui.centered_and_justified(|ui| {
-                        let container_dim = (ui.available_width(), ui.available_height());
-                        let (width, height) = internal_dimensions(dim, container_dim);
-                        ui.image(output_texture_id, [width, height]);
-                    });
-                });
-        }
     }
 }
 
-fn internal_dimensions((iw, ih): (f32, f32), (cw, ch): (f32, f32)) -> (f32, f32) {
+fn scale_to_container_dimensions((iw, ih): (f32, f32), (cw, ch): (f32, f32)) -> (f32, f32) {
     let iratio = iw / ih;
     let cratio = cw / ch;
     match (cw < ch, iratio > cratio) {

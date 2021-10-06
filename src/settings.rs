@@ -17,7 +17,7 @@ pub struct Settings {
     pub height: u32,
     pub chunk_count: u32,
     pub thread_count: u32,
-    pub samples_per_ray: u32,
+    pub samples_per_pixel: u32,
     pub camera_aperture: f32,
     pub max_reflections: u32,
 }
@@ -30,7 +30,7 @@ impl Default for Settings {
             height: 768,
             chunk_count: 128,
             thread_count: 8,
-            samples_per_ray: 1,
+            samples_per_pixel: 1,
             camera_aperture: 0.1,
             max_reflections: 5,
         }
@@ -95,9 +95,9 @@ impl<'a> egui::Widget for SettingsWidget<'a> {
                 ui.add(egui::DragValue::new(&mut st.chunk_count).clamp_range(1..=256));
                 ui.end_row();
                 
-                // Samples per ray
-                ui.label("Samples per ray");
-                ui.add(egui::DragValue::new(&mut st.samples_per_ray).clamp_range(1..=25));
+                // Samples per pixel
+                ui.label("Samples per pixel");
+                ui.add(egui::DragValue::new(&mut st.samples_per_pixel).clamp_range(1..=100));
                 ui.end_row();
                 
                 // Camera aperture
@@ -108,7 +108,7 @@ impl<'a> egui::Widget for SettingsWidget<'a> {
                         .speed(0.05)
                         .max_decimals(2));
 
-                    if st.samples_per_ray == 1 {
+                    if st.samples_per_pixel == 1 {
                         ui.add(egui::Label::new("⚠")
                             .text_color(egui::Color32::RED))
                             .on_hover_text("Camera aperture ignored with 1 sample per ray");
@@ -123,8 +123,8 @@ impl<'a> egui::Widget for SettingsWidget<'a> {
                 ui.end_row();
                 
                 // Reset button
-                ui.label("");
-                ui.centered_and_justified(|ui| {
+                ui.label("Reset");
+                ui.with_layout(egui::Layout::top_down_justified(egui::Align::Center), |ui| {
                     if ui.button("Reset").clicked() {
                         *st = Settings::default();
                     }

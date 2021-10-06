@@ -13,3 +13,7 @@ rand = "0.4.2"
 
 [features]
 default = ["eframe/persistence"]
+
+[patch.crates-io]
+# Use the bleeding edge version of `eframe`
+eframe = { git = "https://github.com/emilk/egui", branch = "master" }
