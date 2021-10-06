@@ -5,9 +5,9 @@ authors = ["Benjamin Fox <deadalus.ai@gmail.com>"]
 edition = "2018"
 
 [dependencies]
+raytracer = { path = "./raytracer-impl" }
 eframe = "0.14.0" # egui, epi and web+native backends
 serde = { version = "1", features = ["derive"] } # state serialization
-raytracer = { git = "https://github.com/deadalusai/raytracer.git", rev = "afa14f8" }
 multiqueue = "0.3.2"
 rand = "0.4.2"
 

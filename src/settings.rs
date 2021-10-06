@@ -76,12 +76,11 @@ impl<'a> egui::Widget for SettingsWidget<'a> {
                         }
                     });
                 ui.end_row();
-                
+
                 // Render size
                 ui.label("Render size");
                 ui.horizontal(|ui| {
                     ui.add(egui::DragValue::new(&mut st.width).clamp_range(0..=2048).suffix("px"));
-                    ui.label("x");
                     ui.add(egui::DragValue::new(&mut st.height).clamp_range(0..=2048).suffix("px"));
                 });
                 ui.end_row();
