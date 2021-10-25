@@ -6,7 +6,7 @@ use std::sync::mpsc::{ Receiver, Sender, channel };
 use eframe::{ egui, epi };
 use rand::{ weak_rng };
 use multiqueue::{ mpmc_queue, MPMCReceiver, MPMCSender };
-use raytracer::{ Scene, RenderSettings, RenderChunk, Viewport };
+use raytracer::{ Scene, RenderSettings, RenderChunk, Viewport, create_render_chunks };
 
 use crate::frame_history::{ FrameHistory };
 use crate::thread_stats::{ ThreadStats };
@@ -117,8 +117,8 @@ impl App {
 
         // Chunks are popped from this list as they are rendered.
         // Reverse the list so the top of the image is rendered first.
-        let mut chunks = viewport.create_render_chunks(st.chunk_count);
-        chunks.reverse();
+        let mut chunks = create_render_chunks(&viewport, st.chunk_count);
+        chunks.sort();
 
         self.render_job = Some(RenderJob {
             render_args: Arc::new((scene, settings)),
