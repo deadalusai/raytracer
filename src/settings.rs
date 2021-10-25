@@ -8,7 +8,17 @@ pub enum TestScene {
     Mirrors,
     Triangles,
     Mesh,
+    Interceptor,
 }
+const TEST_SCENES: [TestScene; 7] = [
+    TestScene::RandomSpheres,
+    TestScene::Simple,
+    TestScene::Planes,
+    TestScene::Mirrors,
+    TestScene::Triangles,
+    TestScene::Mesh,
+    TestScene::Interceptor,
+];
 
 #[derive(Debug, serde::Deserialize, serde::Serialize)]
 pub struct Settings {
@@ -63,15 +73,7 @@ impl<'a> egui::Widget for SettingsWidget<'a> {
                     .selected_text(format!("{:?}", st.scene))
                     .width(120.0)
                     .show_ui(ui, |ui| {
-                        let values = [
-                            TestScene::RandomSpheres,
-                            TestScene::Simple,
-                            TestScene::Planes,
-                            TestScene::Mirrors,
-                            TestScene::Triangles,
-                            TestScene::Mesh,
-                        ];
-                        for v in values {
+                        for v in TEST_SCENES {
                             ui.selectable_value(&mut st.scene, v, format!("{:?}", v));
                         }
                     });

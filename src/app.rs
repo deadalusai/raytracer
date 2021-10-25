@@ -103,11 +103,12 @@ impl App {
         let camera_aperture = st.camera_aperture;
         let scene = match st.scene {
             TestScene::RandomSpheres => raytracer::samples::random_sphere_scene(&viewport, camera_aperture),
-            TestScene::Simple => raytracer::samples::simple_scene(&viewport, camera_aperture),
-            TestScene::Planes => raytracer::samples::planes_scene(&viewport, camera_aperture),
-            TestScene::Mirrors => raytracer::samples::hall_of_mirrors(&viewport, camera_aperture),
-            TestScene::Triangles => raytracer::samples::triangle_world(&viewport, camera_aperture),
-            TestScene::Mesh => raytracer::samples::mesh_demo(&viewport, camera_aperture),
+            TestScene::Simple        => raytracer::samples::simple_scene(&viewport, camera_aperture),
+            TestScene::Planes        => raytracer::samples::planes_scene(&viewport, camera_aperture),
+            TestScene::Mirrors       => raytracer::samples::hall_of_mirrors(&viewport, camera_aperture),
+            TestScene::Triangles     => raytracer::samples::triangle_world(&viewport, camera_aperture),
+            TestScene::Mesh          => raytracer::samples::mesh_demo(&viewport, camera_aperture),
+            TestScene::Interceptor   => raytracer::samples::interceptor(&viewport, camera_aperture),
         };
         let settings = RenderSettings {
             max_reflections: st.max_reflections,

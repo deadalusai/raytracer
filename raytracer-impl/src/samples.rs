@@ -491,3 +491,39 @@ pub fn mesh_demo(viewport: &Viewport, camera_aperture: f32) -> Scene {
 
     scene
 }
+
+pub fn interceptor(viewport: &Viewport, camera_aperture: f32) -> Scene {
+    
+    // Camera
+    let look_from = position!(Up(6.0), South(10.0), East(10.0));
+    let look_to =   position!(Up(0.0));
+    let fov = 45.0;
+    let aspect_ratio = viewport.width as f32 / viewport.height as f32;
+    let dist_to_focus = (look_from - look_to).length();
+
+    let camera = Camera::new(look_from, look_to, fov, aspect_ratio, camera_aperture, dist_to_focus);
+
+    // Scene
+    let mut scene = Scene::new(camera, SceneSky::Black);
+
+    // Lights
+    let lamp_pos = position!(Up(20.0), East(20.0));
+    let lamp_direction = WORLD_ORIGIN - lamp_pos;
+    scene.add_light(DirectionalLight::with_direction(lamp_direction).with_intensity(0.5));
+
+    // World sphere
+    let world_mat = MatLambertian::with_albedo(rgb(200, 200, 200));
+    let world_pos = position!(Down(1000.0), Down(1.0));
+    scene.add_obj(Sphere::new(world_pos, 1000.0, world_mat).with_id(0));
+    
+    // Interceptor
+    let int_mat = MatLambertian::with_albedo(rgb(200, 200, 000)).with_reflectivity(0.08);
+    let int_origin = WORLD_ORIGIN;
+    let int_tris = ObjFile::read_from_string(include_str!("../meshes/interceptor.obj"))
+        .expect("reading mesh")
+        .make_triangle_list("Heavyinterceptor")
+        .expect("building mesh");
+    scene.add_obj(Mesh::new(int_origin, int_tris, int_mat).with_id(3));
+
+    scene
+}
