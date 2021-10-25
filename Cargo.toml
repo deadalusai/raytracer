@@ -6,7 +6,7 @@ edition = "2018"
 
 [dependencies]
 raytracer = { path = "./raytracer-impl" }
-eframe = "0.14.0" # egui, epi and web+native backends
+eframe = "0.15.0" # egui, epi and web+native backends
 serde = { version = "1", features = ["derive"] } # state serialization
 multiqueue = "0.3.2"
 rand = "0.4.2"
@@ -16,4 +16,4 @@ default = ["eframe/persistence"]
 
 [patch.crates-io]
 # Use the bleeding edge version of `eframe`
-eframe = { git = "https://github.com/emilk/egui", branch = "master" }
+# eframe = { git = "https://github.com/emilk/egui", branch = "master" }

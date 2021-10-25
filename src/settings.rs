@@ -97,7 +97,7 @@ impl<'a> egui::Widget for SettingsWidget<'a> {
                 
                 // Samples per pixel
                 ui.label("Samples per pixel");
-                ui.add(egui::DragValue::new(&mut st.samples_per_pixel).clamp_range(1..=100));
+                ui.add(egui::DragValue::new(&mut st.samples_per_pixel).clamp_range(1..=1000));
                 ui.end_row();
                 
                 // Camera aperture
