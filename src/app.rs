@@ -118,7 +118,7 @@ impl App {
         // Chunks are popped from this list as they are rendered.
         // Reverse the list so the top of the image is rendered first.
         let mut chunks = create_render_chunks(&viewport, st.chunk_count);
-        chunks.sort();
+        chunks.reverse();
 
         self.render_job = Some(RenderJob {
             render_args: Arc::new((scene, settings)),
