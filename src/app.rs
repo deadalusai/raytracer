@@ -8,6 +8,7 @@ use rand::{ weak_rng };
 use multiqueue::{ mpmc_queue, MPMCReceiver, MPMCSender };
 use raytracer::{ Scene, RenderSettings, RenderChunk, Viewport, create_render_chunks };
 
+use crate::rgba::{ RgbaBuffer, v3_to_rgba };
 use crate::frame_history::{ FrameHistory };
 use crate::thread_stats::{ ThreadStats };
 use crate::settings::{ SettingsWidget, Settings, TestScene };
@@ -17,56 +18,6 @@ fn duration_total_secs(elapsed: Duration) -> f64 {
 }
 
 type BoxError = Box<dyn std::error::Error + 'static>;
-
-// Unmultiplied RGBA data
-type Rgba = [u8; 4];
-
-fn v3_to_rgba(v3: raytracer::V3) -> Rgba {
-    let r = (255.0 * v3.0.sqrt()) as u8;
-    let g = (255.0 * v3.1.sqrt()) as u8;
-    let b = (255.0 * v3.2.sqrt()) as u8;
-    let a = 255;
-    [r, g, b, a]
-}
-
-#[derive(Clone)]
-struct RgbaBuffer {
-    width: usize,
-    height: usize,
-    data: Vec<u8>,
-}
-
-impl RgbaBuffer {
-    pub fn new(width: u32, height: u32) -> RgbaBuffer {
-        RgbaBuffer {
-            width: width as usize,
-            height: height as usize,
-            data: vec![0; (width * height * 4) as usize],
-        }
-    }
-
-    fn index(&self, x: u32, y: u32) -> usize {
-        ((y as usize) * self.width + (x as usize)) * 4
-    }
-
-    pub fn put_pixel(&mut self, x: u32, y: u32, rgba: Rgba) {
-        let i = self.index(x, y);
-        self.data[i + 0] = rgba[0];
-        self.data[i + 1] = rgba[1];
-        self.data[i + 2] = rgba[2];
-        self.data[i + 3] = rgba[3];
-    }
-
-    pub fn get_pixel(&self, x: u32, y: u32) -> Rgba {
-        let i = self.index(x, y);
-        [
-            self.data[i + 0],
-            self.data[i + 1],
-            self.data[i + 2],
-            self.data[i + 3]
-        ]
-    }
-}
 
 struct RenderJob {
     render_args: Arc<(Scene, RenderSettings)>,
@@ -102,7 +53,6 @@ impl Default for App {
 }
 
 impl App {
-
     fn start_job(&mut self) {
 
         // Stop running worker threads if an existing job is in progress
@@ -161,9 +111,7 @@ impl App {
                     match result {
                         Frame(chunk, buf) => {
                             // Copy chunk to buffer
-                            for p in chunk.iter_pixels() {
-                                job.buffer.put_pixel(p.viewport_x, p.viewport_y, buf.get_pixel(p.chunk_x, p.chunk_y));
-                            }
+                            job.buffer.copy_from_sub_buffer(chunk.left, chunk.top, &buf);
                             buffer_updated = true;
                         },
                         Ready => {}, // Worker thread ready to go.
@@ -246,7 +194,7 @@ fn start_render_thread(halt_flag: Arc<AtomicBool>, work_receiver: &MPMCReceiver<
         }
         let elapsed = time.elapsed();
         // Send final frame and results
-        result_sender.send(Frame(chunk.clone(), buffer))?;
+        result_sender.send(Frame(chunk, buffer))?;
         result_sender.send(Done(elapsed))?;
     }
 }
@@ -322,19 +270,21 @@ impl epi::App for App {
 
         let buffer_updated = self.update();
         if buffer_updated {
-            let job = self.render_job.as_ref().unwrap();
             // Update the output texture
             if let Some((texture_id, _)) = self.output_texture.take() {
                 frame.free_texture(texture_id);
             }
-            let tex_dim = [job.buffer.width, job.buffer.height];
-            let tex_data = eframe::epi::Image::from_rgba_unmultiplied(tex_dim, &job.buffer.data);
-            let tex_id = frame.alloc_texture(tex_data);
-            self.output_texture = Some((tex_id, tex_dim));
+            if let Some(job) = self.render_job.as_ref() {
+                let (tex_dim, tex_data) = job.buffer.get_raw_rgba_data();
+                let tex_data = eframe::epi::Image::from_rgba_unmultiplied(tex_dim, tex_data);
+                let tex_id = frame.alloc_texture(tex_data);
+                self.output_texture = Some((tex_id, tex_dim));
+            }   
         }
-
+        
         // Ensure we keep updating the UI as long as there's an active job,
-        // as we rely on the update loop to keep feeding the worker threads and updating the in-progress image
+        // as we rely on the update loop to keep feeding the worker threads and updating the in-progress image.
+        
         if let Some(job) = self.render_job.as_ref() {
             if job.completed_chunk_count != job.total_chunk_count {
                 // Tell the backend to repaint as soon as possible

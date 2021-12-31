@@ -1,4 +1,5 @@
 mod app;
+mod rgba;
 mod frame_history;
 mod settings;
 mod thread_stats;
