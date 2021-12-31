@@ -18,38 +18,54 @@ fn duration_total_secs(elapsed: Duration) -> f64 {
 
 type BoxError = Box<dyn std::error::Error + 'static>;
 
-#[derive(Clone)]
-struct ColorBuffer {
-    width: usize,
-    height: usize,
-    data: Vec<egui::Color32>,
+// Unmultiplied RGBA data
+type Rgba = [u8; 4];
+
+fn v3_to_rgba(v3: raytracer::V3) -> Rgba {
+    let r = (255.0 * v3.0.sqrt()) as u8;
+    let g = (255.0 * v3.1.sqrt()) as u8;
+    let b = (255.0 * v3.2.sqrt()) as u8;
+    let a = 255;
+    [r, g, b, a]
 }
 
-impl ColorBuffer {
-    fn new(width: u32, height: u32) -> ColorBuffer {
-        ColorBuffer {
+#[derive(Clone)]
+struct RgbaBuffer {
+    width: usize,
+    height: usize,
+    data: Vec<u8>,
+}
+
+impl RgbaBuffer {
+    pub fn new(width: u32, height: u32) -> RgbaBuffer {
+        RgbaBuffer {
             width: width as usize,
             height: height as usize,
-            data: vec![egui::Color32::BLACK; (width * height) as usize],
+            data: vec![0; (width * height * 4) as usize],
         }
     }
 
-    fn put_pixel(&mut self, x: u32, y: u32, color: egui::Color32) {
-        self.data[(y as usize) * self.width + (x as usize)] = color;
+    fn index(&self, x: u32, y: u32) -> usize {
+        ((y as usize) * self.width + (x as usize)) * 4
     }
 
-    fn get_pixel(&self, x: u32, y: u32) -> egui::Color32 {
-        self.data[(y as usize) * self.width + (x as usize)]
+    pub fn put_pixel(&mut self, x: u32, y: u32, rgba: Rgba) {
+        let i = self.index(x, y);
+        self.data[i + 0] = rgba[0];
+        self.data[i + 1] = rgba[1];
+        self.data[i + 2] = rgba[2];
+        self.data[i + 3] = rgba[3];
     }
-}
 
-fn v3_to_color32(v3: raytracer::V3) -> egui::Color32 {
-    egui::Color32::from_rgba_unmultiplied(
-        (255.0 * v3.0.sqrt()) as u8,
-        (255.0 * v3.1.sqrt()) as u8,
-        (255.0 * v3.2.sqrt()) as u8,
-        255 // Alpha
-    )
+    pub fn get_pixel(&self, x: u32, y: u32) -> Rgba {
+        let i = self.index(x, y);
+        [
+            self.data[i + 0],
+            self.data[i + 1],
+            self.data[i + 2],
+            self.data[i + 3]
+        ]
+    }
 }
 
 struct RenderJob {
@@ -59,7 +75,7 @@ struct RenderJob {
     render_time_secs: f64,
     total_chunk_count: u32,
     completed_chunk_count: u32,
-    buffer: ColorBuffer,
+    buffer: RgbaBuffer,
     worker_handle: RenderWorkerHandle,
 }
 
@@ -67,7 +83,7 @@ pub struct App {
     // Persistent state
     settings: Settings,
     // Temporal state
-    output_texture: Option<(egui::TextureId, (f32, f32))>,
+    output_texture: Option<(egui::TextureId, [usize; 2])>,
     render_job: Option<RenderJob>,
     frame_history: FrameHistory,
 }
@@ -127,7 +143,7 @@ impl App {
             pending_chunks: chunks,
             start_time: Instant::now(),
             render_time_secs: 0_f64,
-            buffer: ColorBuffer::new(st.width, st.height),
+            buffer: RgbaBuffer::new(st.width, st.height),
             worker_handle: start_background_render_threads(st.thread_count),
         });
     }
@@ -196,7 +212,7 @@ struct RenderWork (RenderChunk, Arc<(Scene, RenderSettings)>);
 #[derive(Clone)]
 enum RenderResult {
     Ready,
-    Frame(RenderChunk, ColorBuffer),
+    Frame(RenderChunk, RgbaBuffer),
     Done(Duration),
 }
 
@@ -211,9 +227,9 @@ fn start_render_thread(halt_flag: Arc<AtomicBool>, work_receiver: &MPMCReceiver<
         }
         let RenderWork(chunk, args) = work_receiver.recv()?;
         // Paint in-progress chunks green
-        let mut buffer = ColorBuffer::new(chunk.width, chunk.height);
+        let mut buffer = RgbaBuffer::new(chunk.width, chunk.height);
         for p in chunk.iter_pixels() {
-            buffer.put_pixel(p.chunk_x, p.chunk_y, v3_to_color32(raytracer::V3(0.0, 0.58, 0.0)));
+            buffer.put_pixel(p.chunk_x, p.chunk_y, v3_to_rgba(raytracer::V3(0.0, 0.58, 0.0)));
         }
         result_sender.send(Frame(chunk.clone(), buffer.clone()))?;
         // Render the scene chunk
@@ -226,7 +242,7 @@ fn start_render_thread(halt_flag: Arc<AtomicBool>, work_receiver: &MPMCReceiver<
             }
             // Convert to view-relative coordinates
             let color = raytracer::cast_rays_into_scene(render_settings, scene, &chunk.viewport, p.viewport_x, p.viewport_y, &mut rng);
-            buffer.put_pixel(p.chunk_x, p.chunk_y, v3_to_color32(color));
+            buffer.put_pixel(p.chunk_x, p.chunk_y, v3_to_rgba(color));
         }
         let elapsed = time.elapsed();
         // Send final frame and results
@@ -289,7 +305,7 @@ impl epi::App for App {
     }
 
     /// Called once before the first frame.
-    fn setup(&mut self, _ctx: &egui::CtxRef, _frame: &mut epi::Frame<'_>, storage: Option<&dyn epi::Storage>) {
+    fn setup(&mut self, _ctx: &egui::CtxRef, _frame: &epi::Frame, storage: Option<&dyn epi::Storage>) {
         if let Some(storage) = storage {
             self.settings = epi::get_value(storage, epi::APP_KEY).unwrap_or_default()
         }
@@ -300,7 +316,7 @@ impl epi::App for App {
         epi::set_value(storage, epi::APP_KEY, &self.settings);
     }
 
-    fn update(&mut self, ctx: &egui::CtxRef, frame: &mut epi::Frame<'_>) {
+    fn update(&mut self, ctx: &egui::CtxRef, frame: &epi::Frame) {
 
         self.frame_history.on_new_frame(ctx.input().time, frame.info().cpu_usage);
 
@@ -308,15 +324,13 @@ impl epi::App for App {
         if buffer_updated {
             let job = self.render_job.as_ref().unwrap();
             // Update the output texture
-            let allocator = frame.tex_allocator();
             if let Some((texture_id, _)) = self.output_texture.take() {
-                allocator.free(texture_id);
+                frame.free_texture(texture_id);
             }
-            let texture_id = allocator.alloc_srgba_premultiplied(
-                (job.buffer.width, job.buffer.height),
-                &job.buffer.data
-            );
-            self.output_texture = Some((texture_id, (job.buffer.width as f32, job.buffer.height as f32)));
+            let tex_dim = [job.buffer.width, job.buffer.height];
+            let tex_data = eframe::epi::Image::from_rgba_unmultiplied(tex_dim, &job.buffer.data);
+            let tex_id = frame.alloc_texture(tex_data);
+            self.output_texture = Some((tex_id, tex_dim));
         }
 
         // Ensure we keep updating the UI as long as there's an active job,
@@ -329,13 +343,14 @@ impl epi::App for App {
         }
 
         egui::CentralPanel::default().show(ctx, |ui| {
-
-            // Output
-            if let Some((output_texture_id, dim)) = self.output_texture {
+            // Output image
+            if let Some((id, dim)) = self.output_texture {
                 ui.centered_and_justified(|ui| {
+                    // Scale the output texture to fit in the container
                     let container_dim = (ui.available_width(), ui.available_height());
-                    let (width, height) = scale_to_container_dimensions(dim, container_dim);
-                    ui.image(output_texture_id, [width, height]);
+                    let image_dim = (dim[0] as f32, dim[1] as f32);
+                    let (width, height) = scale_to_container_dimensions(image_dim, container_dim);
+                    ui.image(id, [width, height]);
                 });
             }
         });
@@ -371,6 +386,7 @@ impl epi::App for App {
     }
 }
 
+/// Scales the given `i` dimensions to fit the given `c` dimensions
 fn scale_to_container_dimensions((iw, ih): (f32, f32), (cw, ch): (f32, f32)) -> (f32, f32) {
     let iratio = iw / ih;
     let cratio = cw / ch;

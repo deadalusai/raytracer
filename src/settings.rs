@@ -111,8 +111,7 @@ impl<'a> egui::Widget for SettingsWidget<'a> {
                         .max_decimals(2));
 
                     if st.samples_per_pixel == 1 {
-                        ui.add(egui::Label::new("⚠")
-                            .text_color(egui::Color32::RED))
+                        ui.add(egui::Label::new(egui::RichText::new("⚠").color(egui::Color32::RED)))
                             .on_hover_text("Camera aperture ignored with 1 sample per ray");
                     }
                 });
