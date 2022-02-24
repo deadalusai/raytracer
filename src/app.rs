@@ -34,7 +34,7 @@ pub struct App {
     // Persistent state
     settings: Settings,
     // Temporal state
-    output_texture: Option<(egui::TextureId, [usize; 2])>,
+    output_texture: Option<(egui::TextureHandle, [usize; 2])>,
     render_job: Option<RenderJob>,
     frame_history: FrameHistory,
 }
@@ -253,7 +253,7 @@ impl epi::App for App {
     }
 
     /// Called once before the first frame.
-    fn setup(&mut self, _ctx: &egui::CtxRef, _frame: &epi::Frame, storage: Option<&dyn epi::Storage>) {
+    fn setup(&mut self, _ctx: &egui::Context, _frame: &epi::Frame, storage: Option<&dyn epi::Storage>) {
         if let Some(storage) = storage {
             self.settings = epi::get_value(storage, epi::APP_KEY).unwrap_or_default()
         }
@@ -264,22 +264,19 @@ impl epi::App for App {
         epi::set_value(storage, epi::APP_KEY, &self.settings);
     }
 
-    fn update(&mut self, ctx: &egui::CtxRef, frame: &epi::Frame) {
+    fn update(&mut self, ctx: &egui::Context, frame: &epi::Frame) {
 
         self.frame_history.on_new_frame(ctx.input().time, frame.info().cpu_usage);
 
         let buffer_updated = self.update();
         if buffer_updated {
             // Update the output texture
-            if let Some((texture_id, _)) = self.output_texture.take() {
-                frame.free_texture(texture_id);
-            }
             if let Some(job) = self.render_job.as_ref() {
                 let (tex_dim, tex_data) = job.buffer.get_raw_rgba_data();
-                let tex_data = eframe::epi::Image::from_rgba_unmultiplied(tex_dim, tex_data);
-                let tex_id = frame.alloc_texture(tex_data);
+                let tex_data = egui::ColorImage::from_rgba_unmultiplied(tex_dim, tex_data);
+                let tex_id = ctx.load_texture("output_tex", tex_data);
                 self.output_texture = Some((tex_id, tex_dim));
-            }   
+            }
         }
         
         // Ensure we keep updating the UI as long as there's an active job,
@@ -294,7 +291,7 @@ impl epi::App for App {
 
         egui::CentralPanel::default().show(ctx, |ui| {
             // Output image
-            if let Some((id, dim)) = self.output_texture {
+            if let Some((id, dim)) = &self.output_texture {
                 ui.centered_and_justified(|ui| {
                     // Scale the output texture to fit in the container
                     let container_dim = (ui.available_width(), ui.available_height());
