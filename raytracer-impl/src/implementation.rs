@@ -4,7 +4,7 @@ use crate::types::{ V3 };
 use crate::types::{ Ray };
 use crate::viewport::{ Viewport };
 
-use rand::{ Rng };
+use rand::{ RngCore, Rng };
 
 // Util
 
@@ -12,16 +12,16 @@ const PI: f32 = std::f32::consts::PI;
 const TWO_PI: f32 = 2.0 * PI;
 const HALF_PI: f32 = PI / 2.0;
 
-pub fn random_point_in_unit_sphere(rng: &mut dyn Rng) -> V3 {
+pub fn random_point_in_unit_sphere(rng: &mut dyn RngCore) -> V3 {
     //  Select a random point in a unit sphere using spherical co-ordinates.
     //  Pick
     //      - theta with range [0, 2pi)
     //      - phi with range [-pi/2, pi/2]
     //      - radius with range [0, 1]
 
-    let theta = rng.next_f32() * TWO_PI;
-    let phi = rng.next_f32() * HALF_PI * 2.0 - HALF_PI;
-    let r = rng.next_f32();
+    let theta = rng.gen::<f32>() * TWO_PI;
+    let phi = rng.gen::<f32>() * HALF_PI * 2.0 - HALF_PI;
+    let r = rng.gen::<f32>();
     
     let x = r * theta.cos() * phi.cos();
     let y = r * phi.sin();
@@ -49,7 +49,7 @@ pub struct MatRecord {
 }
 
 pub trait Material: Send + Sync {
-    fn scatter(&self, ray: &Ray, hit_record: &HitRecord, rng: &mut dyn Rng) -> MatRecord;
+    fn scatter(&self, ray: &Ray, hit_record: &HitRecord, rng: &mut dyn RngCore) -> MatRecord;
 }
 
 // Hitables
@@ -221,7 +221,7 @@ fn color_sky (ray: &Ray, scene: &Scene) -> V3 {
 // Lights and shadows
 
 // Casts a ray *back* towards a lamp, testing for possibly shadowing objects
-fn cast_light_ray(hit_point: V3, light_record: &LightRecord, scene: &Scene, rng: &mut dyn Rng) -> V3 {
+fn cast_light_ray(hit_point: V3, light_record: &LightRecord, scene: &Scene, rng: &mut dyn RngCore) -> V3 {
 
     // Test to see if there is any shape blocking light from this lamp by casting a ray from the shadow back to the light source
     let light_ray = Ray::new(hit_point, -light_record.direction);
@@ -256,10 +256,10 @@ fn cast_light_ray(hit_point: V3, light_record: &LightRecord, scene: &Scene, rng:
 }
 
 /// Determines the color which the given ray resolves to.
-fn cast_ray(ray: &Ray, scene: &Scene, rng: &mut dyn Rng, max_reflections: u32) -> V3 {
+fn cast_ray(ray: &Ray, scene: &Scene, rng: &mut dyn RngCore, max_reflections: u32) -> V3 {
 
     // Internal implementation
-    fn cast_ray_recursive(ray: &Ray, scene: &Scene, rng: &mut dyn Rng, recurse_limit: u32) -> V3 {
+    fn cast_ray_recursive(ray: &Ray, scene: &Scene, rng: &mut dyn RngCore, recurse_limit: u32) -> V3 {
 
         // Exceeded our recusion limit?
         if recurse_limit == 0 {
@@ -336,7 +336,7 @@ fn cast_ray(ray: &Ray, scene: &Scene, rng: &mut dyn Rng, max_reflections: u32) -
     cast_ray_recursive(ray, scene, rng, max_reflections).clamp()
 }
 
-pub fn cast_rays_into_scene(settings: &RenderSettings, scene: &Scene, viewport: &Viewport, x: u32, y: u32, rng: &mut impl Rng) -> V3 {
+pub fn cast_rays_into_scene(settings: &RenderSettings, scene: &Scene, viewport: &Viewport, x: u32, y: u32, rng: &mut impl RngCore) -> V3 {
     let mut col = V3(0.0, 0.0, 0.0);
     // Implement anti-aliasing by taking the average color of ofsett rays cast around these x, y coordinates.
     for _ in 0..settings.samples_per_pixel {

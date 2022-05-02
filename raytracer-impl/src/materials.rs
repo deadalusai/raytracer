@@ -6,7 +6,7 @@ use std::mem::{ swap };
 pub use crate::types::{ V3, Ray };
 pub use crate::implementation::{ Material, MatRecord, Reflect, Refract, HitRecord, random_point_in_unit_sphere };
 
-use rand::{ Rng };
+use rand::{ RngCore };
 
 macro_rules! assert_in_range {
     ($v:ident) => {
@@ -42,7 +42,7 @@ impl MatLambertian {
 }
 
 impl Material for MatLambertian {
-    fn scatter(&self, _r: &Ray, hit_record: &HitRecord, rng: &mut dyn Rng) -> MatRecord {
+    fn scatter(&self, _r: &Ray, hit_record: &HitRecord, rng: &mut dyn RngCore) -> MatRecord {
         // TODO(benf): Ensure "direction" is within 90 degrees of the normal?
         // Otherwise we're scattering backwards.
         let target = hit_record.p + hit_record.normal + random_point_in_unit_sphere(rng);
@@ -91,7 +91,7 @@ fn reflect(incident_direction: V3, surface_normal: V3) -> V3 {
 }
 
 impl Material for MatMetal {
-    fn scatter(&self, ray: &Ray, hit_record: &HitRecord, rng: &mut dyn Rng) -> MatRecord {
+    fn scatter(&self, ray: &Ray, hit_record: &HitRecord, rng: &mut dyn RngCore) -> MatRecord {
         let reflected = reflect(ray.direction, hit_record.normal);
         let scattered =
             if self.fuzz == 0.0 {
@@ -170,7 +170,7 @@ fn schlick_reflect_prob (cosine: f32, ref_idx: f32) -> f32 {
 }
 
 impl Material for MatDielectric {
-    fn scatter (&self, ray: &Ray, hit_record: &HitRecord, rng: &mut dyn Rng) -> MatRecord {
+    fn scatter (&self, ray: &Ray, hit_record: &HitRecord, rng: &mut dyn RngCore) -> MatRecord {
         let dot = V3::dot(ray.direction, hit_record.normal);
         let (outward_normal, ni_over_nt, cosine) =
             if dot > 0.0 {

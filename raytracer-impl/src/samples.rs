@@ -8,11 +8,23 @@ use crate::lights::{ PointLight, DirectionalLight, LampLight };
 use crate::implementation::{ Scene, SceneSky, Camera, Material };
 use crate::obj_format::{ ObjFile };
 
-use rand::{ Rng, StdRng, SeedableRng };
+use rand::{ Rng, SeedableRng, rngs::StdRng };
 
-fn create_rng_from_seed(seed_text: &str) -> StdRng {
-    let bytes: Vec<_> = seed_text.bytes().map(|b| b as usize).collect();
-    StdRng::from_seed(&bytes)
+fn create_rng_from_seed(a: u128, b: u128) -> StdRng {
+    
+    fn set_bytes(bytes: &mut [u8], val: u128) {
+        for offset in 0..16 {
+            let shift = (15 - offset) * 8;
+            bytes[offset] = ((val >> shift) & 0xff) as u8
+        }
+    }
+
+    let mut seed = <StdRng as SeedableRng>::Seed::default();
+
+    set_bytes(&mut seed[0..16], a);
+    set_bytes(&mut seed[16..32], b);
+    
+    StdRng::from_seed(seed)
 }
 
 //
@@ -92,29 +104,29 @@ fn rgb(r: u8, g: u8, b: u8) -> V3 {
 
 fn make_lambertian<R: Rng> (rng: &mut R) -> MatLambertian {
     let albedo = V3(
-        /* r */ rng.next_f32() * rng.next_f32(),
-        /* g */ rng.next_f32() * rng.next_f32(),
-        /* b */ rng.next_f32() * rng.next_f32()
+        /* r */ rng.gen::<f32>() * rng.gen::<f32>(),
+        /* g */ rng.gen::<f32>() * rng.gen::<f32>(),
+        /* b */ rng.gen::<f32>() * rng.gen::<f32>()
     );
     MatLambertian::with_albedo(albedo)
 }
 
 fn make_metal<R: Rng> (rng: &mut R) -> MatMetal {
     let albedo = V3(
-        /* r */ 0.5 * (1.0 + rng.next_f32()),
-        /* g */ 0.5 * (1.0 + rng.next_f32()),
-        /* b */ 0.5 * (1.0 + rng.next_f32())
+        /* r */ 0.5 * (1.0 + rng.gen::<f32>()),
+        /* g */ 0.5 * (1.0 + rng.gen::<f32>()),
+        /* b */ 0.5 * (1.0 + rng.gen::<f32>())
     );
-    let fuzz = 0.5 * rng.next_f32();
+    let fuzz = 0.5 * rng.gen::<f32>();
     MatMetal::with_albedo(albedo).with_fuzz(fuzz)
 }
 
 fn make_glass<R: Rng> (rng: &mut R) -> MatDielectric {
     let refractive_index = 1.5;
     let albedo = V3(
-        /* r */ 0.5 * (1.0 + rng.next_f32()),
-        /* g */ 0.5 * (1.0 + rng.next_f32()),
-        /* b */ 0.5 * (1.0 + rng.next_f32())
+        /* r */ 0.5 * (1.0 + rng.gen::<f32>()),
+        /* g */ 0.5 * (1.0 + rng.gen::<f32>()),
+        /* b */ 0.5 * (1.0 + rng.gen::<f32>())
     );
     MatDielectric::with_albedo(albedo).with_ref_index(refractive_index)
 }
@@ -135,7 +147,7 @@ pub fn random_sphere_scene(viewport: &Viewport, camera_aperture: f32) -> Scene {
     let camera = Camera::new(look_from, look_to, fov, aspect_ratio, camera_aperture, dist_to_focus);
 
     // Scene
-    let mut rng = create_rng_from_seed("random sphere scene");
+    let mut rng = create_rng_from_seed(1, 1);
     let mut scene = Scene::new(camera, SceneSky::Day);
 
     // Lights
@@ -167,9 +179,9 @@ pub fn random_sphere_scene(viewport: &Viewport, camera_aperture: f32) -> Scene {
     for a in -11..11 {
         for b in -11..11 {
             let center = V3(
-                /* x */ a as f32 + 0.9 * rng.next_f32(),
+                /* x */ a as f32 + 0.9 * rng.gen::<f32>(),
                 /* y */ 0.2,
-                /* z */ b as f32 + 0.9 * rng.next_f32()
+                /* z */ b as f32 + 0.9 * rng.gen::<f32>()
             );
             let radius = 0.2;
 
@@ -180,7 +192,7 @@ pub fn random_sphere_scene(viewport: &Viewport, camera_aperture: f32) -> Scene {
 
             // Select a material
             let sphere =
-                match rng.next_f32() {
+                match rng.gen::<f32>() {
                     v if v < 0.8  => Sphere::new(center, radius, make_lambertian(&mut rng)),
                     v if v < 0.95 => Sphere::new(center, radius, make_metal(&mut rng)),
                     _             => Sphere::new(center, radius, make_glass(&mut rng))

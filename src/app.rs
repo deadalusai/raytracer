@@ -4,7 +4,7 @@ use std::time::{ Instant, Duration };
 use std::sync::mpsc::{ Receiver, Sender, channel };
 
 use eframe::{ egui, epi };
-use rand::{ weak_rng };
+use rand::{ thread_rng };
 use multiqueue::{ mpmc_queue, MPMCReceiver, MPMCSender };
 use raytracer::{ Scene, RenderSettings, RenderChunk, Viewport, create_render_chunks };
 
@@ -166,7 +166,7 @@ enum RenderResult {
 
 fn start_render_thread(halt_flag: Arc<AtomicBool>, work_receiver: &MPMCReceiver<RenderWork>, result_sender: &Sender<RenderResult>) -> Result<(), BoxError> {
     use RenderResult::*;
-    let mut rng = weak_rng();
+    let mut rng = thread_rng();
     result_sender.send(RenderResult::Ready)?;
     // Receive messages
     loop {
