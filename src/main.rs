@@ -7,7 +7,6 @@ mod thread_stats;
 use app::App;
 
 fn main() {
-    let app = App::default();
     let native_options = eframe::NativeOptions::default();
-    eframe::run_native(Box::new(app), native_options);
+    eframe::run_native("Raytracer", native_options, Box::new(|cc| Box::new(App::new(cc))));
 }

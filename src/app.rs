@@ -3,7 +3,7 @@ use std::thread::{ spawn, JoinHandle };
 use std::time::{ Instant, Duration };
 use std::sync::mpsc::{ Receiver, Sender, channel };
 
-use eframe::{ egui, epi };
+use eframe::egui;
 use rand::{ thread_rng };
 use multiqueue::{ mpmc_queue, MPMCReceiver, MPMCSender };
 use raytracer::{ Scene, RenderSettings, RenderChunk, Viewport, create_render_chunks };
@@ -39,20 +39,24 @@ pub struct App {
     frame_history: FrameHistory,
 }
 
-impl Default for App {
-    fn default() -> Self {
+impl App {
+    pub fn new(cc: &eframe::CreationContext<'_>) -> Self {
+        
+        // Persistent state
+        let settings = match cc.storage {
+            None => Settings::default(),
+            Some(s) => eframe::get_value(s, eframe::APP_KEY).unwrap_or_default(),
+        };
+
         App {
-            // Persistent state
-            settings: Settings::default(),
+            settings,
             // Temporal state
             output_texture: None,
             render_job: None,
             frame_history: FrameHistory::default(),
         }
     }
-}
 
-impl App {
     fn start_job(&mut self) {
 
         // Stop running worker threads if an existing job is in progress
@@ -246,25 +250,14 @@ fn start_background_render_threads(render_thread_count: u32) -> RenderWorkerHand
     }
 }
 
-impl epi::App for App {
-
-    fn name(&self) -> &str {
-        "Raytracer"
-    }
-
-    /// Called once before the first frame.
-    fn setup(&mut self, _ctx: &egui::Context, _frame: &epi::Frame, storage: Option<&dyn epi::Storage>) {
-        if let Some(storage) = storage {
-            self.settings = epi::get_value(storage, epi::APP_KEY).unwrap_or_default()
-        }
-    }
+impl eframe::App for App {
 
     /// Called by the frame work to save state before shutdown.
-    fn save(&mut self, storage: &mut dyn epi::Storage) {
-        epi::set_value(storage, epi::APP_KEY, &self.settings);
+    fn save(&mut self, storage: &mut dyn eframe::Storage) {
+        eframe::set_value(storage, eframe::APP_KEY, &self.settings);
     }
 
-    fn update(&mut self, ctx: &egui::Context, frame: &epi::Frame) {
+    fn update(&mut self, ctx: &egui::Context, frame: &mut eframe::Frame) {
 
         self.frame_history.on_new_frame(ctx.input().time, frame.info().cpu_usage);
 

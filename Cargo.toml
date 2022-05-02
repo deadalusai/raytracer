@@ -6,7 +6,7 @@ edition = "2018"
 
 [dependencies]
 raytracer = { path = "./raytracer-impl" }
-eframe = "0.17.0" # egui, epi and web+native backends
+eframe = "0.18.0" # egui, epi and web+native backends
 serde = { version = "1", features = ["derive"] } # state serialization
 multiqueue = "0.3.2"
 rand = "0.6"
