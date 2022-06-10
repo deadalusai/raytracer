@@ -1,11 +1,10 @@
 use std::sync::{ Arc, atomic::{ AtomicBool, Ordering } };
 use std::thread::{ spawn, JoinHandle };
 use std::time::{ Instant, Duration };
-use std::sync::mpsc::{ Receiver, Sender, channel };
 
 use eframe::egui;
 use rand::{ thread_rng };
-use multiqueue::{ mpmc_queue, MPMCReceiver, MPMCSender };
+use flume::{ Receiver, Sender };
 use raytracer::{ Scene, RenderSettings, RenderChunk, Viewport, create_render_chunks };
 
 use crate::rgba::{ RgbaBuffer, v3_to_rgba };
@@ -28,6 +27,19 @@ struct RenderJob {
     completed_chunk_count: u32,
     buffer: RgbaBuffer,
     worker_handle: RenderWorkerHandle,
+}
+
+// A message from the master thread to a worker
+#[derive(Clone)]
+struct RenderWork(RenderChunk, Arc<(Scene, RenderSettings)>);
+
+// A message from a worker thread to the master thread
+#[derive(Clone)]
+enum RenderThreadMessage {
+    Ready(ThreadId),
+    FrameUpdated(ThreadId, RenderChunk, RgbaBuffer),
+    FrameCompleted(ThreadId, Duration),
+    Terminated(ThreadId)
 }
 
 pub struct App {
@@ -63,7 +75,6 @@ impl App {
         if let Some(render_job) = self.render_job.take() {
             // Start shutdown of all threads
             render_job.worker_handle.halt_flag.store(true, Ordering::Relaxed);
-            render_job.worker_handle.work_sender.unsubscribe();
         }
 
         let st = &self.settings;
@@ -103,47 +114,47 @@ impl App {
     }
 
     fn update(&mut self) -> bool {
-        use RenderResult::*;
+        use RenderThreadMessage::*;
 
         let mut buffer_updated = false;
 
         if let Some(ref mut job) = self.render_job {
 
             // Poll for completed work
-            for thread in job.worker_handle.thread_handles.iter_mut() {
-                while let Ok(result) = thread.result_receiver.try_recv() {
-                    match result {
-                        Frame(chunk, buf) => {
-                            // Copy chunk to buffer
-                            job.buffer.copy_from_sub_buffer(chunk.left, chunk.top, &buf);
-                            buffer_updated = true;
-                        },
-                        Ready => {}, // Worker thread ready to go.
-                        Done(elapsed) => {
-                            // Update stats
-                            thread.total_time_secs += duration_total_secs(elapsed);
-                            thread.total_chunks_rendered += 1;
-                            job.completed_chunk_count += 1;
-                        },
-                    }
+            while let Ok(result) = job.worker_handle.result_receiver.try_recv() {
+                match result {
+                    Ready(_) => {}, // Worker thread ready to go.
+                    FrameUpdated(_, chunk, buf) => {
+                        // Copy chunk to buffer
+                        job.buffer.copy_from_sub_buffer(chunk.left, chunk.top, &buf);
+                        buffer_updated = true;
+                    },
+                    FrameCompleted(id, elapsed) => {
+                        // Update stats
+                        let thread = &mut job.worker_handle.thread_handles[id as usize];
+                        thread.total_time_secs += duration_total_secs(elapsed);
+                        thread.total_chunks_rendered += 1;
+                        job.completed_chunk_count += 1;
+                    },
+                    Terminated(_) => {}, // Worker halted
                 }
             }
     
             // Refill the the work queue
-            use std::sync::mpsc::TrySendError;
+            use flume::TrySendError;
             while let Some(chunk) = job.pending_chunks.pop() {
                 let work = RenderWork(chunk, job.render_args.clone());
-                match job.worker_handle.work_sender.try_send(work) {
-                    Ok(_) => {
-                        // Move to next thread
-                        continue;
-                    },
-                    Err(TrySendError::Full(RenderWork(v, _))) => {
-                        // Queue full, try again later
-                        job.pending_chunks.push(v);
-                        break;
-                    },
-                    Err(_) => unreachable!(),
+                if let Err(err) = job.worker_handle.work_sender.try_send(work) {
+                    match err {
+                        TrySendError::Full(RenderWork(chunk, _)) => {
+                            // Queue full, try again later
+                            job.pending_chunks.push(chunk);
+                        }
+                        TrySendError::Disconnected(_) => {
+                            println!("All render threads stopped!");
+                        }
+                    }
+                    break;
                 }
             }
     
@@ -157,39 +168,35 @@ impl App {
     }
 }
 
-#[derive(Clone)]
-struct RenderWork (RenderChunk, Arc<(Scene, RenderSettings)>);
+fn start_render_thread(
+    id: ThreadId,
+    should_halt: impl Fn() -> bool,
+    work_receiver: &Receiver<RenderWork>,
+    result_sender: &Sender<RenderThreadMessage>
+) -> Result<(), BoxError> {
+    use RenderThreadMessage::*;
 
-
-#[derive(Clone)]
-enum RenderResult {
-    Ready,
-    Frame(RenderChunk, RgbaBuffer),
-    Done(Duration),
-}
-
-fn start_render_thread(halt_flag: Arc<AtomicBool>, work_receiver: &MPMCReceiver<RenderWork>, result_sender: &Sender<RenderResult>) -> Result<(), BoxError> {
-    use RenderResult::*;
     let mut rng = thread_rng();
-    result_sender.send(RenderResult::Ready)?;
+    result_sender.send(RenderThreadMessage::Ready(id))?;
     // Receive messages
     loop {
-        if halt_flag.load(Ordering::Relaxed) {
+        if should_halt() {
             return Ok(());
         }
         let RenderWork(chunk, args) = work_receiver.recv()?;
         // Paint in-progress chunks green
         let mut buffer = RgbaBuffer::new(chunk.width, chunk.height);
+        let green = v3_to_rgba(raytracer::V3(0.0, 0.58, 0.0));
         for p in chunk.iter_pixels() {
-            buffer.put_pixel(p.chunk_x, p.chunk_y, v3_to_rgba(raytracer::V3(0.0, 0.58, 0.0)));
+            buffer.put_pixel(p.chunk_x, p.chunk_y, green);
         }
-        result_sender.send(Frame(chunk.clone(), buffer.clone()))?;
+        result_sender.send(FrameUpdated(id, chunk.clone(), buffer.clone()))?;
         // Render the scene chunk
         let (scene, render_settings) = args.as_ref();
         let time = Instant::now();
         // For each x, y coordinate in this view chunk, cast a ray.
         for p in chunk.iter_pixels() {
-            if halt_flag.load(Ordering::Relaxed) {
+            if should_halt() {
                 return Ok(());
             }
             // Convert to view-relative coordinates
@@ -198,45 +205,50 @@ fn start_render_thread(halt_flag: Arc<AtomicBool>, work_receiver: &MPMCReceiver<
         }
         let elapsed = time.elapsed();
         // Send final frame and results
-        result_sender.send(Frame(chunk, buffer))?;
-        result_sender.send(Done(elapsed))?;
+        result_sender.send(FrameUpdated(id, chunk, buffer))?;
+        result_sender.send(FrameCompleted(id, elapsed))?;
     }
 }
 
+type ThreadId = u32;
+
 #[allow(unused)]
 struct RenderThread {
-    id: u32,
+    id: ThreadId,
     handle: JoinHandle<()>,
-    result_receiver: Receiver<RenderResult>,
     total_time_secs: f64,
     total_chunks_rendered: u32,
 }
 
 struct RenderWorkerHandle {
     halt_flag: Arc<AtomicBool>,
-    work_sender: MPMCSender<RenderWork>,
+    work_sender: Sender<RenderWork>,
+    result_receiver: Receiver<RenderThreadMessage>,
     thread_handles: Vec<RenderThread>,
 }
 
 fn start_background_render_threads(render_thread_count: u32) -> RenderWorkerHandle {
     let halt_flag = Arc::new(AtomicBool::new(false));
-    let (work_sender, work_receiver) = mpmc_queue::<RenderWork>(render_thread_count as u64 * 2);
+    let (work_sender, work_receiver) = flume::bounded(render_thread_count as usize);
+    let (result_sender, result_receiver) = flume::unbounded();
 
     let thread_handles = (0..render_thread_count)
         .map(|id| {
             let halt_flag = halt_flag.clone();
+            let should_halt = move || halt_flag.load(Ordering::Relaxed);
             let work_receiver = work_receiver.clone();
-            let (result_sender, result_receiver) = channel::<RenderResult>();
+            let result_sender = result_sender.clone();
             let handle = spawn(move || {
-                if let Err(err) = start_render_thread(halt_flag, &work_receiver, &result_sender) {
-                    println!("Worker thread {} terminated: {}", id, err);
+                if let Err(err) = start_render_thread(id, should_halt, &work_receiver, &result_sender) {
+                    println!("Thread {id} terminated due to error: {err}");
                 }
-                work_receiver.unsubscribe();
+                // Notify master thread that we've terminated.
+                // NOTE: There may be nobody listening...
+                result_sender.send(RenderThreadMessage::Terminated(id)).ok();
             });
             RenderThread {
                 id: id,
                 handle: handle,
-                result_receiver: result_receiver,
                 total_time_secs: 0.0,
                 total_chunks_rendered: 0,
             }
@@ -246,7 +258,8 @@ fn start_background_render_threads(render_thread_count: u32) -> RenderWorkerHand
     RenderWorkerHandle {
         halt_flag,
         work_sender,
-        thread_handles
+        result_receiver,
+        thread_handles,
     }
 }
 
@@ -258,6 +271,8 @@ impl eframe::App for App {
     }
 
     fn update(&mut self, ctx: &egui::Context, frame: &mut eframe::Frame) {
+
+        ctx.set_visuals(egui::Visuals::dark());
 
         self.frame_history.on_new_frame(ctx.input().time, frame.info().cpu_usage);
 
