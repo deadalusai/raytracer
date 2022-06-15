@@ -177,13 +177,13 @@ fn start_render_thread(
     use RenderThreadMessage::*;
 
     let mut rng = thread_rng();
-    result_sender.send(RenderThreadMessage::Ready(id))?;
+    result_sender.send(Ready(id))?;
+
     // Receive messages
-    loop {
+    for RenderWork(chunk, args) in work_receiver.into_iter() {
         if should_halt() {
             return Ok(());
         }
-        let RenderWork(chunk, args) = work_receiver.recv()?;
         // Paint in-progress chunks green
         let mut buffer = RgbaBuffer::new(chunk.width, chunk.height);
         let green = v3_to_rgba(raytracer::V3(0.0, 0.58, 0.0));
@@ -208,6 +208,8 @@ fn start_render_thread(
         result_sender.send(FrameUpdated(id, chunk, buffer))?;
         result_sender.send(FrameCompleted(id, elapsed))?;
     }
+
+    Ok(())
 }
 
 type ThreadId = u32;
