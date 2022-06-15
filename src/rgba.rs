@@ -11,13 +11,13 @@ pub fn v3_to_rgba(v3: raytracer::V3) -> Rgba {
 
 #[derive(Clone)]
 pub struct RgbaBuffer {
-    width: u32,
-    height: u32,
+    width: usize,
+    height: usize,
     data: Vec<u8>,
 }
 
 impl RgbaBuffer {
-    pub fn new(width: u32, height: u32) -> RgbaBuffer {
+    pub fn new(width: usize, height: usize) -> RgbaBuffer {
         RgbaBuffer {
             width,
             height,
@@ -25,12 +25,12 @@ impl RgbaBuffer {
         }
     }
 
-    fn index(&self, x: u32, y: u32) -> usize {
+    fn index(&self, x: usize, y: usize) -> usize {
         let i = (y * self.width + x) * 4;
         i as usize
     }
 
-    pub fn put_pixel(&mut self, x: u32, y: u32, rgba: Rgba) {
+    pub fn put_pixel(&mut self, x: usize, y: usize, rgba: Rgba) {
         let i = self.index(x, y);
         self.data[i + 0] = rgba[0];
         self.data[i + 1] = rgba[1];
@@ -38,7 +38,7 @@ impl RgbaBuffer {
         self.data[i + 3] = rgba[3];
     }
 
-    pub fn copy_from_sub_buffer(&mut self, off_x: u32, off_y: u32, sub_buffer: &RgbaBuffer) {
+    pub fn copy_from_sub_buffer(&mut self, off_x: usize, off_y: usize, sub_buffer: &RgbaBuffer) {
         // Copy one row at a time
         for y in 0..sub_buffer.height {
             let t_start = self.index(off_x, off_y + y);

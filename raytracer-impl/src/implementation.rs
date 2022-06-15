@@ -336,7 +336,7 @@ fn cast_ray(ray: &Ray, scene: &Scene, rng: &mut dyn RngCore, max_reflections: u3
     cast_ray_recursive(ray, scene, rng, max_reflections).clamp()
 }
 
-pub fn cast_rays_into_scene(settings: &RenderSettings, scene: &Scene, viewport: &Viewport, x: u32, y: u32, rng: &mut impl RngCore) -> V3 {
+pub fn cast_rays_into_scene(settings: &RenderSettings, scene: &Scene, viewport: &Viewport, x: usize, y: usize, rng: &mut impl RngCore) -> V3 {
     let mut col = V3(0.0, 0.0, 0.0);
     // Implement anti-aliasing by taking the average color of ofsett rays cast around these x, y coordinates.
     for _ in 0..settings.samples_per_pixel {

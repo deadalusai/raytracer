@@ -23,8 +23,8 @@ const TEST_SCENES: [TestScene; 7] = [
 #[derive(Debug, serde::Deserialize, serde::Serialize)]
 pub struct Settings {
     pub scene: TestScene,
-    pub width: u32,
-    pub height: u32,
+    pub width: usize,
+    pub height: usize,
     pub chunk_count: u32,
     pub thread_count: u32,
     pub samples_per_pixel: u32,

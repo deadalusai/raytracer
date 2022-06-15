@@ -5,31 +5,31 @@
 
 #[derive(Debug, Clone)]
 pub struct Viewport {
-    pub width: u32,
-    pub height: u32,
+    pub width: usize,
+    pub height: usize,
 }
 
 impl Viewport {
-    pub fn new (width: u32, height: u32) -> Viewport {
+    pub fn new (width: usize, height: usize) -> Viewport {
         Viewport { width: width, height: height }
     }
 }
 
 #[derive(Clone)]
 pub struct RenderChunk {
-    pub id: u32,
+    pub id: usize,
     pub viewport: Viewport,
-    pub top: u32,
-    pub left: u32,
-    pub width: u32,
-    pub height: u32,
+    pub top: usize,
+    pub left: usize,
+    pub width: usize,
+    pub height: usize,
 }
 
 pub struct ViewChunkCoords {
-    pub chunk_x: u32,
-    pub chunk_y: u32,
-    pub viewport_x: u32,
-    pub viewport_y: u32,
+    pub chunk_x: usize,
+    pub chunk_y: usize,
+    pub viewport_x: usize,
+    pub viewport_y: usize,
 }
 
 impl RenderChunk {
@@ -48,8 +48,8 @@ impl RenderChunk {
 
 pub fn create_render_chunks(viewport: &Viewport, chunk_count: u32) -> Vec<RenderChunk> {
     let divisions = (chunk_count as f32).sqrt();
-    let h_divisions = divisions.ceil() as u32;
-    let v_divisions = divisions.floor() as u32;
+    let h_divisions = divisions.ceil() as usize;
+    let v_divisions = divisions.floor() as usize;
     let chunk_width = viewport.width / h_divisions;
     let chunk_height = viewport.height / v_divisions;
     (0..v_divisions)
@@ -57,7 +57,7 @@ pub fn create_render_chunks(viewport: &Viewport, chunk_count: u32) -> Vec<Render
         .enumerate()
         .map(|(id, (x, y))| {
             RenderChunk {
-                id: id as u32,
+                id,
                 viewport: viewport.clone(),
                 top: y * chunk_height,
                 left: x * chunk_width,
