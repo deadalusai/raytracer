@@ -57,10 +57,9 @@ fn ease_in_out(t: f32, scale: f32) -> f32 {
 
 // Positioning helpers
 
-static WORLD_ORIGIN: V3 = V3(0.0,  0.0,  0.0);
-
 #[derive(Clone, Copy)]
 enum Card {
+    Origin,
     North(f32),
     South(f32),
     East(f32),
@@ -73,6 +72,7 @@ impl Card {
     #[inline]
     fn v3(self) -> V3 {
         match self {
+            Card::Origin   => V3(0.0,  0.0,  0.0),
             Card::North(f) => V3(1.0,  0.0,  0.0)  * f,
             Card::South(f) => V3(-1.0, 0.0,  0.0)  * f,
             Card::East(f)  => V3(0.0,  0.0,  1.0)  * f,
@@ -84,6 +84,7 @@ impl Card {
 }
 
 macro_rules! position {
+    ( Origin ) => ( Card::Origin.v3() );
     ( $move:tt($v:expr) ) => ( Card::$move($v).v3() );
     ( $move:tt($v:expr), $( $rest:tt($rest_v:expr) ),* ) => ( Card::$move($v).v3() + position!($( $rest($rest_v) ),*) );
 }
@@ -151,7 +152,7 @@ pub fn random_sphere_scene(viewport: &Viewport, camera_aperture: f32) -> Scene {
     let mut scene = Scene::new(camera, SceneSky::Day);
 
     // Lights
-    let lamp_direction = WORLD_ORIGIN - V3(4.0, 100.0, 4.0);
+    let lamp_direction = position!(Origin) - V3(4.0, 100.0, 4.0);
     scene.add_light(DirectionalLight::with_direction(lamp_direction).with_intensity(0.5));
 
     // World sphere
@@ -235,13 +236,12 @@ pub fn simple_scene(viewport: &Viewport, camera_aperture: f32) -> Scene {
     let mut scene = Scene::new(camera, SceneSky::Black);
 
     // Lights
-
     let lamp_pos = position!(Up(20.0), North(4.0));
-    let lamp_direction = WORLD_ORIGIN - lamp_pos;
+    let lamp_direction = position!(Origin) - lamp_pos;
     scene.add_light(LampLight::with_origin_and_direction(lamp_pos, lamp_direction).with_intensity(80.0).with_angle(12.0));
 
     let lamp_pos = position!(Up(10.0), East(4.0));
-    let lamp_direction = WORLD_ORIGIN - lamp_pos;
+    let lamp_direction = position!(Origin) - lamp_pos;
     scene.add_light(LampLight::with_origin_and_direction(lamp_pos, lamp_direction).with_intensity(80.0).with_angle(20.0));
 
     add_cardinal_markers(&mut scene);
@@ -254,7 +254,7 @@ pub fn simple_scene(viewport: &Viewport, camera_aperture: f32) -> Scene {
     // Wall
     let wall_mat = MatLambertian::with_albedo(rgb(200, 200, 200)).with_reflectivity(1.0);
     let wall_pos = position!(North(4.5));
-    let wall_facing = wall_pos - WORLD_ORIGIN;
+    let wall_facing = wall_pos - position!(Origin);
     scene.add_obj(Plane::new(wall_pos, wall_facing, wall_mat));
 
     // Plastic sphere
@@ -339,7 +339,7 @@ pub fn planes_scene(viewport: &Viewport, camera_aperture: f32) -> Scene {
 
     let plane_mat = MatMetal::with_albedo(rgb(240, 240, 240)).with_reflectivity(0.8).with_fuzz(0.02);
     let plane_pos = position!(West(1.0));
-    let plane_normal = WORLD_ORIGIN - plane_pos; // normal facing world origin
+    let plane_normal = position!(Origin) - plane_pos; // normal facing world origin
     scene.add_obj(Plane::new(plane_pos, plane_normal, plane_mat));
 
     scene
@@ -362,7 +362,7 @@ pub fn hall_of_mirrors(viewport: &Viewport, camera_aperture: f32) -> Scene {
 
     // Lights
     let lamp_pos = position!(Up(10.0));
-    let lamp_normal = WORLD_ORIGIN - lamp_pos;
+    let lamp_normal = position!(Origin) - lamp_pos;
     scene.add_light(LampLight::with_origin_and_direction(lamp_pos, lamp_normal).with_intensity(80.0).with_angle(20.0));
 
     add_cardinal_markers(&mut scene);
@@ -382,7 +382,7 @@ pub fn hall_of_mirrors(viewport: &Viewport, camera_aperture: f32) -> Scene {
     ];
     for plane_origin in cardinals {
         let plane_mat = MatMetal::with_albedo(V3::one()).with_reflectivity(0.98).with_fuzz(0.01);
-        let plane_normal = WORLD_ORIGIN - plane_origin; // normal facing world origin
+        let plane_normal = position!(Origin) - plane_origin; // normal facing world origin
         scene.add_obj(
             Plane::new(plane_origin, plane_normal, plane_mat)
                 .with_radius(30.0)
@@ -409,11 +409,11 @@ pub fn triangle_world(viewport: &Viewport, camera_aperture: f32) -> Scene {
     // Lights
 
     let lamp_pos = position!(Up(20.0), North(4.0));
-    let lamp_direction = WORLD_ORIGIN - lamp_pos;
+    let lamp_direction = position!(Origin) - lamp_pos;
     scene.add_light(LampLight::with_origin_and_direction(lamp_pos, lamp_direction).with_intensity(80.0).with_angle(12.0));
 
     let lamp_pos = position!(Up(10.0), East(4.0));
-    let lamp_direction = WORLD_ORIGIN - lamp_pos;
+    let lamp_direction = position!(Origin) - lamp_pos;
     scene.add_light(LampLight::with_origin_and_direction(lamp_pos, lamp_direction).with_intensity(80.0).with_angle(20.0));
 
     add_cardinal_markers(&mut scene);
@@ -460,11 +460,11 @@ pub fn mesh_demo(viewport: &Viewport, camera_aperture: f32) -> Scene {
 
     // Lights
     let lamp_pos = position!(Up(5.0), East(4.0));
-    let lamp_direction = WORLD_ORIGIN - lamp_pos;
+    let lamp_direction = position!(Origin) - lamp_pos;
     scene.add_light(LampLight::with_origin_and_direction(lamp_pos, lamp_direction).with_intensity(80.0).with_angle(20.0));
     
     let lamp_pos = position!(Up(3.0), West(6.0), North(1.5));
-    let lamp_direction = WORLD_ORIGIN - lamp_pos;
+    let lamp_direction = position!(Origin) - lamp_pos;
     scene.add_light(LampLight::with_origin_and_direction(lamp_pos, lamp_direction).with_intensity(80.0).with_angle(20.0));
 
     // add_cardinal_markers(&mut scene);
@@ -494,7 +494,7 @@ pub fn mesh_demo(viewport: &Viewport, camera_aperture: f32) -> Scene {
 
     // Suzanne
     let suz_mat = MatDielectric::with_albedo(rgb(255, 137, 58)).with_opacity(0.2).with_ref_index(0.8).with_reflectivity(0.0);
-    let suz_origin = WORLD_ORIGIN;
+    let suz_origin = position!(Origin);
     let suz_tris = ObjFile::read_from_string(include_str!("../meshes/suzanne.obj"))
         .expect("reading cube mesh")
         .make_triangle_list("Suzanne")
@@ -520,17 +520,18 @@ pub fn interceptor(viewport: &Viewport, camera_aperture: f32) -> Scene {
 
     // Lights
     let lamp_pos = position!(Up(20.0), East(20.0));
-    let lamp_direction = WORLD_ORIGIN - lamp_pos;
+    let lamp_direction = position!(Origin) - lamp_pos;
     scene.add_light(DirectionalLight::with_direction(lamp_direction).with_intensity(0.5));
 
     // World sphere
+    let world_radius = 1000.0;
     let world_mat = MatLambertian::with_albedo(rgb(200, 200, 200));
-    let world_pos = position!(Down(1000.0), Down(1.0));
-    scene.add_obj(Sphere::new(world_pos, 1000.0, world_mat).with_id(0));
+    let world_pos = position!(Down(world_radius));
+    scene.add_obj(Sphere::new(world_pos, world_radius, world_mat).with_id(0));
     
     // Interceptor
     let int_mat = MatLambertian::with_albedo(rgb(200, 200, 000)).with_reflectivity(0.08);
-    let int_origin = WORLD_ORIGIN;
+    let int_origin = position!(Up(4.0));
     let int_tris = ObjFile::read_from_string(include_str!("../meshes/interceptor.obj"))
         .expect("reading mesh")
         .make_triangle_list("Heavyinterceptor")
