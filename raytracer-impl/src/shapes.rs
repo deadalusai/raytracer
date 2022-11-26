@@ -126,18 +126,18 @@ impl Hitable for Plane {
 }
 
 // Ref: https://www.scratchapixel.com/lessons/3d-basic-rendering/ray-tracing-rendering-a-triangle/ray-triangle-intersection-geometric-solution
-fn intersect_tri(ray: &Ray, v0: V3, v1: V3, v2: V3) -> Option<(V3, V3, f32)> {
+fn intersect_tri(ray: &Ray, tri: &MeshTriangle) -> Option<(V3, V3, f32)> {
     // Find the normal of the triangle, using v0 as the origin
-    let normal = V3::cross(v1 - v0, v2 - v0).unit();
+    let normal = V3::cross(tri.1 - tri.0, tri.2 - tri.0).unit();
     // Find the intesection `p` with the tiangle plane
-    let t = intersect_plane(ray, v0, normal)?;
+    let t = intersect_plane(ray, tri.0, normal)?;
     // `p` is a point on the same plane as all three vertices of the triangle
     let p = ray.point_at_parameter(t);
     // Test if `p` is a point inside the triangle by determining if it is "left" of each edge.
     // (The cross product of the angle of `p` with each point should align with the normal)
-    if V3::dot(normal, V3::cross(v1 - v0, p - v0)) < 0.0 ||
-        V3::dot(normal, V3::cross(v2 - v1, p - v1)) < 0.0 ||
-        V3::dot(normal, V3::cross(v0 - v2, p - v2)) < 0.0 {
+    if V3::dot(normal, V3::cross(tri.1 - tri.0, p - tri.0)) < 0.0 ||
+        V3::dot(normal, V3::cross(tri.2 - tri.1, p - tri.1)) < 0.0 ||
+        V3::dot(normal, V3::cross(tri.0 - tri.2, p - tri.2)) < 0.0 {
         return None;
     }
     Some((p, normal, t))
@@ -145,12 +145,12 @@ fn intersect_tri(ray: &Ray, v0: V3, v1: V3, v2: V3) -> Option<(V3, V3, f32)> {
 
 pub struct Triangle {
     object_id: Option<u32>,
-    vertices: (V3, V3, V3),
+    vertices: MeshTriangle,
     material: Box<dyn Material>,
 }
 
 impl Triangle {
-    pub fn new<M>(vertices: (V3, V3, V3), material: M) -> Self
+    pub fn new<M>(vertices: MeshTriangle, material: M) -> Self
         where M: Material + 'static
     {
         Triangle { object_id: None, vertices, material: Box::new(material) }
@@ -165,8 +165,7 @@ impl Triangle {
 
 impl Hitable for Triangle {
     fn hit<'a>(&'a self, ray: &Ray, t_min: f32, t_max: f32) -> Option<HitRecord<'a>> {
-        let (v0, v1, v2) = self.vertices;
-        let (p, normal, t) = intersect_tri(ray, v0, v1, v2)?;
+        let (p, normal, t) = intersect_tri(ray, &self.vertices)?;
         if t < t_min || t > t_max {
             return None;
         }
@@ -179,35 +178,53 @@ impl Hitable for Triangle {
     }
 }
 
-pub type TriangleList = Box<[(V3, V3, V3)]>;
+pub type MeshTriangle = (V3, V3, V3);
+pub type MeshTriangleList = Box<[MeshTriangle]>;
+
+/// Find the centroid of a single mesh triangle
+fn tri_centroid(tri: &MeshTriangle) -> V3 {
+    (tri.0 + tri.1 + tri.2) / 3.0
+}
+
+/// Find the centroid of a list of triangles
+fn tri_list_centroid(list: &MeshTriangleList) -> V3 {
+    // https://stackoverflow.com/a/48922394
+    // volume = 0.5 * length(cross(p1-p0, p2-p0))
+    let mut volume_sum = 0.0;
+    let mut centroid_sum = V3::zero();
+
+    for tri in list.iter() {
+        let volume = 0.5 * V3::length(V3::cross(tri.1 - tri.0, tri.2 - tri.0));
+        volume_sum += volume;
+        centroid_sum = centroid_sum + (tri_centroid(tri) * volume);
+    }
+
+    centroid_sum / volume_sum
+}
 
 pub struct Mesh {
     object_id: Option<u32>,
     origin: V3,
     hit_origin: V3,
     hit_radius: f32,
-    triangles: TriangleList,
+    triangles: MeshTriangleList,
     material: Box<dyn Material>,
 }
 
 impl Mesh {
-    pub fn new<M>(origin: V3, triangles: TriangleList, material: M) -> Self
+    pub fn new<M>(origin: V3, triangles: MeshTriangleList, material: M) -> Self
         where M: Material + 'static
     {
         // Hack: make a "hit sphere" by finding the centroid and furtherest vertex of the mesh.
         // Find centroid of all tris
-        let centroid: V3 = triangles.iter()
-            .flat_map(|&(a, b, c)| [a, b, c])
-            .reduce(|a, b| a + b)
-            .map(|x| x / (triangles.len() as f32 * 3.0))
-            .unwrap();
+        let centroid = tri_list_centroid(&triangles);
+        let hit_origin = origin + centroid;
         // Find the furthest vertex from the centroid
         let hit_radius: f32 = triangles.iter()
             .flat_map(|&(a, b, c)| [a, b, c])
             .map(|x| (x - centroid).length())
             .reduce(f32::max)
             .unwrap();
-        let hit_origin = origin + centroid;
 
         Mesh { object_id: None, origin, hit_origin, hit_radius, triangles, material: Box::new(material) }
     }
@@ -228,7 +245,7 @@ impl Mesh {
         let mut nearest = None;
 
         for &(v0, v1, v2) in self.triangles.iter() {
-            if let Some((p, normal, t)) = intersect_tri(ray, self.origin + v0, self.origin + v1, self.origin + v2) {
+            if let Some((p, normal, t)) = intersect_tri(ray, &(self.origin + v0, self.origin + v1, self.origin + v2)) {
                 // Is this triangle in our search range?
                 // Is this triangle closer than the last one?
                 if t_min < t && t < t_max && t < nearest_t {

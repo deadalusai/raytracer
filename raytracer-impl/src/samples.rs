@@ -507,8 +507,8 @@ pub fn mesh_demo(viewport: &Viewport, camera_aperture: f32) -> Scene {
 pub fn interceptor(viewport: &Viewport, camera_aperture: f32) -> Scene {
     
     // Camera
-    let look_from = position!(Up(6.0), South(10.0), East(10.0));
-    let look_to =   position!(Up(0.0));
+    let look_from = position!(Up(8.0), South(16.0), East(16.0));
+    let look_to =   position!(Up(4.0), East(1.0));
     let fov = 45.0;
     let aspect_ratio = viewport.width as f32 / viewport.height as f32;
     let dist_to_focus = (look_from - look_to).length();
