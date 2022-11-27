@@ -273,7 +273,7 @@ pub fn simple_scene(viewport: &Viewport, camera_aperture: f32) -> Scene {
     scene.add_obj(Sphere::new(small_glass_pos, 0.5, small_glass_mat));
 
     // Metal sphere
-    let metal_mat = MatMetal::with_albedo(rgb(147, 154, 186)).with_fuzz(0.001).with_reflectivity(1.0);
+    let metal_mat = MatMetal::with_albedo(rgb(147, 154, 186)).with_fuzz(0.001).with_reflectivity(0.91);
     let metal_pos = position!(Up(1.0), North(2.0), West(2.0));
     scene.add_obj(Sphere::new(metal_pos, 1.0, metal_mat).with_id(1));
 
