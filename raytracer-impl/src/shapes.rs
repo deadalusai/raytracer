@@ -1,5 +1,5 @@
-pub use crate::types::{ V3, Ray };
-pub use crate::implementation::{ Material, MatRecord, Hitable, HitRecord };
+use crate::types::{ V3, Ray };
+use crate::implementation::{ Material, Hitable, HitRecord };
 
 //
 // Shapes

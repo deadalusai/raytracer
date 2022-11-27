@@ -1426,10 +1426,18 @@ dependencies = [
 ]
 
 [[package]]
-name = "raytracer"
+name = "raytracer-impl"
 version = "0.1.0"
 dependencies = [
  "rand",
+]
+
+[[package]]
+name = "raytracer-samples"
+version = "0.1.0"
+dependencies = [
+ "rand",
+ "raytracer-impl",
 ]
 
 [[package]]
@@ -1439,7 +1447,8 @@ dependencies = [
  "eframe",
  "flume",
  "rand",
- "raytracer",
+ "raytracer-impl",
+ "raytracer-samples",
  "serde",
 ]
 

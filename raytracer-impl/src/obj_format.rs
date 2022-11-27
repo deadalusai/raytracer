@@ -1,7 +1,8 @@
 use std::collections::HashMap;
 use std::io::{BufRead, BufReader, Read};
 
-use super::{MeshTriangleList, V3};
+use super::types::V3;
+use super::shapes::MeshTriangleList;
 
 #[derive(Debug)]
 pub enum ObjParseError {

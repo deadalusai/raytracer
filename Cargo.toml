@@ -5,7 +5,8 @@ authors = ["Benjamin Fox <deadalus.ai@gmail.com>"]
 edition = "2018"
 
 [dependencies]
-raytracer = { path = "./raytracer-impl" }
+raytracer-impl = { path = "./raytracer-impl" }
+raytracer-samples = { path = "./raytracer-samples" }
 eframe = "0.19.0" # egui, epi and web+native backends
 serde = { version = "1", features = ["derive"] } # state serialization
 flume = "0.10.13"

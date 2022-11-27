@@ -1,8 +1,9 @@
 [package]
-name = "raytracer-impl"
+name = "raytracer-samples"
 version = "0.1.0"
 authors = ["Benjamin Fox <deadalus.ai@gmail.com>"]
 edition = "2018"
 
 [dependencies]
 rand = "0.6"
+raytracer-impl = { path = "../raytracer-impl" }

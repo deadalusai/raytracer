@@ -5,7 +5,8 @@ use std::time::{ Instant, Duration };
 use eframe::egui;
 use rand::{ thread_rng };
 use flume::{ Receiver, Sender };
-use raytracer::{ Scene, RenderSettings, RenderChunk, Viewport, create_render_chunks };
+use raytracer_impl::implementation::{ Scene, RenderSettings };
+use raytracer_impl::viewport::{ RenderChunk, Viewport, create_render_chunks };
 
 use crate::rgba::{ RgbaBuffer, v3_to_rgba };
 use crate::frame_history::{ FrameHistory };
@@ -83,13 +84,13 @@ impl App {
         let viewport = Viewport::new(st.width, st.height);
         let camera_aperture = st.camera_aperture;
         let scene = match st.scene {
-            TestScene::RandomSpheres => raytracer::samples::random_sphere_scene(&viewport, camera_aperture),
-            TestScene::Simple        => raytracer::samples::simple_scene(&viewport, camera_aperture),
-            TestScene::Planes        => raytracer::samples::planes_scene(&viewport, camera_aperture),
-            TestScene::Mirrors       => raytracer::samples::hall_of_mirrors(&viewport, camera_aperture),
-            TestScene::Triangles     => raytracer::samples::triangle_world(&viewport, camera_aperture),
-            TestScene::Mesh          => raytracer::samples::mesh_demo(&viewport, camera_aperture),
-            TestScene::Interceptor   => raytracer::samples::interceptor(&viewport, camera_aperture),
+            TestScene::RandomSpheres => raytracer_samples::samples::random_sphere_scene(&viewport, camera_aperture),
+            TestScene::Simple        => raytracer_samples::samples::simple_scene(&viewport, camera_aperture),
+            TestScene::Planes        => raytracer_samples::samples::planes_scene(&viewport, camera_aperture),
+            TestScene::Mirrors       => raytracer_samples::samples::hall_of_mirrors(&viewport, camera_aperture),
+            TestScene::Triangles     => raytracer_samples::samples::triangle_world(&viewport, camera_aperture),
+            TestScene::Mesh          => raytracer_samples::samples::mesh_demo(&viewport, camera_aperture),
+            TestScene::Interceptor   => raytracer_samples::samples::interceptor(&viewport, camera_aperture),
         };
         let settings = RenderSettings {
             max_reflections: st.max_reflections,
@@ -186,7 +187,7 @@ fn start_render_thread(
         }
         // Paint in-progress chunks green
         let mut buffer = RgbaBuffer::new(chunk.width, chunk.height);
-        let green = v3_to_rgba(raytracer::V3(0.0, 0.58, 0.0));
+        let green = v3_to_rgba(raytracer_impl::types::V3(0.0, 0.58, 0.0));
         for p in chunk.iter_pixels() {
             buffer.put_pixel(p.chunk_x, p.chunk_y, green);
         }
@@ -200,7 +201,7 @@ fn start_render_thread(
                 return Ok(());
             }
             // Convert to view-relative coordinates
-            let color = raytracer::cast_rays_into_scene(render_settings, scene, &chunk.viewport, p.viewport_x, p.viewport_y, &mut rng);
+            let color = raytracer_impl::implementation::cast_rays_into_scene(render_settings, scene, &chunk.viewport, p.viewport_x, p.viewport_y, &mut rng);
             buffer.put_pixel(p.chunk_x, p.chunk_y, v3_to_rgba(color));
         }
         let elapsed = time.elapsed();

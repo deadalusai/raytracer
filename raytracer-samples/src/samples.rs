@@ -1,12 +1,12 @@
 #![allow(unused)]
 
-use crate::types::{ V3, Ray };
-use crate::materials::{ MatLambertian, MatDielectric, MatMetal };
-use crate::shapes::{ Sphere, Plane, Triangle, Mesh };
-use crate::viewport::{ Viewport };
-use crate::lights::{ PointLight, DirectionalLight, LampLight };
-use crate::implementation::{ Scene, SceneSky, Camera, Material };
-use crate::obj_format::{ ObjFile };
+use raytracer_impl::types::{ V3, Ray };
+use raytracer_impl::materials::{ MatLambertian, MatDielectric, MatMetal };
+use raytracer_impl::shapes::{ Sphere, Plane, Triangle, Mesh };
+use raytracer_impl::viewport::{ Viewport };
+use raytracer_impl::lights::{ PointLight, DirectionalLight, LampLight };
+use raytracer_impl::implementation::{ Scene, SceneSky, Camera, Material };
+use raytracer_impl::obj_format::{ ObjFile };
 
 use rand::{ Rng, SeedableRng, rngs::StdRng };
 
@@ -507,7 +507,7 @@ pub fn mesh_demo(viewport: &Viewport, camera_aperture: f32) -> Scene {
 pub fn interceptor(viewport: &Viewport, camera_aperture: f32) -> Scene {
     
     // Camera
-    let look_from = position!(Up(8.0), South(16.0), East(16.0));
+    let look_from = position!(Up(18.0), South(26.0), East(26.0));
     let look_to =   position!(Up(4.0), East(1.0));
     let fov = 45.0;
     let aspect_ratio = viewport.width as f32 / viewport.height as f32;
