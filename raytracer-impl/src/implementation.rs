@@ -217,15 +217,12 @@ fn color_sky (ray: &Ray, scene: &Scene) -> V3 {
 // Lights and shadows
 
 // Casts a ray *back* towards a lamp, testing for possibly shadowing objects
-fn cast_light_ray(hit_point: V3, light_record: &LightRecord, scene: &Scene, rng: &mut dyn RngCore) -> V3 {
+fn cast_light_ray_to_lamp(hit_point: V3, light_record: &LightRecord, scene: &Scene, rng: &mut dyn RngCore) -> V3 {
 
     // Test to see if there is any shape blocking light from this lamp by casting a ray from the shadow back to the light source
     let light_ray = Ray::new(hit_point, -light_record.direction);
     // Ignore any hits from behind this light source
     let t_max = light_record.t;
-
-    // TODO(benf):
-    // Can we do reflection/refraction of light rays?
 
     let mut light_color = light_record.color * light_record.intensity;
     let mut closest_so_far = 0.0;
@@ -241,7 +238,6 @@ fn cast_light_ray(hit_point: V3, light_record: &LightRecord, scene: &Scene, rng:
             closest_so_far = shadow_hit.t;
             continue;
         }
-        // TODO(benf): Reflective objects?
 
         // Hit opaque object (in shadow)
         return V3::zero();
@@ -311,7 +307,7 @@ fn cast_ray(ray: &Ray, scene: &Scene, rng: &mut dyn RngCore, max_reflections: u3
                 for light in scene.lights.iter() {
                     if let Some(light_record) = light.get_direction_and_intensity(hit_point) {
                         let light_color =
-                            cast_light_ray(hit_point, &light_record, scene, rng) *
+                            cast_light_ray_to_lamp(hit_point, &light_record, scene, rng) *
                             // Adjust intensity as reflection normal changes
                             f32::max(0.0, V3::dot(hit_record.normal, -light_record.direction));
 
