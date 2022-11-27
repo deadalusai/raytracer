@@ -30,6 +30,7 @@ pub struct Settings {
     pub samples_per_pixel: u32,
     pub camera_aperture: f32,
     pub max_reflections: u32,
+    pub scale_render_to_window: bool,
 }
 
 impl Default for Settings {
@@ -39,10 +40,11 @@ impl Default for Settings {
             width: 1024,
             height: 768,
             chunk_count: 128,
-            thread_count: 8,
+            thread_count: 4,
             samples_per_pixel: 1,
             camera_aperture: 0.1,
             max_reflections: 5,
+            scale_render_to_window: true,
         }
     }
 }
@@ -130,6 +132,11 @@ impl<'a> egui::Widget for SettingsWidget<'a> {
                         *st = Settings::default();
                     }
                 });
+                ui.end_row();
+
+                // Max reflections
+                ui.label("");
+                ui.add(egui::Checkbox::new(&mut st.scale_render_to_window, "Scale to window"));
                 ui.end_row();
             })
             .response

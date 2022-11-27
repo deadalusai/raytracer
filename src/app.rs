@@ -304,10 +304,11 @@ impl eframe::App for App {
             // Output image
             if let Some((id, dim)) = &self.output_texture {
                 ui.centered_and_justified(|ui| {
-                    // Scale the output texture to fit in the container
-                    let container_dim = (ui.available_width(), ui.available_height());
-                    let image_dim = (dim[0] as f32, dim[1] as f32);
-                    let (width, height) = scale_to_container_dimensions(image_dim, container_dim);
+                    let (width, height) = match dim {
+                        // Scale the output texture to fit in the container
+                        &[w, h] if self.settings.scale_render_to_window => scale_to_container_dimensions((w as f32, h as f32), (ui.available_width(), ui.available_height())),
+                        &[w, h] => (w as f32, h as f32),
+                    };
                     ui.image(id, [width, height]);
                 });
             }
