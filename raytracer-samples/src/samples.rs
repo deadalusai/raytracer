@@ -449,7 +449,7 @@ pub fn triangle_world(viewport: &Viewport, camera_aperture: f32) -> Scene {
 pub fn mesh_demo(viewport: &Viewport, camera_aperture: f32) -> Scene {
     
     // Camera
-    let look_from = position!(Up(0.5), East(3.5));
+    let look_from = position!(Up(1.5), South(4.0), East(4.0));
     let look_to =   position!(Up(1.0));
     let fov = 45.0;
     let aspect_ratio = viewport.width as f32 / viewport.height as f32;
