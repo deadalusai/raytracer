@@ -1,7 +1,5 @@
 extern crate rand;
 
-mod bvh;
-
 pub mod types;
 pub mod materials;
 pub mod shapes;

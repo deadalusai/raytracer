@@ -2,7 +2,6 @@ use std::collections::HashMap;
 use std::io::{BufRead, BufReader, Read};
 
 use super::types::V3;
-use super::shapes::MeshTriangleList;
 
 #[derive(Debug)]
 pub enum ObjParseError {
@@ -50,7 +49,7 @@ impl ObjFile {
         parse_obj_file(f)
     }
 
-    pub fn make_triangle_list(&self, obj_name: &str) -> Option<MeshTriangleList> {
+    pub fn make_triangle_list(&self, obj_name: &str) -> Option<Vec<(V3, V3, V3)>> {
         self.objects.get(obj_name).map(|obj| make_triangles(obj))
     }
 }
@@ -124,7 +123,7 @@ pub fn parse_obj_file(source: impl Read) -> Result<ObjFile, ObjParseError> {
 }
 
 // Convert Obj face/vertex lists into a list of triangles
-fn make_triangles(obj: &ObjObject) -> MeshTriangleList {
+fn make_triangles(obj: &ObjObject) -> Vec<(V3, V3, V3)> {
     let vert_error = |i, v| format!("face {}: could not find vertex {}", i, v);
     let mut tris = Vec::new();
     for (i, face) in obj.faces.iter().enumerate() {
@@ -133,5 +132,5 @@ fn make_triangles(obj: &ObjObject) -> MeshTriangleList {
         let vc = obj.vertices.get(face.2 - 1).expect(&vert_error(i, face.2));
         tris.push((*va, *vb, *vc))
     }
-    tris.into_boxed_slice()
+    tris
 }

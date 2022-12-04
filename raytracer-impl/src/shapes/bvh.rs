@@ -3,7 +3,7 @@ use std::sync::Arc;
 use crate::types::{ Ray };
 use crate::implementation::{ AABB, HitableArc, Hitable, HitRecord };
 
-// Hacky Bounding Volume Hierachy implementation
+// Hacky Bounding Volume Hierachy implementation for Hitable objects
 
 pub struct BvhNode {
     aabb: AABB,
@@ -42,9 +42,9 @@ impl Hitable for BvhNode {
 }
 
 #[derive(Clone, Copy)]
-enum SortAxis { X, Y, Z }
+pub enum SortAxis { X, Y, Z }
 impl SortAxis {
-    fn next(self) -> SortAxis {
+    pub fn next(self) -> SortAxis {
         match self {
             SortAxis::X => SortAxis::Y,
             SortAxis::Y => SortAxis::Z,
@@ -53,7 +53,7 @@ impl SortAxis {
     }
 }
 
-fn compare_aabb(l: &AABB, r: &AABB, axis: SortAxis) -> std::cmp::Ordering {
+pub fn compare_aabb(l: &AABB, r: &AABB, axis: SortAxis) -> std::cmp::Ordering {
     let ordering = match axis {
         SortAxis::X => l.min.x().partial_cmp(&r.min.x()),
         SortAxis::Y => l.min.y().partial_cmp(&r.min.y()),
@@ -67,9 +67,8 @@ pub fn build_bvh_hierachy(hitables: &mut [(AABB, HitableArc)]) -> Option<Hitable
     fn inner(hitables: &mut [(AABB, HitableArc)], axis: SortAxis) -> Option<HitableArc> {
 
         let node = match hitables {
-            []     => return None,
-            [a]    => a.1.clone(),
-            [a, b] => Arc::new(BvhNode::new(a.1.clone(), b.1.clone())),
+            [] => return None,
+            [a] => a.1.clone(),
             _ => {
                 hitables.sort_by(|l, r| compare_aabb(&l.0, &r.0, axis));
                 let mid = hitables.len() / 2;
