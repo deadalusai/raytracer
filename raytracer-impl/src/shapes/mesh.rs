@@ -1,5 +1,3 @@
-use std::sync::Arc;
-
 use crate::types::{ V3, Ray };
 use crate::implementation::{ Material, Hitable, HitRecord, AABB };
 
@@ -45,8 +43,8 @@ impl MeshBvhLeaf {
 
 pub struct MeshBvhBranch {
     aabb: AABB,
-    left: Arc<MeshBvhNode>,
-    right: Arc<MeshBvhNode>,
+    left: Box<MeshBvhNode>,
+    right: Box<MeshBvhNode>,
 }
 
 impl MeshBvhBranch {
@@ -101,8 +99,8 @@ pub fn build_triangle_bvh_hierachy(triangles: &[Tri]) -> Option<MeshBvhNode> {
                 let right = inner(&mut triangles[mid..], axis.next()).unwrap();
                 MeshBvhNode::Branch(MeshBvhBranch {
                     aabb: AABB::surrounding(left.aabb(), right.aabb()),
-                    left: Arc::new(left),
-                    right: Arc::new(right),
+                    left: Box::new(left),
+                    right: Box::new(right),
                 })
             }
         };
