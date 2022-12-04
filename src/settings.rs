@@ -30,7 +30,6 @@ pub struct Settings {
     pub samples_per_pixel: u32,
     pub camera_aperture: f32,
     pub max_reflections: u32,
-    pub use_bvh: bool,
     pub scale_render_to_window: bool,
 }
 
@@ -45,7 +44,6 @@ impl Default for Settings {
             samples_per_pixel: 1,
             camera_aperture: 0.1,
             max_reflections: 5,
-            use_bvh: true,
             scale_render_to_window: true,
         }
     }
@@ -125,11 +123,6 @@ impl<'a> egui::Widget for SettingsWidget<'a> {
                 ui.label("Max reflections");
                 ui.add(egui::DragValue::new(&mut st.max_reflections)
                     .clamp_range(1..=25));
-                ui.end_row();
-
-                // Use BVH
-                ui.label("Bounding Volume Hierachy");
-                ui.add(egui::Checkbox::new(&mut st.use_bvh, "Use BVH"));
                 ui.end_row();
 
                 // Scale to window

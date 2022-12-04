@@ -93,9 +93,7 @@ impl App {
             TestScene::Interceptor   => raytracer_samples::samples::interceptor(&viewport, camera_aperture),
         };
 
-        if st.use_bvh {
-            scene.reorganize_objects_into_bvh();
-        }
+        scene.reorganize_objects_into_bvh();
         
         let settings = RenderSettings {
             max_reflections: st.max_reflections,
