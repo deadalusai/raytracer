@@ -2,13 +2,36 @@ use std::sync::Arc;
 
 use crate::types::{ V3, Ray };
 use crate::implementation::{ Material, Hitable, HitRecord, AABB };
-use super::{ TriIntersect, intersect_tri };
 
 // Triangle Mesh BVH
 
 type Tri = (V3, V3, V3);
 
-fn tri_bbox(tri: &Tri) -> AABB {
+struct TriIntersect {
+    p: V3,
+    normal: V3,
+    t: f32,
+}
+
+// Ref: https://www.scratchapixel.com/lessons/3d-basic-rendering/ray-tracing-rendering-a-triangle/ray-triangle-intersection-geometric-solution
+fn tri_intersect(ray: &Ray, a: V3, b: V3, c: V3) -> Option<TriIntersect> {
+    // Find the normal of the triangle, using v0 as the origin
+    let normal = V3::cross(b - a, c - a).unit();
+    // Find the intesection `p` with the tiangle plane
+    let t = super::plane::intersect_plane(ray, a, normal)?;
+    // `p` is a point on the same plane as all three vertices of the triangle
+    let p = ray.point_at_parameter(t);
+    // Test if `p` is a point inside the triangle by determining if it is "left" of each edge.
+    // (The cross product of the angle of `p` with each point should align with the normal)
+    if V3::dot(normal, V3::cross(b - a, p - a)) < 0.0 ||
+        V3::dot(normal, V3::cross(c - b, p - b)) < 0.0 ||
+        V3::dot(normal, V3::cross(a - c, p - c)) < 0.0 {
+        return None;
+    }
+    Some(TriIntersect { p, normal, t })
+}
+
+fn tri_aabb(tri: &Tri) -> AABB {
     AABB::from_vertices(&[tri.0, tri.1, tri.2])
 }
 
@@ -16,7 +39,7 @@ pub struct MeshBvhLeaf(Tri);
 
 impl MeshBvhLeaf {
     fn hit_node(&self, ray: &Ray, t_min: f32, t_max: f32) -> Option<TriIntersect> {
-        intersect_tri(ray, self.0.0, self.0.1, self.0.2).filter(|ti| t_min < ti.t && ti.t < t_max)
+        tri_intersect(ray, self.0.0, self.0.1, self.0.2).filter(|ti| t_min < ti.t && ti.t < t_max)
     }
 }
 
@@ -57,7 +80,7 @@ impl MeshBvhNode {
 
     fn aabb(&self) -> AABB {
         match self {
-            MeshBvhNode::Leaf(leaf) => tri_bbox(&leaf.0),
+            MeshBvhNode::Leaf(leaf) => tri_aabb(&leaf.0),
             MeshBvhNode::Branch(branch) => branch.aabb.clone(),
         }
     }
@@ -87,8 +110,9 @@ pub fn build_triangle_bvh_hierachy(triangles: &[Tri]) -> Option<MeshBvhNode> {
         Some(node)
     }
 
+    // Pre-caculate triangle bounding boxes
     let mut triangles = triangles.iter()
-        .map(|tri| (tri_bbox(tri), tri))
+        .map(|tri| (tri_aabb(tri), tri))
         .collect::<Vec<_>>();
 
     inner(&mut triangles, SortAxis::X)

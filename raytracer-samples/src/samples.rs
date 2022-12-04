@@ -2,7 +2,7 @@
 
 use raytracer_impl::types::{ V3, Ray };
 use raytracer_impl::materials::{ MatLambertian, MatDielectric, MatMetal };
-use raytracer_impl::shapes::{ Sphere, Plane, Triangle, Mesh };
+use raytracer_impl::shapes::{ Sphere, Plane, Mesh };
 use raytracer_impl::viewport::{ Viewport };
 use raytracer_impl::lights::{ PointLight, DirectionalLight, LampLight };
 use raytracer_impl::implementation::{ Scene, SceneSky, Camera, Material };
@@ -431,7 +431,7 @@ pub fn triangle_world(viewport: &Viewport, camera_aperture: f32) -> Scene {
         position!(Up(0.4), South(1.0)),
         position!(Up(0.6), West(1.0))
     );
-    scene.add_obj(Triangle::new(tri_pos, tri_vertices, tri_mat));
+    scene.add_obj(Mesh::new(tri_pos, vec![tri_vertices], tri_mat));
 
     let tri_pos = position!(Up(1.0));
     let tri_mat = MatLambertian::with_albedo(rgb(100, 100, 200)).with_reflectivity(0.0);
@@ -440,7 +440,7 @@ pub fn triangle_world(viewport: &Viewport, camera_aperture: f32) -> Scene {
         position!(Up(0.8), South(1.0)),
         position!(Up(0.6), East(1.0))
     );
-    scene.add_obj(Triangle::new(tri_pos, tri_vertices, tri_mat));
+    scene.add_obj(Mesh::new(tri_pos, vec![tri_vertices], tri_mat));
 
     scene
 }
