@@ -1,5 +1,5 @@
 use crate::types::{ V3, Ray };
-use crate::implementation::{ Material, Hitable, HitRecord };
+use crate::implementation::{ Material, Hitable, HitRecord, AABB };
 
 //
 // Shapes
@@ -57,6 +57,11 @@ impl Hitable for Sphere {
         }
 
         None
+    }
+
+    fn bounding_box(&self) -> Option<AABB> {
+        // Find the bounding box for a sphere
+        Some(AABB::from_min_max(self.origin - self.radius, self.origin + self.radius))
     }
 }
 
@@ -123,6 +128,11 @@ impl Hitable for Plane {
         let normal = if V3::dot(ray.direction, self.normal) > 0.0 { -self.normal } else { self.normal };
         return Some(HitRecord { object_id, t, p, normal, material });
     }
+
+    fn bounding_box(&self) -> Option<AABB> {
+        // No bounding box for a plane
+        None
+    }
 }
 
 // Ref: https://www.scratchapixel.com/lessons/3d-basic-rendering/ray-tracing-rendering-a-triangle/ray-triangle-intersection-geometric-solution
@@ -143,17 +153,23 @@ fn intersect_tri(ray: &Ray, tri: &MeshTriangle) -> Option<(V3, V3, f32)> {
     Some((p, normal, t))
 }
 
+/// Find the bounding box of a single mesh triangle
+fn tri_aabb(origin: V3, tri: &MeshTriangle) -> AABB {
+    AABB::from_vertices(&[origin + tri.0, origin + tri.1, origin + tri.2])
+}
+
 pub struct Triangle {
     object_id: Option<u32>,
+    origin: V3,
     vertices: MeshTriangle,
     material: Box<dyn Material>,
 }
 
 impl Triangle {
-    pub fn new<M>(vertices: MeshTriangle, material: M) -> Self
+    pub fn new<M>(origin: V3, vertices: MeshTriangle, material: M) -> Self
         where M: Material + 'static
     {
-        Triangle { object_id: None, vertices, material: Box::new(material) }
+        Triangle { object_id: None, origin, vertices, material: Box::new(material) }
     }
 
     #[allow(unused)]
@@ -176,67 +192,38 @@ impl Hitable for Triangle {
         let normal = if V3::dot(ray.direction, normal) > 0.0 { -normal } else { normal };
         Some(HitRecord { object_id, p, t, normal, material })
     }
+
+    fn bounding_box(&self) -> Option<AABB> {
+        Some(tri_aabb(self.origin, &self.vertices))
+    }
 }
 
 pub type MeshTriangle = (V3, V3, V3);
 pub type MeshTriangleList = Box<[MeshTriangle]>;
 
-/// Find the centroid of a single mesh triangle
-fn tri_centroid(tri: &MeshTriangle) -> V3 {
-    (tri.0 + tri.1 + tri.2) / 3.0
-}
-
-/// Find the centroid of a list of triangles
-fn tri_list_centroid(list: &MeshTriangleList) -> V3 {
-    // https://stackoverflow.com/a/48922394
-    // volume = 0.5 * length(cross(p1-p0, p2-p0))
-    let mut volume_sum = 0.0;
-    let mut centroid_sum = V3::zero();
-
-    for tri in list.iter() {
-        let volume = 0.5 * V3::length(V3::cross(tri.1 - tri.0, tri.2 - tri.0));
-        volume_sum += volume;
-        centroid_sum = centroid_sum + (tri_centroid(tri) * volume);
-    }
-
-    centroid_sum / volume_sum
-}
-
 pub struct Mesh {
     object_id: Option<u32>,
     origin: V3,
-    hit_origin: V3,
-    hit_radius: f32,
     triangles: MeshTriangleList,
     material: Box<dyn Material>,
+    aabb: Option<AABB>,
 }
 
 impl Mesh {
     pub fn new<M>(origin: V3, triangles: MeshTriangleList, material: M) -> Self
         where M: Material + 'static
     {
-        // Hack: make a "hit sphere" by finding the centroid and furtherest vertex of the mesh.
-        // Find centroid of all tris
-        let centroid = tri_list_centroid(&triangles);
-        let hit_origin = origin + centroid;
-        // Find the furthest vertex from the centroid
-        let hit_radius: f32 = triangles.iter()
-            .flat_map(|&(a, b, c)| [a, b, c])
-            .map(|x| (x - centroid).length())
-            .reduce(f32::max)
-            .unwrap();
+        let aabb = triangles.iter()
+            .map(|tri| tri_aabb(origin, tri))
+            .reduce(AABB::surrounding);
 
-        Mesh { object_id: None, origin, hit_origin, hit_radius, triangles, material: Box::new(material) }
+        Mesh { object_id: None, origin, triangles, material: Box::new(material), aabb }
     }
 
     #[allow(unused)]
     pub fn with_id(mut self, id: u32) -> Self {
         self.object_id = Some(id);
         self
-    }
-
-    fn test_hit_sphere(&self, ray: &Ray) -> bool {
-        intersect_sphere(ray, self.hit_origin, self.hit_radius).is_some()
     }
 
     fn hit_nearest_triangle(&self, ray: &Ray, t_min: f32, t_max: f32) -> Option<(V3, V3, f32)> {
@@ -261,17 +248,20 @@ impl Mesh {
 
 impl Hitable for Mesh {
     fn hit<'a> (&'a self, ray: &Ray, t_min: f32, t_max: f32) -> Option<HitRecord<'a>> {
-        if !self.test_hit_sphere(ray) {
+        let hit_bounding_box = self.aabb.as_ref().map(|x| x.hit_aabb(ray, t_min, t_max)).unwrap_or(false);
+        if !hit_bounding_box {
             return None;
         }
-
         let (p, normal, t) = self.hit_nearest_triangle(ray, t_min, t_max)?;
-        
         let object_id = self.object_id;
         let material = self.material.as_ref();
         // If this plane is facing away from the ray we want to flip the reported normal
         // so that reflections work in both directions.
         let normal = if V3::dot(ray.direction, normal) > 0.0 { -normal } else { normal };
         Some(HitRecord { object_id, p, t, normal, material })
+    }
+
+    fn bounding_box(&self) -> Option<AABB> {
+        self.aabb.clone()
     }
 }

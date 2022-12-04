@@ -3,8 +3,8 @@
 use std::f32::consts::FRAC_PI_2;
 use std::mem::{ swap };
 
-pub use crate::types::{ V3, Ray };
-pub use crate::implementation::{ Material, MatRecord, Reflect, Refract, HitRecord, random_point_in_unit_sphere };
+use crate::types::{ V3, Ray };
+use crate::implementation::{ Material, MatRecord, Reflect, Refract, HitRecord, random_point_in_unit_sphere };
 
 use rand::{ RngCore };
 

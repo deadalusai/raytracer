@@ -1,4 +1,5 @@
 use std;
+use std::sync::Arc;
 
 use crate::types::{ V3 };
 use crate::types::{ Ray };
@@ -28,6 +29,71 @@ pub fn random_point_in_unit_sphere(rng: &mut dyn RngCore) -> V3 {
     let z = r * theta.sin() * phi.cos();
 
     V3(x, y, z)
+}
+
+// AABB / Bounding Boxes
+
+#[derive(Clone)]
+pub struct AABB {
+    pub min: V3,
+    pub max: V3,
+}
+
+impl AABB {
+    /// Creates a bounding box from the given min/max vertices
+    pub fn from_min_max(min: V3, max: V3) -> AABB {
+        AABB { min, max }
+    }
+
+    /// Finds the axis-aligned bounding box which fully contains the given list of vertices
+    pub fn from_vertices(vertices: &[V3]) -> AABB {
+        let mut iter = vertices.iter();
+
+        let mut min = iter.next().expect("Cannot create AABB from empty vertex list").clone();
+        let mut max = min.clone();
+
+        for vert in iter {
+            min.0 = f32::min(min.0, vert.0);
+            min.1 = f32::min(min.1, vert.1);
+            min.2 = f32::min(min.2, vert.2);
+
+            max.0 = f32::max(max.0, vert.0);
+            max.1 = f32::max(max.1, vert.1);
+            max.2 = f32::max(max.2, vert.2);
+        }
+
+        AABB::from_min_max(min, max)
+    }
+
+    /// Creates a bounding box which fully contains the given two vertices
+    pub fn surrounding(b0: AABB, b1: AABB) -> AABB {
+        AABB::from_vertices(&[b0.min, b0.max, b1.min, b1.max])
+    }
+
+    pub fn hit_aabb(&self, ray: &Ray, mut t_min: f32, mut t_max: f32) -> bool {
+        // Algorithm from "Ray Tracing - The Next Weekend"
+        // Attempt to determine if this ray intersects with this AABB in all three dimensions
+        let ray_origin = ray.origin.xyz();
+        let ray_direction = ray.direction.xyz();
+        let min = self.min.xyz();
+        let max = self.max.xyz();
+        for dimension in 0..=2 {
+            let inv_d = 1.0 / ray_direction[dimension];
+            let mut t0 = (min[dimension] - ray_origin[dimension]) * inv_d;
+            let mut t1 = (max[dimension] - ray_origin[dimension]) * inv_d;
+            if inv_d < 0.0 {
+                std::mem::swap(&mut t0, &mut t1);
+            }
+            t_min = if t0 > t_min { t0 } else { t_min };
+            t_max = if t1 < t_max { t1 } else { t_max };
+            if t_max <= t_min {
+                // No intersection on this dimension
+                return false;
+            }
+        }
+
+        true
+    }
 }
 
 // Materials
@@ -64,7 +130,10 @@ pub struct HitRecord<'mat> {
 
 pub trait Hitable: Send + Sync {
     fn hit<'a>(&'a self, ray: &Ray, t_min: f32, t_max: f32) -> Option<HitRecord<'a>>;
+    fn bounding_box(&self) -> Option<AABB>;
 }
+
+pub type HitableArc = Arc<dyn Hitable>;
 
 // Light sources
 
@@ -90,8 +159,8 @@ pub enum SceneSky {
 pub struct Scene {
     camera: Camera,
     sky: SceneSky,
-    lights: Vec<Box<dyn LightSource>>,
-    hitables: Vec<Box<dyn Hitable>>,
+    lights: Vec<Arc<dyn LightSource>>,
+    hitables: Vec<Arc<dyn Hitable>>,
 }
 
 pub struct RenderSettings {
@@ -112,13 +181,13 @@ impl Scene {
     pub fn add_obj<T>(&mut self, hitable: T)
         where T: Hitable + 'static
     {
-        self.hitables.push(Box::new(hitable));
+        self.hitables.push(Arc::new(hitable));
     }
 
     pub fn add_light<T>(&mut self, light: T)
         where T: LightSource + 'static
     {
-        self.lights.push(Box::new(light));
+        self.lights.push(Arc::new(light));
     }
 
     fn hit_closest(&self, ray: &Ray, t_min: f32, t_max: f32) -> Option<HitRecord> {
@@ -131,6 +200,29 @@ impl Scene {
             }
         }
         closest_hit_record
+    }
+
+    pub fn reorganize_objects_into_bvh(&mut self) {
+
+        let mut hitables = Vec::new();
+        let mut bounded = Vec::new();
+
+        for hitable in self.hitables.iter() {
+            if let Some(bbox) = hitable.bounding_box() {
+                bounded.push((bbox, hitable.clone()));
+            }
+            else {
+                // Non-bounded objects stay at the top of the object list
+                hitables.push(hitable.clone());
+            }
+        }
+
+        // Re-organize the bounded objects into a hierachy of BvhNodes
+        if let Some(hitable) = crate::bvh::build_bvh_hierachy(&mut bounded) {
+            hitables.push(hitable);
+        }
+
+        self.hitables = hitables;
     }
 }
 
@@ -191,7 +283,7 @@ impl Camera {
 // Core raytracing routine
 //
 
-const BIAS: f32 = 0.0001;
+const BIAS: f32 = 0.001;
 
 // Sky
 

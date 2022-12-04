@@ -23,6 +23,10 @@ impl V3 {
         self.2
     }
 
+    pub fn xyz(&self) -> [f32; 3] {
+        [self.0, self.1, self.2]
+    }
+
     pub fn zero() -> V3 {
         V3(0.0, 0.0, 0.0)
     }

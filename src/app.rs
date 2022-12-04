@@ -83,7 +83,7 @@ impl App {
         // Create render work arguments
         let viewport = Viewport::new(st.width, st.height);
         let camera_aperture = st.camera_aperture;
-        let scene = match st.scene {
+        let mut scene = match st.scene {
             TestScene::RandomSpheres => raytracer_samples::samples::random_sphere_scene(&viewport, camera_aperture),
             TestScene::Simple        => raytracer_samples::samples::simple_scene(&viewport, camera_aperture),
             TestScene::Planes        => raytracer_samples::samples::planes_scene(&viewport, camera_aperture),
@@ -92,6 +92,9 @@ impl App {
             TestScene::Mesh          => raytracer_samples::samples::mesh_demo(&viewport, camera_aperture),
             TestScene::Interceptor   => raytracer_samples::samples::interceptor(&viewport, camera_aperture),
         };
+
+        scene.reorganize_objects_into_bvh();
+        
         let settings = RenderSettings {
             max_reflections: st.max_reflections,
             samples_per_pixel: st.samples_per_pixel,

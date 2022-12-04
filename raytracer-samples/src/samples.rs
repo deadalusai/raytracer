@@ -424,22 +424,23 @@ pub fn triangle_world(viewport: &Viewport, camera_aperture: f32) -> Scene {
     scene.add_obj(Sphere::new(world_pos, 1000.0, world_mat));
 
     // Triangle
+    let tri_pos = position!(Origin);
     let tri_mat = MatLambertian::with_albedo(rgb(200, 100, 80)).with_reflectivity(0.0);
     let tri_vertices = (
         position!(Up(0.2), North(1.0)),
         position!(Up(0.4), South(1.0)),
         position!(Up(0.6), West(1.0))
     );
-    scene.add_obj(Triangle::new(tri_vertices, tri_mat));
+    scene.add_obj(Triangle::new(tri_pos, tri_vertices, tri_mat));
 
+    let tri_pos = position!(Up(1.0));
     let tri_mat = MatLambertian::with_albedo(rgb(100, 100, 200)).with_reflectivity(0.0);
     let tri_vertices = (
-        position!(Up(1.4), North(1.0)),
-        position!(Up(1.8), South(1.0)),
-        position!(Up(1.6), East(1.0))
+        position!(Up(0.4), North(1.0)),
+        position!(Up(0.8), South(1.0)),
+        position!(Up(0.6), East(1.0))
     );
-    scene.add_obj(Triangle::new(tri_vertices, tri_mat));
-
+    scene.add_obj(Triangle::new(tri_pos, tri_vertices, tri_mat));
 
     scene
 }
