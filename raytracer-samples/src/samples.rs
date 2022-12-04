@@ -29,6 +29,23 @@ fn create_rng_from_seed(a: u128, b: u128) -> StdRng {
 }
 
 //
+// Configuration
+//
+
+pub struct CameraConfiguration {
+    pub width: f32,
+    pub height: f32,
+    pub aperture: f32,
+    pub fov: f32,
+}
+
+impl CameraConfiguration {
+    fn aspect_ratio(&self) -> f32 {
+        self.width / self.height
+    }
+}
+
+//
 // Easing functions
 //
 
@@ -137,16 +154,13 @@ fn make_glass<R: Rng> (rng: &mut R) -> MatDielectric {
 // Scenes
 //
 
-pub fn random_sphere_scene(viewport: &Viewport, camera_aperture: f32) -> Scene {
+pub fn random_sphere_scene(config: &CameraConfiguration) -> Scene {
     // Camera
     let look_from = V3(13.0, 2.0, 3.0);
     let look_to = V3(0.0, 0.0, 0.0);
-    let fov = 20.0;
-    let aspect_ratio = viewport.width as f32 / viewport.height as f32;
-    let aperture = 0.1;
     let dist_to_focus = 10.0; // distance to look target is 13-ish
 
-    let camera = Camera::new(look_from, look_to, fov, aspect_ratio, camera_aperture, dist_to_focus);
+    let camera = Camera::new(look_from, look_to, config.fov, config.aspect_ratio(), config.aperture, dist_to_focus);
 
     // Scene
     let mut rng = create_rng_from_seed(1, 1);
@@ -222,16 +236,14 @@ fn add_coordinates_marker(scene: &mut Scene) {
     scene.add_obj(Sphere::new(V3(0.0, 0.0, 1.0), 0.05, MatLambertian::with_albedo(rgb(0,   0,   128))));
 }
 
-pub fn simple_scene(viewport: &Viewport, camera_aperture: f32) -> Scene {
+pub fn simple_scene(config: &CameraConfiguration) -> Scene {
 
     // Camera
     let look_from = position!(South(6.0), East(1.5), Up(3.0));
     let look_to =   position!(Up(1.0));
-    let fov = 45.0;
-    let aspect_ratio = viewport.width as f32 / viewport.height as f32;
     let dist_to_focus = (look_from - look_to).length();
 
-    let camera = Camera::new(look_from, look_to, fov, aspect_ratio, camera_aperture, dist_to_focus);
+    let camera = Camera::new(look_from, look_to, config.fov, config.aspect_ratio(), config.aperture, dist_to_focus);
 
     // Scene
     let mut scene = Scene::new(camera, SceneSky::Black);
@@ -311,17 +323,14 @@ pub fn simple_scene(viewport: &Viewport, camera_aperture: f32) -> Scene {
     scene
 }
 
-pub fn planes_scene(viewport: &Viewport, camera_aperture: f32) -> Scene {
+pub fn planes_scene(config: &CameraConfiguration) -> Scene {
 
     // Camera
     let look_from = position!(South(6.0), East(1.5), Up(3.0));
     let look_to =   position!(Up(1.0));
-
-    let fov = 45.0;
-    let aspect_ratio = viewport.width as f32 / viewport.height as f32;
     let dist_to_focus = (look_to - look_from).length();
 
-    let camera = Camera::new(look_from, look_to, fov, aspect_ratio, camera_aperture, dist_to_focus);
+    let camera = Camera::new(look_from, look_to, config.fov, config.aspect_ratio(), config.aperture, dist_to_focus);
 
     // Scene
     let mut scene = Scene::new(camera, SceneSky::Day);
@@ -346,17 +355,14 @@ pub fn planes_scene(viewport: &Viewport, camera_aperture: f32) -> Scene {
     scene
 }
 
-pub fn hall_of_mirrors(viewport: &Viewport, camera_aperture: f32) -> Scene {
+pub fn hall_of_mirrors(config: &CameraConfiguration) -> Scene {
 
     // Camera
     let look_from = position!(Up(3.0), South(2.5), East(1.2));
     let look_to =   position!(Up(0.5));
-
-    let fov = 80.0;
-    let aspect_ratio = viewport.width as f32 / viewport.height as f32;
     let dist_to_focus = (look_to - look_from).length();
 
-    let camera = Camera::new(look_from, look_to, fov, aspect_ratio, camera_aperture, dist_to_focus);
+    let camera = Camera::new(look_from, look_to, config.fov, config.aspect_ratio(), config.aperture, dist_to_focus);
 
     // Scene
     let mut scene = Scene::new(camera, SceneSky::Day);
@@ -393,16 +399,14 @@ pub fn hall_of_mirrors(viewport: &Viewport, camera_aperture: f32) -> Scene {
     scene
 }
 
-pub fn triangle_world(viewport: &Viewport, camera_aperture: f32) -> Scene {
+pub fn triangle_world(config: &CameraConfiguration) -> Scene {
 
     // Camera
     let look_from = position!(Up(5.0), South(6.0), East(1.5));
     let look_to =   position!(Up(0.0));
-    let fov = 45.0;
-    let aspect_ratio = viewport.width as f32 / viewport.height as f32;
     let dist_to_focus = (look_from - look_to).length();
 
-    let camera = Camera::new(look_from, look_to, fov, aspect_ratio, camera_aperture, dist_to_focus);
+    let camera = Camera::new(look_from, look_to, config.fov, config.aspect_ratio(), config.aperture, dist_to_focus);
 
     // Scene
     let mut scene = Scene::new(camera, SceneSky::Black);
@@ -446,16 +450,14 @@ pub fn triangle_world(viewport: &Viewport, camera_aperture: f32) -> Scene {
     scene
 }
 
-pub fn mesh_demo(viewport: &Viewport, camera_aperture: f32) -> Scene {
+pub fn mesh_demo(config: &CameraConfiguration) -> Scene {
     
     // Camera
     let look_from = position!(Up(1.5), South(4.0), East(4.0));
     let look_to =   position!(Up(1.0));
-    let fov = 45.0;
-    let aspect_ratio = viewport.width as f32 / viewport.height as f32;
     let dist_to_focus = (look_from - look_to).length();
 
-    let camera = Camera::new(look_from, look_to, fov, aspect_ratio, camera_aperture, dist_to_focus);
+    let camera = Camera::new(look_from, look_to, config.fov, config.aspect_ratio(), config.aperture, dist_to_focus);
 
     // Scene
     let mut scene = Scene::new(camera, SceneSky::Black);
@@ -506,16 +508,14 @@ pub fn mesh_demo(viewport: &Viewport, camera_aperture: f32) -> Scene {
     scene
 }
 
-pub fn interceptor(viewport: &Viewport, camera_aperture: f32) -> Scene {
+pub fn interceptor(config: &CameraConfiguration) -> Scene {
     
     // Camera
     let look_from = position!(Up(18.0), South(26.0), East(26.0));
     let look_to =   position!(Up(4.0), East(1.0));
-    let fov = 45.0;
-    let aspect_ratio = viewport.width as f32 / viewport.height as f32;
     let dist_to_focus = (look_from - look_to).length();
 
-    let camera = Camera::new(look_from, look_to, fov, aspect_ratio, camera_aperture, dist_to_focus);
+    let camera = Camera::new(look_from, look_to, config.fov, config.aspect_ratio(), config.aperture, dist_to_focus);
 
     // Scene
     let mut scene = Scene::new(camera, SceneSky::Black);

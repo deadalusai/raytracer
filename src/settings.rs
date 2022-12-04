@@ -28,6 +28,7 @@ pub struct Settings {
     pub chunk_count: u32,
     pub thread_count: u32,
     pub samples_per_pixel: u32,
+    pub camera_fov: f32,
     pub camera_aperture: f32,
     pub max_reflections: u32,
     pub scale_render_to_window: bool,
@@ -42,6 +43,7 @@ impl Default for Settings {
             chunk_count: 128,
             thread_count: 4,
             samples_per_pixel: 1,
+            camera_fov: 45.0,
             camera_aperture: 0.1,
             max_reflections: 5,
             scale_render_to_window: true,
@@ -102,6 +104,16 @@ impl<'a> egui::Widget for SettingsWidget<'a> {
                 // Samples per pixel
                 ui.label("Samples per pixel");
                 ui.add(egui::DragValue::new(&mut st.samples_per_pixel).clamp_range(1..=1000));
+                ui.end_row();
+                
+                // Camera aperture
+                ui.label("Camera FOV");
+                ui.horizontal(|ui| {
+                    ui.add(egui::DragValue::new(&mut st.camera_fov)
+                        .clamp_range(1.0..=360.0)
+                        .speed(0.05)
+                        .max_decimals(2));
+                });
                 ui.end_row();
                 
                 // Camera aperture

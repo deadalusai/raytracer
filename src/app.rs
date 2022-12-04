@@ -7,6 +7,7 @@ use rand::{ thread_rng };
 use flume::{ Receiver, Sender };
 use raytracer_impl::implementation::{ Scene, RenderSettings };
 use raytracer_impl::viewport::{ RenderChunk, Viewport, create_render_chunks };
+use raytracer_samples::CameraConfiguration;
 
 use crate::rgba::{ RgbaBuffer, v3_to_rgba };
 use crate::frame_history::{ FrameHistory };
@@ -82,15 +83,20 @@ impl App {
 
         // Create render work arguments
         let viewport = Viewport::new(st.width, st.height);
-        let camera_aperture = st.camera_aperture;
+        let camera_config = CameraConfiguration {
+            width: st.width as f32,
+            height: st.height as f32,
+            fov: st.camera_fov,
+            aperture: st.camera_aperture,
+        };
         let mut scene = match st.scene {
-            TestScene::RandomSpheres => raytracer_samples::samples::random_sphere_scene(&viewport, camera_aperture),
-            TestScene::Simple        => raytracer_samples::samples::simple_scene(&viewport, camera_aperture),
-            TestScene::Planes        => raytracer_samples::samples::planes_scene(&viewport, camera_aperture),
-            TestScene::Mirrors       => raytracer_samples::samples::hall_of_mirrors(&viewport, camera_aperture),
-            TestScene::Triangles     => raytracer_samples::samples::triangle_world(&viewport, camera_aperture),
-            TestScene::Mesh          => raytracer_samples::samples::mesh_demo(&viewport, camera_aperture),
-            TestScene::Interceptor   => raytracer_samples::samples::interceptor(&viewport, camera_aperture),
+            TestScene::RandomSpheres => raytracer_samples::samples::random_sphere_scene(&camera_config),
+            TestScene::Simple        => raytracer_samples::samples::simple_scene(&camera_config),
+            TestScene::Planes        => raytracer_samples::samples::planes_scene(&camera_config),
+            TestScene::Mirrors       => raytracer_samples::samples::hall_of_mirrors(&camera_config),
+            TestScene::Triangles     => raytracer_samples::samples::triangle_world(&camera_config),
+            TestScene::Mesh          => raytracer_samples::samples::mesh_demo(&camera_config),
+            TestScene::Interceptor   => raytracer_samples::samples::interceptor(&camera_config),
         };
 
         scene.reorganize_objects_into_bvh();
