@@ -88,6 +88,9 @@ impl App {
             height: st.height as f32,
             fov: st.camera_fov,
             aperture: st.camera_aperture,
+            angle_adjust_v: st.camera_angle_adjust_v,
+            angle_adjust_h: st.camera_angle_adjust_h,
+            focus_dist_adjust: st.camera_focus_dist_adjust,
         };
         let mut scene = match st.scene {
             TestScene::RandomSpheres => raytracer_samples::samples::random_sphere_scene(&camera_config),
@@ -327,6 +330,7 @@ impl eframe::App for App {
         egui::Window::new("Settings")
             .resizable(false)
             .default_width(200.0)
+            .default_height(500.0)
             .show(ctx, |ui| {
                 ui.add(SettingsWidget::new(&mut self.settings));
                 ui.separator();

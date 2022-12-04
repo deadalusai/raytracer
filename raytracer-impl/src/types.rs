@@ -177,3 +177,22 @@ impl Ray {
         self.origin + (self.direction * t)
     }
 }
+
+//
+// Helpers
+//
+
+impl V3 {
+    /// Rotates the vector about (0,0,0) using the unit vector {axis} as an axis
+    pub fn rotate_about_axis(&self, axis: V3, theta: f32) -> V3 {
+        // See: https://en.wikipedia.org/wiki/Rodrigues%27_rotation_formula
+        // If P is a vector in ℝ3 and K is a unit vector describing an axis of rotation
+        // about which P rotates by an angle θ according to the right hand rule,
+        // the Rodrigues formula for the rotated vector Prot is: 
+        //
+        //      Prot = P cosθ + (K × P) sinθ + K (K · P) (1 - cosθ)
+
+        let p = self.clone();
+        (p * theta.cos()) + (V3::cross(axis, p) * theta.sin()) + (axis * V3::dot(axis, p) * (1.0 - theta.cos()))
+    }
+}

@@ -37,11 +37,40 @@ pub struct CameraConfiguration {
     pub height: f32,
     pub aperture: f32,
     pub fov: f32,
+    pub angle_adjust_v: f32,
+    pub angle_adjust_h: f32,
+    pub focus_dist_adjust: f32,
 }
 
 impl CameraConfiguration {
     fn aspect_ratio(&self) -> f32 {
         self.width / self.height
+    }
+
+    fn make_camera(&self, look_to: V3, default_look_from: V3) -> Camera {
+        fn deg_to_rad(deg: f32) -> f32 {
+            (deg / 180.0) * std::f32::consts::PI
+        }
+
+        let look_from = {
+            // Translate into rotation space
+            let p = default_look_from - look_to;
+
+            // The vertical axis (to rotate about horizontally)
+            let v_axis = V3(0.0, 1.0, 0.0);
+            let p = p.rotate_about_axis(v_axis, deg_to_rad(self.angle_adjust_h));
+            
+            // The horizontal axis (to rotate about vertically)
+            let w = (V3::zero() - p).unit();            // Vector to origin 
+            let h_axis = V3::cross(v_axis, w).unit();  // Vector to camera right
+            let p = p.rotate_about_axis(h_axis, deg_to_rad(self.angle_adjust_v));
+
+            // Translate into world space
+            p + look_to
+        };
+        let dist_to_focus = (look_from - look_to).length() + self.focus_dist_adjust;
+        
+        Camera::new(look_from, look_to, self.fov, self.aspect_ratio(), self.aperture, dist_to_focus)
     }
 }
 
@@ -158,9 +187,7 @@ pub fn random_sphere_scene(config: &CameraConfiguration) -> Scene {
     // Camera
     let look_from = V3(13.0, 2.0, 3.0);
     let look_to = V3(0.0, 0.0, 0.0);
-    let dist_to_focus = 10.0; // distance to look target is 13-ish
-
-    let camera = Camera::new(look_from, look_to, config.fov, config.aspect_ratio(), config.aperture, dist_to_focus);
+    let camera = config.make_camera(look_to, look_from);
 
     // Scene
     let mut rng = create_rng_from_seed(1, 1);
@@ -241,9 +268,7 @@ pub fn simple_scene(config: &CameraConfiguration) -> Scene {
     // Camera
     let look_from = position!(South(6.0), East(1.5), Up(3.0));
     let look_to =   position!(Up(1.0));
-    let dist_to_focus = (look_from - look_to).length();
-
-    let camera = Camera::new(look_from, look_to, config.fov, config.aspect_ratio(), config.aperture, dist_to_focus);
+    let camera = config.make_camera(look_to, look_from);
 
     // Scene
     let mut scene = Scene::new(camera, SceneSky::Black);
@@ -328,9 +353,7 @@ pub fn planes_scene(config: &CameraConfiguration) -> Scene {
     // Camera
     let look_from = position!(South(6.0), East(1.5), Up(3.0));
     let look_to =   position!(Up(1.0));
-    let dist_to_focus = (look_to - look_from).length();
-
-    let camera = Camera::new(look_from, look_to, config.fov, config.aspect_ratio(), config.aperture, dist_to_focus);
+    let camera = config.make_camera(look_to, look_from);
 
     // Scene
     let mut scene = Scene::new(camera, SceneSky::Day);
@@ -360,9 +383,7 @@ pub fn hall_of_mirrors(config: &CameraConfiguration) -> Scene {
     // Camera
     let look_from = position!(Up(3.0), South(2.5), East(1.2));
     let look_to =   position!(Up(0.5));
-    let dist_to_focus = (look_to - look_from).length();
-
-    let camera = Camera::new(look_from, look_to, config.fov, config.aspect_ratio(), config.aperture, dist_to_focus);
+    let camera = config.make_camera(look_to, look_from);
 
     // Scene
     let mut scene = Scene::new(camera, SceneSky::Day);
@@ -404,9 +425,7 @@ pub fn triangle_world(config: &CameraConfiguration) -> Scene {
     // Camera
     let look_from = position!(Up(5.0), South(6.0), East(1.5));
     let look_to =   position!(Up(0.0));
-    let dist_to_focus = (look_from - look_to).length();
-
-    let camera = Camera::new(look_from, look_to, config.fov, config.aspect_ratio(), config.aperture, dist_to_focus);
+    let camera = config.make_camera(look_to, look_from);
 
     // Scene
     let mut scene = Scene::new(camera, SceneSky::Black);
@@ -455,9 +474,7 @@ pub fn mesh_demo(config: &CameraConfiguration) -> Scene {
     // Camera
     let look_from = position!(Up(1.5), South(4.0), East(4.0));
     let look_to =   position!(Up(1.0));
-    let dist_to_focus = (look_from - look_to).length();
-
-    let camera = Camera::new(look_from, look_to, config.fov, config.aspect_ratio(), config.aperture, dist_to_focus);
+    let camera = config.make_camera(look_to, look_from);
 
     // Scene
     let mut scene = Scene::new(camera, SceneSky::Black);
@@ -513,9 +530,7 @@ pub fn interceptor(config: &CameraConfiguration) -> Scene {
     // Camera
     let look_from = position!(Up(18.0), South(26.0), East(26.0));
     let look_to =   position!(Up(4.0), East(1.0));
-    let dist_to_focus = (look_from - look_to).length();
-
-    let camera = Camera::new(look_from, look_to, config.fov, config.aspect_ratio(), config.aperture, dist_to_focus);
+    let camera = config.make_camera(look_to, look_from);
 
     // Scene
     let mut scene = Scene::new(camera, SceneSky::Black);

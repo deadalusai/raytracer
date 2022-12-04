@@ -30,6 +30,9 @@ pub struct Settings {
     pub samples_per_pixel: u32,
     pub camera_fov: f32,
     pub camera_aperture: f32,
+    pub camera_angle_adjust_v: f32,
+    pub camera_angle_adjust_h: f32,
+    pub camera_focus_dist_adjust: f32,
     pub max_reflections: u32,
     pub scale_render_to_window: bool,
 }
@@ -45,6 +48,9 @@ impl Default for Settings {
             samples_per_pixel: 1,
             camera_fov: 45.0,
             camera_aperture: 0.1,
+            camera_angle_adjust_v: 0.0,
+            camera_angle_adjust_h: 0.0,
+            camera_focus_dist_adjust: 0.0,
             max_reflections: 5,
             scale_render_to_window: true,
         }
@@ -112,7 +118,8 @@ impl<'a> egui::Widget for SettingsWidget<'a> {
                     ui.add(egui::DragValue::new(&mut st.camera_fov)
                         .clamp_range(1.0..=360.0)
                         .speed(0.05)
-                        .max_decimals(2));
+                        .max_decimals(2)
+                        .suffix("°"));
                 });
                 ui.end_row();
                 
@@ -122,12 +129,40 @@ impl<'a> egui::Widget for SettingsWidget<'a> {
                     ui.add(egui::DragValue::new(&mut st.camera_aperture)
                         .clamp_range(0.0..=15.0)
                         .speed(0.05)
-                        .max_decimals(2));
+                        .max_decimals(2)
+                        .suffix("°"));
 
                     if st.samples_per_pixel == 1 {
                         ui.add(egui::Label::new(egui::RichText::new("⚠").color(egui::Color32::RED)))
                             .on_hover_text("Camera aperture ignored with 1 sample per ray");
                     }
+                });
+                ui.end_row();
+                
+                // Camera angle
+                ui.label("Camera angle");
+                ui.horizontal(|ui| {
+                    ui.add(egui::DragValue::new(&mut st.camera_angle_adjust_h)
+                        .clamp_range(-180..=180)
+                        .speed(0.5)
+                        .max_decimals(3)
+                        .suffix("°"));
+
+                    ui.add(egui::DragValue::new(&mut st.camera_angle_adjust_v)
+                        .clamp_range(-90.0..=90.0)
+                        .speed(0.5)
+                        .max_decimals(3)
+                        .suffix("°"));
+                });
+                ui.end_row();
+                
+                // Camera focus
+                ui.label("Camera focus");
+                ui.horizontal(|ui| {
+                    ui.add(egui::DragValue::new(&mut st.camera_focus_dist_adjust)
+                        .clamp_range(-10.0..=10.0)
+                        .speed(0.5)
+                        .max_decimals(3));
                 });
                 ui.end_row();
 

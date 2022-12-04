@@ -253,8 +253,8 @@ impl Camera {
         let half_height = (theta / 2.0).tan();
         let half_width = aspect_ratio * half_height;
         let w = (look_from - look_at).unit(); // Vector from target to camera origin 
-        let u = V3::cross(v_up, w).unit();  // Vector from camera origin to camera right
-        let v = V3::cross(w, u);                   // Vector from camera origin to camera top
+        let u = V3::cross(v_up, w).unit();    // Vector from camera origin to camera right
+        let v = V3::cross(w, u);              // Vector from camera origin to camera top
         let lens_radius = lens_aperture / 2.0;
         Camera {
             lower_left_corner: look_from - (u * half_width * focus_dist) - (v * half_height * focus_dist) - (w * focus_dist),
