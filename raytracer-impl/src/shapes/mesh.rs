@@ -39,7 +39,7 @@ pub struct MeshBvhLeaf(Tri);
 
 impl MeshBvhLeaf {
     fn hit_node(&self, ray: &Ray, t_min: f32, t_max: f32) -> Option<TriIntersect> {
-        tri_intersect(ray, self.0.0, self.0.1, self.0.2).filter(|ti| t_min < ti.t && ti.t < t_max)
+        tri_intersect(ray, self.0.0, self.0.1, self.0.2).filter(|x| t_min < x.t && x.t < t_max)
     }
 }
 
@@ -120,25 +120,41 @@ pub fn build_triangle_bvh_hierachy(triangles: &[Tri]) -> Option<MeshBvhNode> {
 
 // Mesh
 
+pub enum MeshReflectionMode {
+    MonoDirectional,
+    BiDirectional,
+}
+
 pub struct Mesh {
     object_id: Option<u32>,
     origin: V3,
     mesh_node: MeshBvhNode,
     material: Box<dyn Material>,
+    reflection_mode: MeshReflectionMode,
 }
 
 impl Mesh {
     pub fn new<M>(origin: V3, triangles: Vec<(V3, V3, V3)>, material: M) -> Self
         where M: Material + 'static
     {
-        let mesh_node = build_triangle_bvh_hierachy(&triangles).expect("Expected at least one triangle for mesh");
-
-        Mesh { object_id: None, origin, mesh_node, material: Box::new(material) }
+        Mesh {
+            object_id: None,
+            origin,
+            mesh_node: build_triangle_bvh_hierachy(&triangles).expect("Expected at least one triangle for mesh"),
+            material: Box::new(material),
+            reflection_mode: MeshReflectionMode::MonoDirectional,
+        }
     }
 
     #[allow(unused)]
     pub fn with_id(mut self, id: u32) -> Self {
         self.object_id = Some(id);
+        self
+    }
+
+    #[allow(unused)]
+    pub fn with_reflection_mode(mut self, mode: MeshReflectionMode) -> Self {
+        self.reflection_mode = mode;
         self
     }
 }
@@ -153,10 +169,23 @@ impl Hitable for Mesh {
         let t = mesh_hit.t;
         let object_id = self.object_id;
         let material = self.material.as_ref();
-        // If this plane is facing away from the ray we want to flip the reported normal
-        // so that reflections work in both directions.
-        let normal = if V3::dot(ray.direction, mesh_hit.normal) > 0.0 { -mesh_hit.normal } else { mesh_hit.normal };
-        Some(HitRecord { object_id, p, t, normal, material })
+        let is_plane_facing_away = V3::dot(ray.direction, mesh_hit.normal) > 0.0;
+        match self.reflection_mode {
+            MeshReflectionMode::MonoDirectional => {
+                // If the plane is facing away from the ray then consider this a miss
+                if is_plane_facing_away {
+                    return None;
+                }
+                let normal = mesh_hit.normal;
+                Some(HitRecord { object_id, p, t, normal, material })
+            },
+            MeshReflectionMode::BiDirectional => {
+                // If this plane is facing away from the ray we want to flip the reported normal
+                // so that reflections work in both directions.
+                let normal = if is_plane_facing_away { -mesh_hit.normal } else { mesh_hit.normal };
+                Some(HitRecord { object_id, p, t, normal, material })
+            },
+        }
     }
 
     fn bounding_box(&self) -> Option<AABB> {

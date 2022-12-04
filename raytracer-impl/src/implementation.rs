@@ -86,7 +86,7 @@ impl AABB {
             }
             t_min = if t0 > t_min { t0 } else { t_min };
             t_max = if t1 < t_max { t1 } else { t_max };
-            if t_max <= t_min {
+            if t_max < t_min {
                 // No intersection on this dimension
                 return false;
             }
