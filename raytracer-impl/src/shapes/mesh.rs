@@ -41,6 +41,10 @@ impl MeshBvhLeaf {
     fn hit_node(&self, ray: &Ray, t_min: f32, t_max: f32) -> Option<TriIntersect> {
         tri_intersect(ray, self.0.0, self.0.1, self.0.2).filter(|x| t_min < x.t && x.t < t_max)
     }
+
+    fn aabb(&self) -> AABB {
+        tri_aabb(&self.0)
+    }
 }
 
 pub struct MeshBvhBranch {
@@ -63,6 +67,10 @@ impl MeshBvhBranch {
             _                  => None,
         }
     }
+
+    fn aabb(&self) -> AABB {
+        self.aabb.clone()
+    }
 }
 
 pub enum MeshBvhNode {
@@ -80,8 +88,8 @@ impl MeshBvhNode {
 
     fn aabb(&self) -> AABB {
         match self {
-            MeshBvhNode::Leaf(leaf) => tri_aabb(&leaf.0),
-            MeshBvhNode::Branch(branch) => branch.aabb.clone(),
+            MeshBvhNode::Leaf(leaf) => leaf.aabb(),
+            MeshBvhNode::Branch(branch) => branch.aabb(),
         }
     }
 }
