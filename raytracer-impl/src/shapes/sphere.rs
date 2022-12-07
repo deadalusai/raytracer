@@ -1,4 +1,5 @@
-use crate::types::{ V3, Ray };
+use std::sync::Arc;
+use crate::types::{ V3, Ray, IntoArc };
 use crate::implementation::{ Material, Hitable, HitRecord, AABB };
 
 fn intersect_sphere(ray: &Ray, origin: V3, radius: f32) -> Option<[f32; 2]> {
@@ -20,14 +21,12 @@ pub struct Sphere {
     object_id: Option<u32>,
     origin: V3,
     radius: f32,
-    material: Box<dyn Material>,
+    material: Arc<dyn Material>,
 }
 
 impl Sphere {
-    pub fn new<M>(origin: V3, radius: f32, material: M) -> Self
-        where M: Material + 'static
-    {
-        Sphere { object_id: None, origin, radius: radius, material: Box::new(material) }
+    pub fn new(origin: V3, radius: f32, material: impl IntoArc<dyn Material>) -> Self {
+        Sphere { object_id: None, origin, radius: radius, material: material.into_arc() }
     }
 
     #[allow(unused)]

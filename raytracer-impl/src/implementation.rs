@@ -1,8 +1,7 @@
 use std;
 use std::sync::Arc;
 
-use crate::types::{ V3 };
-use crate::types::{ Ray };
+use crate::types::{ V3, Ray, IntoArc };
 use crate::viewport::{ Viewport };
 
 use rand::{ RngCore, Rng };
@@ -118,6 +117,8 @@ pub trait Material: Send + Sync {
     fn scatter(&self, ray: &Ray, hit_record: &HitRecord, rng: &mut dyn RngCore) -> MatRecord;
 }
 
+super::types::derive_into_arc!(Material);
+
 // Hitables
 
 pub struct HitRecord<'mat> {
@@ -133,7 +134,7 @@ pub trait Hitable: Send + Sync {
     fn bounding_box(&self) -> Option<AABB>;
 }
 
-pub type HitableArc = Arc<dyn Hitable>;
+super::types::derive_into_arc!(Hitable);
 
 // Light sources
 
@@ -147,6 +148,8 @@ pub struct LightRecord {
 pub trait LightSource: Send + Sync {
     fn get_direction_and_intensity(&self, p: V3) -> Option<LightRecord>;
 }
+
+super::types::derive_into_arc!(LightSource);
 
 // Scene
 
@@ -178,16 +181,12 @@ impl Scene {
         }
     }
 
-    pub fn add_obj<T>(&mut self, hitable: T)
-        where T: Hitable + 'static
-    {
-        self.hitables.push(Arc::new(hitable));
+    pub fn add_obj(&mut self, hitable: impl IntoArc<dyn Hitable>) {
+        self.hitables.push(hitable.into_arc());
     }
 
-    pub fn add_light<T>(&mut self, light: T)
-        where T: LightSource + 'static
-    {
-        self.lights.push(Arc::new(light));
+    pub fn add_light(&mut self, light: impl IntoArc<dyn LightSource>) {
+        self.lights.push(light.into_arc());
     }
 
     fn hit_closest(&self, ray: &Ray, t_min: f32, t_max: f32) -> Option<HitRecord> {

@@ -1,4 +1,5 @@
-use crate::types::{ V3, Ray };
+use std::sync::Arc;
+use crate::types::{ V3, Ray, IntoArc };
 use crate::implementation::{ Material, Hitable, HitRecord, AABB };
 
 pub fn intersect_plane(ray: &Ray, origin: V3, normal: V3) -> Option<f32> {
@@ -20,15 +21,13 @@ pub struct Plane {
     object_id: Option<u32>,
     origin: V3,
     normal: V3,
-    material: Box<dyn Material>,
+    material: Arc<dyn Material>,
     radius: Option<f32>,
 }
 
 impl Plane {
-    pub fn new<M>(origin: V3, normal: V3, material: M) -> Self
-        where M: Material + 'static
-    {
-        Plane { object_id: None, origin, normal: normal.unit(), material: Box::new(material), radius: None }
+    pub fn new(origin: V3, normal: V3, material: impl IntoArc<dyn Material>) -> Self {
+        Plane { object_id: None, origin, normal: normal.unit(), material: material.into_arc(), radius: None }
     }
 
     pub fn with_radius(mut self, radius: f32) -> Plane {

@@ -214,7 +214,7 @@ pub fn random_sphere_scene(config: &CameraConfiguration) -> Scene {
     // Large mat sphere
     let metal_sphere_center = V3(4.0, 1.0, 0.0);
     let metal_sphere_mat = MatMetal::with_albedo(V3(0.8, 0.8, 0.8)).with_fuzz(0.0);
-    scene.add_obj(Sphere::new(metal_sphere_center.clone(),  1.0, metal_sphere_mat));
+    scene.add_obj(Sphere::new(metal_sphere_center.clone(), 1.0, metal_sphere_mat));
 
     let sphere_centers = [lam_sphere_center, hollow_sphere_center, metal_sphere_center];
 

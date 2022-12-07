@@ -196,3 +196,29 @@ impl V3 {
         (p * theta.cos()) + (V3::cross(axis, p) * theta.sin()) + (axis * V3::dot(axis, p) * (1.0 - theta.cos()))
     }
 }
+
+//
+// Conversion
+//
+
+/// A trait for coercing a concrete type O: T into Arc<dyn T>, or Arc<O> into Arc<dyn T>
+pub trait IntoArc<T: ?Sized> {
+    fn into_arc(self) -> std::sync::Arc<T>;
+}
+
+macro_rules! derive_into_arc {
+    ($type:ident) => {
+        impl<T: 'static> IntoArc<dyn $type> for T where T: $type {
+            fn into_arc(self) -> std::sync::Arc<dyn $type> {
+                std::sync::Arc::new(self)
+            }
+        }
+        impl<T: 'static> IntoArc<dyn $type> for std::sync::Arc<T> where T: $type {
+            fn into_arc(self) -> std::sync::Arc<dyn $type> {
+                self
+            }
+        }
+    };
+}
+
+pub(crate) use derive_into_arc;

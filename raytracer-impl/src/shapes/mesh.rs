@@ -1,4 +1,6 @@
-use crate::types::{ V3, Ray };
+use std::sync::Arc;
+
+use crate::types::{ V3, Ray, IntoArc };
 use crate::implementation::{ Material, Hitable, HitRecord, AABB };
 
 // Triangle Mesh BVH
@@ -127,19 +129,17 @@ pub struct Mesh {
     object_id: Option<u32>,
     origin: V3,
     mesh_node: MeshBvhNode,
-    material: Box<dyn Material>,
+    material: Arc<dyn Material>,
     reflection_mode: MeshReflectionMode,
 }
 
 impl Mesh {
-    pub fn new<M>(origin: V3, triangles: Vec<(V3, V3, V3)>, material: M) -> Self
-        where M: Material + 'static
-    {
+    pub fn new(origin: V3, triangles: Vec<(V3, V3, V3)>, material: impl IntoArc<dyn Material>) -> Self {
         Mesh {
             object_id: None,
             origin,
             mesh_node: build_triangle_bvh_hierachy(&triangles).expect("Expected at least one triangle for mesh"),
-            material: Box::new(material),
+            material: material.into_arc(),
             reflection_mode: MeshReflectionMode::MonoDirectional,
         }
     }

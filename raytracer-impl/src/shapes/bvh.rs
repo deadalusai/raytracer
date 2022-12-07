@@ -1,18 +1,18 @@
 use std::sync::Arc;
 
 use crate::types::{ Ray };
-use crate::implementation::{ AABB, HitableArc, Hitable, HitRecord };
+use crate::implementation::{ AABB, Hitable, HitRecord };
 
 // Hacky Bounding Volume Hierachy implementation for Hitable objects
 
 pub struct BvhNode {
     aabb: AABB,
-    left: HitableArc,
-    right: HitableArc,
+    left: Arc<dyn Hitable>,
+    right: Arc<dyn Hitable>,
 }
 
 impl BvhNode {
-    pub fn new(left: HitableArc, right: HitableArc) -> BvhNode {
+    pub fn new(left: Arc<dyn Hitable>, right: Arc<dyn Hitable>) -> BvhNode {
         let aabb = AABB::surrounding(
             left.bounding_box().expect("Left hitable bounding box"),
             right.bounding_box().expect("Right hitable bounding box"),
@@ -62,9 +62,9 @@ pub fn compare_aabb(l: &AABB, r: &AABB, axis: SortAxis) -> std::cmp::Ordering {
     ordering.unwrap_or(std::cmp::Ordering::Equal)
 }
 
-pub fn build_bvh_hierachy(hitables: &mut [(AABB, HitableArc)]) -> Option<HitableArc> {
+pub fn build_bvh_hierachy(hitables: &mut [(AABB, Arc<dyn Hitable>)]) -> Option<Arc<dyn Hitable>> {
 
-    fn inner(hitables: &mut [(AABB, HitableArc)], axis: SortAxis) -> Option<HitableArc> {
+    fn inner(hitables: &mut [(AABB, Arc<dyn Hitable>)], axis: SortAxis) -> Option<Arc<dyn Hitable>> {
 
         let node = match hitables {
             [] => return None,
