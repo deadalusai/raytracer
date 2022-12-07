@@ -2,6 +2,7 @@ extern crate rand;
 
 pub mod types;
 pub mod materials;
+pub mod texture;
 pub mod shapes;
 pub mod lights;
 pub mod implementation;

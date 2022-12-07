@@ -1,6 +1,7 @@
 #![allow(unused)]
 
 use raytracer_impl::shapes::mesh::MeshReflectionMode;
+use raytracer_impl::texture::{ColorTexture, CheckerTexture};
 use raytracer_impl::types::{ V3, Ray };
 use raytracer_impl::materials::{ MatLambertian, MatDielectric, MatMetal };
 use raytracer_impl::shapes::{ Sphere, Plane, Mesh };
@@ -156,7 +157,7 @@ fn make_lambertian<R: Rng> (rng: &mut R) -> MatLambertian {
         /* g */ rng.gen::<f32>() * rng.gen::<f32>(),
         /* b */ rng.gen::<f32>() * rng.gen::<f32>()
     );
-    MatLambertian::with_albedo(albedo)
+    MatLambertian::with_texture(ColorTexture(albedo))
 }
 
 fn make_metal<R: Rng> (rng: &mut R) -> MatMetal {
@@ -198,11 +199,17 @@ pub fn random_sphere_scene(config: &CameraConfiguration) -> Scene {
     scene.add_light(DirectionalLight::with_direction(lamp_direction).with_intensity(0.5));
 
     // World sphere
-    scene.add_obj(Sphere::new(V3(0.0, -1000.0, 0.0), 1000.0, MatLambertian::with_albedo(V3(0.5, 0.5, 0.5))));
+    let world_texture = CheckerTexture::new(
+        10.0,
+        ColorTexture(V3(0.4, 0.5, 0.4)),
+        ColorTexture(V3(0.9, 0.8, 0.9))
+    );
+
+    scene.add_obj(Sphere::new(V3(0.0, -1000.0, 0.0), 1000.0, MatLambertian::with_texture(world_texture)));
 
     // Large metal sphere
     let lam_sphere_center = V3(-4.0, 1.0, 0.0);
-    let lam_sphere_mat = MatLambertian::with_albedo(V3(0.8, 0.2, 0.1));
+    let lam_sphere_mat = MatLambertian::with_texture(ColorTexture(V3(0.8, 0.2, 0.1)));
     scene.add_obj(Sphere::new(lam_sphere_center.clone(), 1.0, lam_sphere_mat));
     
     // Large hollow glass sphere
@@ -250,17 +257,17 @@ pub fn random_sphere_scene(config: &CameraConfiguration) -> Scene {
 
 fn add_cardinal_markers(scene: &mut Scene) {
     // Direction makers
-    scene.add_obj(Sphere::new(position!(North(2.0)), 0.25, MatLambertian::with_albedo(rgb(128, 0,   0))));
-    scene.add_obj(Sphere::new(position!(East(2.0)),  0.25, MatLambertian::with_albedo(rgb(0,   128, 0))));
-    scene.add_obj(Sphere::new(position!(West(2.0)),  0.25, MatLambertian::with_albedo(rgb(0,   0,   128))));
-    scene.add_obj(Sphere::new(position!(South(2.0)), 0.25, MatLambertian::with_albedo(rgb(255, 255, 255))));
+    scene.add_obj(Sphere::new(position!(North(2.0)), 0.25, MatLambertian::with_texture(ColorTexture(rgb(128, 0,   0)))));
+    scene.add_obj(Sphere::new(position!(East(2.0)),  0.25, MatLambertian::with_texture(ColorTexture(rgb(0,   128, 0)))));
+    scene.add_obj(Sphere::new(position!(West(2.0)),  0.25, MatLambertian::with_texture(ColorTexture(rgb(0,   0,   128)))));
+    scene.add_obj(Sphere::new(position!(South(2.0)), 0.25, MatLambertian::with_texture(ColorTexture(rgb(255, 255, 255)))));
 }
 
 fn add_coordinates_marker(scene: &mut Scene) {
     // Direction makers
-    scene.add_obj(Sphere::new(V3(1.0, 0.0, 0.0), 0.05, MatLambertian::with_albedo(rgb(128, 0,   0))));
-    scene.add_obj(Sphere::new(V3(0.0, 1.0, 0.0), 0.05, MatLambertian::with_albedo(rgb(0,   128, 0))));
-    scene.add_obj(Sphere::new(V3(0.0, 0.0, 1.0), 0.05, MatLambertian::with_albedo(rgb(0,   0,   128))));
+    scene.add_obj(Sphere::new(V3(1.0, 0.0, 0.0), 0.05, MatLambertian::with_texture(ColorTexture(rgb(128, 0,   0)))));
+    scene.add_obj(Sphere::new(V3(0.0, 1.0, 0.0), 0.05, MatLambertian::with_texture(ColorTexture(rgb(0,   128, 0)))));
+    scene.add_obj(Sphere::new(V3(0.0, 0.0, 1.0), 0.05, MatLambertian::with_texture(ColorTexture(rgb(0,   0,   128)))));
 }
 
 pub fn simple_scene(config: &CameraConfiguration) -> Scene {
@@ -285,18 +292,18 @@ pub fn simple_scene(config: &CameraConfiguration) -> Scene {
     add_cardinal_markers(&mut scene);
 
     // World sphere
-    let world_mat = MatLambertian::with_albedo(rgb(200, 200, 200));
+    let world_mat = MatLambertian::with_texture(ColorTexture(rgb(200, 200, 200)));
     let world_pos = position!(Down(1000.0));
     scene.add_obj(Sphere::new(world_pos, 1000.0, world_mat));
 
     // Wall
-    let wall_mat = MatLambertian::with_albedo(rgb(200, 200, 200)).with_reflectivity(1.0);
+    let wall_mat = MatLambertian::with_texture(ColorTexture(rgb(200, 200, 200))).with_reflectivity(1.0);
     let wall_pos = position!(North(4.5));
     let wall_facing = wall_pos - position!(Origin);
     scene.add_obj(Plane::new(wall_pos, wall_facing, wall_mat));
 
     // Plastic sphere
-    let plastic_mat = MatLambertian::with_albedo(rgb(226, 226, 226));
+    let plastic_mat = MatLambertian::with_texture(ColorTexture(rgb(226, 226, 226)));
     let plastic_pos = position!(Up(1.0));
     scene.add_obj(Sphere::new(plastic_pos, 1.0, plastic_mat));
 
@@ -366,7 +373,7 @@ pub fn planes_scene(config: &CameraConfiguration) -> Scene {
     add_cardinal_markers(&mut scene);
 
     // World sphere
-    let world_mat = MatLambertian::with_albedo(rgb(255, 255, 255)).with_reflectivity(0.01);
+    let world_mat = MatLambertian::with_texture(ColorTexture(rgb(255, 255, 255))).with_reflectivity(0.01);
     let world_pos = position!(Down(1000.0));
     scene.add_obj(Sphere::new(world_pos, 1000.0, world_mat));
 
@@ -398,7 +405,7 @@ pub fn hall_of_mirrors(config: &CameraConfiguration) -> Scene {
     add_coordinates_marker(&mut scene);
 
     // World sphere
-    let world_mat = MatLambertian::with_albedo(rgb(255, 255, 255)).with_reflectivity(0.01);
+    let world_mat = MatLambertian::with_texture(ColorTexture(rgb(255, 255, 255))).with_reflectivity(0.01);
     let world_pos = position!(Down(1000.0));
     scene.add_obj(Sphere::new(world_pos, 1000.0, world_mat));
 
@@ -443,13 +450,13 @@ pub fn triangle_world(config: &CameraConfiguration) -> Scene {
     add_cardinal_markers(&mut scene);
 
     // World sphere
-    let world_mat = MatLambertian::with_albedo(rgb(200, 200, 200));
+    let world_mat = MatLambertian::with_texture(ColorTexture(rgb(200, 200, 200)));
     let world_pos = position!(Down(1000.0));
     scene.add_obj(Sphere::new(world_pos, 1000.0, world_mat));
 
     // Triangle
     let tri_pos = position!(Origin);
-    let tri_mat = MatLambertian::with_albedo(rgb(200, 100, 80)).with_reflectivity(0.0);
+    let tri_mat = MatLambertian::with_texture(ColorTexture(rgb(200, 100, 80))).with_reflectivity(0.0);
     let tri_vertices = (
         position!(Up(0.2), North(1.0)),
         position!(Up(0.4), South(1.0)),
@@ -458,7 +465,7 @@ pub fn triangle_world(config: &CameraConfiguration) -> Scene {
     scene.add_obj(Mesh::new(tri_pos, vec![tri_vertices], tri_mat).with_reflection_mode(MeshReflectionMode::BiDirectional));
 
     let tri_pos = position!(Up(1.0));
-    let tri_mat = MatLambertian::with_albedo(rgb(100, 100, 200)).with_reflectivity(0.0);
+    let tri_mat = MatLambertian::with_texture(ColorTexture(rgb(100, 100, 200))).with_reflectivity(0.0);
     let tri_vertices = (
         position!(Up(0.4), North(1.0)),
         position!(Up(0.8), South(1.0)),
@@ -491,12 +498,12 @@ pub fn mesh_demo(config: &CameraConfiguration) -> Scene {
     // add_cardinal_markers(&mut scene);
 
     // World sphere
-    let world_mat = MatLambertian::with_albedo(rgb(200, 200, 200));
+    let world_mat = MatLambertian::with_texture(ColorTexture(rgb(200, 200, 200)));
     let world_pos = position!(Down(1000.0));
     scene.add_obj(Sphere::new(world_pos, 1000.0, world_mat).with_id(0));
 
     // Cube
-    let cube_mat = MatLambertian::with_albedo(rgb(36, 193, 89)).with_reflectivity(0.0);
+    let cube_mat = MatLambertian::with_texture(ColorTexture(rgb(36, 193, 89))).with_reflectivity(0.0);
     let cube_origin = position!(South(1.5), West(1.5));
     let cube_tris = ObjFile::read_from_string(include_str!("../meshes/cube.obj"))
         .expect("reading cube mesh")
@@ -542,12 +549,12 @@ pub fn interceptor(config: &CameraConfiguration) -> Scene {
 
     // World sphere
     let world_radius = 1000.0;
-    let world_mat = MatLambertian::with_albedo(rgb(200, 200, 200));
+    let world_mat = MatLambertian::with_texture(ColorTexture(rgb(200, 200, 200)));
     let world_pos = position!(Down(world_radius));
     scene.add_obj(Sphere::new(world_pos, world_radius, world_mat).with_id(0));
     
     // Interceptor
-    let int_mat = MatLambertian::with_albedo(rgb(200, 200, 000)).with_reflectivity(0.08);
+    let int_mat = MatLambertian::with_texture(ColorTexture(rgb(200, 200, 000))).with_reflectivity(0.08);
     let int_origin = position!(Up(4.0));
     let int_tris = ObjFile::read_from_string(include_str!("../meshes/interceptor.obj"))
         .expect("reading mesh")

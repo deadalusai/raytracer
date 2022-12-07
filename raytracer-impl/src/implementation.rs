@@ -119,6 +119,14 @@ pub trait Material: Send + Sync {
 
 super::types::derive_into_arc!(Material);
 
+// Textures
+
+pub trait Texture: Send + Sync {
+    fn value(&self, u: f32, v: f32, p: &V3) -> V3;
+}
+
+super::types::derive_into_arc!(Texture);
+
 // Hitables
 
 pub struct HitRecord<'mat> {

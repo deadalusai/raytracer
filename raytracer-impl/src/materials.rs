@@ -2,9 +2,10 @@
 
 use std::f32::consts::FRAC_PI_2;
 use std::mem::{ swap };
+use std::sync::Arc;
 
-use crate::types::{ V3, Ray };
-use crate::implementation::{ Material, MatRecord, Reflect, Refract, HitRecord, random_point_in_unit_sphere };
+use crate::types::{ V3, Ray, IntoArc };
+use crate::implementation::{ Material, MatRecord, Reflect, Refract, HitRecord, Texture, random_point_in_unit_sphere };
 
 use rand::{ RngCore };
 
@@ -22,14 +23,14 @@ macro_rules! assert_in_range {
 
 #[derive(Clone)]
 pub struct MatLambertian {
-    albedo: V3,
+    texture: Arc<dyn Texture>,
     reflectivity: f32,
 }
 
 impl MatLambertian {
-    pub fn with_albedo(albedo: V3) -> MatLambertian {
+    pub fn with_texture(texture: impl IntoArc<dyn Texture>) -> MatLambertian {
         MatLambertian { 
-            albedo: albedo,
+            texture: texture.into_arc(),
             reflectivity: 0.0,
         }
     }
@@ -51,7 +52,7 @@ impl Material for MatLambertian {
         MatRecord {
             reflection: Some(Reflect { ray, intensity: self.reflectivity }),
             refraction: None,
-            albedo: self.albedo.clone()
+            albedo: self.texture.value(0.0, 0.0, &hit_record.p)
         }
     }
 }
