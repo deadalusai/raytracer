@@ -170,28 +170,26 @@ impl Hitable for Mesh {
         // Shift the ray into mesh space
         let mesh_ray = Ray::new(ray.origin - self.origin, ray.direction);
         let mesh_hit = self.mesh_node.hit_node(&mesh_ray, t_min, t_max)?;
-        // Shift the hit back into world space
-        let p = mesh_hit.p + self.origin;
-        let t = mesh_hit.t;
-        let object_id = self.object_id;
-        let material = self.material.as_ref();
         let is_plane_facing_away = V3::dot(ray.direction, mesh_hit.normal) > 0.0;
-        match self.reflection_mode {
+        let normal = match self.reflection_mode {
             MeshReflectionMode::MonoDirectional => {
                 // If the plane is facing away from the ray then consider this a miss
-                if is_plane_facing_away {
-                    return None;
-                }
-                let normal = mesh_hit.normal;
-                Some(HitRecord { object_id, p, t, normal, material })
+                if is_plane_facing_away { None } else { Some(mesh_hit.normal) }
             },
             MeshReflectionMode::BiDirectional => {
                 // If this plane is facing away from the ray we want to flip the reported normal
                 // so that reflections work in both directions.
-                let normal = if is_plane_facing_away { -mesh_hit.normal } else { mesh_hit.normal };
-                Some(HitRecord { object_id, p, t, normal, material })
+                if is_plane_facing_away { Some(-mesh_hit.normal) } else { Some(mesh_hit.normal) }
             },
-        }
+        }?;
+        Some(HitRecord {
+            // Shift the hit back into world space
+            p: mesh_hit.p + self.origin,
+            t: mesh_hit.t,
+            object_id: self.object_id,
+            material: self.material.as_ref(),
+            normal,
+        })
     }
 
     fn bounding_box(&self) -> Option<AABB> {
