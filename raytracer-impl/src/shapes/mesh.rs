@@ -1,11 +1,10 @@
 use std::sync::Arc;
 
+use crate::obj_format::ObjObject;
 use crate::types::{ V3, Ray, IntoArc };
 use crate::implementation::{ Material, Hitable, HitRecord, AABB };
 
 // Triangle Mesh BVH
-
-type Tri = (V3, V3, V3);
 
 struct TriIntersect {
     p: V3,
@@ -31,15 +30,15 @@ fn tri_intersect(ray: &Ray, a: V3, b: V3, c: V3) -> Option<TriIntersect> {
     Some(TriIntersect { p, normal, t })
 }
 
-fn tri_aabb(tri: &Tri) -> AABB {
-    AABB::from_vertices(&[tri.0, tri.1, tri.2])
+fn tri_aabb(tri: &MeshTri) -> AABB {
+    AABB::from_vertices(&[tri.a, tri.b, tri.c])
 }
 
-pub struct MeshBvhLeaf(Tri);
+pub struct MeshBvhLeaf(MeshTri);
 
 impl MeshBvhLeaf {
     fn hit_node(&self, ray: &Ray, t_min: f32, t_max: f32) -> Option<TriIntersect> {
-        tri_intersect(ray, self.0.0, self.0.1, self.0.2).filter(|x| t_min < x.t && x.t < t_max)
+        tri_intersect(ray, self.0.a, self.0.b, self.0.c).filter(|x| t_min < x.t && x.t < t_max)
     }
 
     fn aabb(&self) -> AABB {
@@ -94,10 +93,10 @@ impl MeshBvhNode {
     }
 }
 
-pub fn build_triangle_bvh_hierachy(triangles: &[Tri]) -> Option<MeshBvhNode> {
+pub fn build_triangle_bvh_hierachy(triangles: &[MeshTri]) -> Option<MeshBvhNode> {
     use super::bvh::{ SortAxis, compare_aabb };
 
-    fn inner(triangles: &mut [(AABB, &Tri)], axis: SortAxis) -> Option<MeshBvhNode> {
+    fn inner(triangles: &mut [(AABB, &MeshTri)], axis: SortAxis) -> Option<MeshBvhNode> {
 
         let node = match triangles {
             [] => return None,
@@ -133,6 +132,22 @@ pub enum MeshReflectionMode {
     BiDirectional,
 }
 
+#[derive(Clone, Default)]
+pub struct MeshTri {
+    a: V3,
+    b: V3,
+    c: V3,
+    a_uv: (f32, f32),
+    b_uv: (f32, f32),
+    c_uv: (f32, f32),
+}
+
+impl MeshTri {
+    pub fn from_abc(a: V3, b: V3, c: V3) -> Self {
+        Self { a, b, c, ..Default::default() }
+    }
+}
+
 pub struct Mesh {
     object_id: Option<u32>,
     origin: V3,
@@ -142,7 +157,7 @@ pub struct Mesh {
 }
 
 impl Mesh {
-    pub fn new(origin: V3, triangles: Vec<(V3, V3, V3)>, material: impl IntoArc<dyn Material>) -> Self {
+    pub fn new(origin: V3, triangles: Vec<MeshTri>, material: impl IntoArc<dyn Material>) -> Self {
         Mesh {
             object_id: None,
             origin,
@@ -199,5 +214,29 @@ impl Hitable for Mesh {
             min: self.origin + aabb.min,
             max: self.origin + aabb.max,
         })
+    }
+}
+
+
+// Convert OBJ triangles into MeshTri list
+
+pub trait MeshTriConvert {
+    fn get_mesh_triangles(&self) -> Vec<MeshTri>;
+}
+
+impl MeshTriConvert for ObjObject {
+    fn get_mesh_triangles(&self) -> Vec<MeshTri> {
+        let mut tris = Vec::new();
+        for face in self.faces.iter() {
+            tris.push(MeshTri {
+                a: self.vertices.get(face.a.v_index - 1).cloned().unwrap(),
+                b: self.vertices.get(face.b.v_index - 1).cloned().unwrap(),
+                c: self.vertices.get(face.c.v_index - 1).cloned().unwrap(),
+                a_uv: face.a.uv_index.and_then(|i| self.uv.get(i - 1)).cloned().unwrap_or_default(),
+                b_uv: face.b.uv_index.and_then(|i| self.uv.get(i - 1)).cloned().unwrap_or_default(),
+                c_uv: face.c.uv_index.and_then(|i| self.uv.get(i - 1)).cloned().unwrap_or_default(),
+            });
+        }
+        tris
     }
 }

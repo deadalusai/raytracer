@@ -1,10 +1,10 @@
 #![allow(unused)]
 
 use raytracer_impl::shapes::mesh::MeshReflectionMode;
-use raytracer_impl::texture::{ColorTexture, CheckerTexture};
+use raytracer_impl::texture::{ ColorTexture, CheckerTexture };
 use raytracer_impl::types::{ V3, Ray };
 use raytracer_impl::materials::{ MatLambertian, MatDielectric, MatMetal };
-use raytracer_impl::shapes::{ Sphere, Plane, Mesh };
+use raytracer_impl::shapes::{ Sphere, Plane, Mesh, MeshTri, MeshTriConvert };
 use raytracer_impl::viewport::{ Viewport };
 use raytracer_impl::lights::{ PointLight, DirectionalLight, LampLight };
 use raytracer_impl::implementation::{ Scene, SceneSky, Camera, Material };
@@ -457,7 +457,7 @@ pub fn triangle_world(config: &CameraConfiguration) -> Scene {
     // Triangle
     let tri_pos = position!(Origin);
     let tri_mat = MatLambertian::with_texture(ColorTexture(rgb(200, 100, 80))).with_reflectivity(0.0);
-    let tri_vertices = (
+    let tri_vertices = MeshTri::from_abc(
         position!(Up(0.2), North(1.0)),
         position!(Up(0.4), South(1.0)),
         position!(Up(0.6), West(1.0))
@@ -466,7 +466,7 @@ pub fn triangle_world(config: &CameraConfiguration) -> Scene {
 
     let tri_pos = position!(Up(1.0));
     let tri_mat = MatLambertian::with_texture(ColorTexture(rgb(100, 100, 200))).with_reflectivity(0.0);
-    let tri_vertices = (
+    let tri_vertices = MeshTri::from_abc(
         position!(Up(0.4), North(1.0)),
         position!(Up(0.8), South(1.0)),
         position!(Up(0.6), East(1.0))
@@ -505,28 +505,19 @@ pub fn mesh_demo(config: &CameraConfiguration) -> Scene {
     // Cube
     let cube_mat = MatLambertian::with_texture(ColorTexture(rgb(36, 193, 89))).with_reflectivity(0.0);
     let cube_origin = position!(South(1.5), West(1.5));
-    let cube_tris = ObjFile::read_from_string(include_str!("../meshes/cube.obj"))
-        .expect("reading cube mesh")
-        .make_triangle_list("Cube")
-        .expect("building cube mesh");
+    let cube_tris = ObjFile::read_from_string(include_str!("../meshes/cube.obj")).expect("reading cube mesh").get_object("Cube").get_mesh_triangles();
     scene.add_obj(Mesh::new(cube_origin, cube_tris, cube_mat).with_id(1));
 
     // Thing
     let thing_mat = MatMetal::with_albedo(rgb(89, 172, 255)).with_reflectivity(0.8).with_fuzz(0.02);
     let thing_origin = position!(North(1.5), East(1.5));
-    let thing_tris = ObjFile::read_from_string(include_str!("../meshes/thing.obj"))
-        .expect("reading thing mesh")
-        .make_triangle_list("Thing")
-        .expect("building thing mesh");
+    let thing_tris = ObjFile::read_from_string(include_str!("../meshes/thing.obj")).expect("reading thing mesh").get_object("Thing").get_mesh_triangles();
     scene.add_obj(Mesh::new(thing_origin, thing_tris, thing_mat).with_id(2));
 
     // Suzanne
     let suz_mat = MatDielectric::with_albedo(rgb(255, 137, 58)).with_opacity(0.2).with_ref_index(0.8).with_reflectivity(0.0);
     let suz_origin = position!(Origin);
-    let suz_tris = ObjFile::read_from_string(include_str!("../meshes/suzanne.obj"))
-        .expect("reading cube mesh")
-        .make_triangle_list("Suzanne")
-        .expect("building cube mesh");
+    let suz_tris = ObjFile::read_from_string(include_str!("../meshes/suzanne.obj")).expect("reading cube mesh").get_object("Suzanne").get_mesh_triangles();
     scene.add_obj(Mesh::new(suz_origin, suz_tris, suz_mat).with_id(3));
 
     scene
@@ -556,10 +547,9 @@ pub fn interceptor(config: &CameraConfiguration) -> Scene {
     // Interceptor
     let int_mat = MatLambertian::with_texture(ColorTexture(rgb(200, 200, 000))).with_reflectivity(0.08);
     let int_origin = position!(Up(4.0));
-    let int_tris = ObjFile::read_from_string(include_str!("../meshes/interceptor.obj"))
-        .expect("reading mesh")
-        .make_triangle_list("Heavyinterceptor")
-        .expect("building mesh");
+    let int_tris = ObjFile::read_from_string(include_str!("../meshes/interceptor.obj")).expect("reading mesh")
+        .get_object("Heavyinterceptor")
+        .get_mesh_triangles();
     scene.add_obj(Mesh::new(int_origin, int_tris, int_mat).with_id(3));
 
     scene

@@ -35,15 +35,15 @@ impl std::convert::From<std::io::Error> for ObjParseError {
 // - every face has three components `f a b c` (triangles only)
 
 pub struct ObjObject {
-    vertices: Vec<V3>,
-    faces: Vec<TriFace>,
-    uv: Vec<(f32, f32)>,
+    pub vertices: Vec<V3>,
+    pub faces: Vec<TriFace>,
+    pub uv: Vec<(f32, f32)>,
 }
 
 #[derive(Default, Copy, Clone)]
 pub struct TriVertex {
-    v_index: usize,
-    uv_index: Option<usize>,
+    pub v_index: usize,
+    pub uv_index: Option<usize>,
 }
 
 impl std::str::FromStr for TriVertex {
@@ -64,9 +64,9 @@ impl std::str::FromStr for TriVertex {
 }
 
 pub struct TriFace {
-    a: TriVertex,
-    b: TriVertex,
-    c: TriVertex,
+    pub a: TriVertex,
+    pub b: TriVertex,
+    pub c: TriVertex,
 }
 
 pub struct ObjFile {
@@ -84,9 +84,8 @@ impl ObjFile {
         parse_obj_file(f)
     }
 
-    pub fn make_triangle_list(&self, obj_name: &str) -> Result<Vec<(V3, V3, V3)>, String> {
-        let obj = self.objects.get(obj_name).ok_or_else(|| format!("Could not find object {}", obj_name))?;
-        make_triangles(obj)
+    pub fn get_object(&self, name: &str) -> &ObjObject {
+        self.objects.get(name).expect("Expected object")
     }
 }
 
@@ -167,17 +166,4 @@ pub fn parse_obj_file(source: impl Read) -> Result<ObjFile, ObjParseError> {
 
     // Ignore comments
     Ok(ObjFile { objects })
-}
-
-// Convert Obj face/vertex lists into a list of triangles
-fn make_triangles(obj: &ObjObject) -> Result<Vec<(V3, V3, V3)>, String> {
-    let vert_error = |i, v| format!("face {}: could not find vertex {}", i, v);
-    let mut tris = Vec::new();
-    for (i, face) in obj.faces.iter().enumerate() {
-        let va = obj.vertices.get(face.a.v_index - 1).ok_or_else(|| vert_error(i, face.a.v_index))?;
-        let vb = obj.vertices.get(face.b.v_index - 1).ok_or_else(|| vert_error(i, face.b.v_index))?;
-        let vc = obj.vertices.get(face.c.v_index - 1).ok_or_else(|| vert_error(i, face.c.v_index))?;
-        tris.push((va.clone(), vb.clone(), vc.clone()))
-    }
-    Ok(tris)
 }
