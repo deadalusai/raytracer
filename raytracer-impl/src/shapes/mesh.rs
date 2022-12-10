@@ -255,12 +255,12 @@ impl MeshTriConvert for ObjObject {
         let mut tris = Vec::new();
         for face in self.faces.iter() {
             tris.push(MeshTri {
-                a: self.vertices.get(face.a.v_index - 1).cloned().unwrap(),
-                b: self.vertices.get(face.b.v_index - 1).cloned().unwrap(),
-                c: self.vertices.get(face.c.v_index - 1).cloned().unwrap(),
-                a_uv: face.a.uv_index.and_then(|i| self.uv_vertices.get(i - 1)).cloned().unwrap_or_default(),
-                b_uv: face.b.uv_index.and_then(|i| self.uv_vertices.get(i - 1)).cloned().unwrap_or_default(),
-                c_uv: face.c.uv_index.and_then(|i| self.uv_vertices.get(i - 1)).cloned().unwrap_or_default(),
+                a: self.vertices.get(face.a.vertex_index - 1).cloned().unwrap(),
+                b: self.vertices.get(face.b.vertex_index - 1).cloned().unwrap(),
+                c: self.vertices.get(face.c.vertex_index - 1).cloned().unwrap(),
+                a_uv: face.a.uv_index.and_then(|i| self.uv.get(i - 1)).cloned().unwrap_or_default(),
+                b_uv: face.b.uv_index.and_then(|i| self.uv.get(i - 1)).cloned().unwrap_or_default(),
+                c_uv: face.c.uv_index.and_then(|i| self.uv.get(i - 1)).cloned().unwrap_or_default(),
             });
         }
         tris

@@ -100,6 +100,7 @@ impl App {
             TestScene::Triangles     => raytracer_samples::samples::triangle_world(&camera_config),
             TestScene::Mesh          => raytracer_samples::samples::mesh_demo(&camera_config),
             TestScene::Interceptor   => raytracer_samples::samples::interceptor(&camera_config),
+            TestScene::Capsule       => raytracer_samples::samples::capsule(&camera_config),
         };
 
         scene.reorganize_objects_into_bvh();

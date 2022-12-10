@@ -36,30 +36,38 @@ impl std::convert::From<std::io::Error> for ObjParseError {
 
 pub struct ObjObject {
     pub vertices: Vec<V3>,
-    pub uv_vertices: Vec<V2>,
+    pub uv: Vec<V2>,
     pub faces: Vec<TriFace>,
 }
 
 #[derive(Default, Copy, Clone)]
 pub struct TriVertex {
-    pub v_index: usize,
+    pub vertex_index: usize,
     pub uv_index: Option<usize>,
+    pub normal_index: Option<usize>,
 }
 
 impl std::str::FromStr for TriVertex {
     type Err = ObjParseError;
     fn from_str(s: &str) -> Result<Self, Self::Err> {
         let parser_error = || ObjParseError::ParserError("Expected vertex index".into());
+        // Parses vertex definitions of the form `v/vt?/vn?`
         let mut parts = s.split("/");
-        let v_index = match parts.next() {
+        let vertex_index = match parts.next() {
             None => return Err(parser_error()),
             Some(v) => v.parse().map_err(|_| parser_error())?,
         };
         let uv_index = match parts.next() {
             None => None,
+            Some("") => None,
             Some(v) => Some(v.parse().map_err(|_| parser_error())?),
         };
-        Ok(TriVertex { v_index, uv_index })
+        let normal_index = match parts.next() {
+            None => None,
+            Some("") => None,
+            Some(v) => Some(v.parse().map_err(|_| parser_error())?),
+        };
+        Ok(TriVertex { vertex_index, uv_index, normal_index })
     }
 }
 
@@ -127,11 +135,12 @@ pub fn parse_obj_file(source: impl Read) -> Result<ObjFile, ObjParseError> {
         match directive {
             // Object
             Some("o") => {
+                // Starting a new object?
                 if let Some(name) = name.take() {
                     objects.insert(name, ObjObject {
                         vertices: std::mem::replace(&mut vertices, Vec::new()),
                         faces: std::mem::replace(&mut faces, Vec::new()),
-                        uv_vertices: std::mem::replace(&mut uv, Vec::new()),
+                        uv: std::mem::replace(&mut uv, Vec::new()),
                     });
                 }
                 name = Some(line[2..].to_string());
@@ -146,6 +155,10 @@ pub fn parse_obj_file(source: impl Read) -> Result<ObjFile, ObjParseError> {
                 let [u, v] = parse_elements(&line[3..])?;
                 uv.push(V2(u, v));
             },
+            // Vertex normals
+            Some("vn") => {
+                // TODO
+            },
             // Face
             Some("f") => {
                 let [a, b, c] = parse_elements(&line[2..])?;
@@ -155,13 +168,13 @@ pub fn parse_obj_file(source: impl Read) -> Result<ObjFile, ObjParseError> {
         }
     }
 
-    if let Some(name) = name.take() {
-        objects.insert(name, ObjObject {
-            vertices,
-            faces,
-            uv_vertices: uv,
-        });
-    }
+    // Emit the last object
+    let name = name.unwrap_or_else(|| "default".to_string());
+    objects.insert(name, ObjObject {
+        vertices,
+        faces,
+        uv,
+    });
 
     // Ignore comments
     Ok(ObjFile { objects })

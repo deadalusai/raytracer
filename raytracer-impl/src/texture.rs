@@ -71,7 +71,7 @@ impl Texture for ImageTexture {
     fn value(&self, hit_record: &HitRecord) -> V3 {
         let V2(u, v) = hit_record.uv;
         let x = (u * self.width as f32) as usize;
-        let y = ((1.0 - v) * self.height as f32) as usize;
+        let y = (v * self.height as f32) as usize;
         let offset = y * self.width + x;
         self.pixels.get(offset).cloned().unwrap_or_else(|| V3::zero())
     }

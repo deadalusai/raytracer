@@ -555,3 +555,38 @@ pub fn interceptor(config: &CameraConfiguration) -> Scene {
 
     scene
 }
+
+pub fn capsule(config: &CameraConfiguration) -> Scene {
+
+    // Example object and texture taken from http://paulbourke.net/dataformats/obj/minobj.html
+    
+    // Camera
+    let look_from = position!(Up(10.0), South(10.0));
+    let look_to =   position!(Up(4.0));
+    let camera = config.make_camera(look_to, look_from);
+
+    // Scene
+    let mut scene = Scene::new(camera, SceneSky::Black);
+
+    // Lights
+    let lamp_pos = position!(Up(20.0), East(20.0));
+    let lamp_direction = position!(Origin) - lamp_pos;
+    scene.add_light(DirectionalLight::with_direction(lamp_direction).with_intensity(0.5));
+
+    // World sphere
+    let world_radius = 1000.0;
+    let world_mat = MatLambertian::with_texture(ColorTexture(rgb(200, 200, 200)));
+    let world_pos = position!(Down(world_radius));
+    scene.add_obj(Sphere::new(world_pos, world_radius, world_mat).with_id(0));
+    
+    // Interceptor
+    let int_tex = crate::texture_loader::load_bitmap_texture_from_bytes(include_bytes!("../textures/capsule0.bmp"));
+    let int_mat = MatLambertian::with_texture(int_tex).with_reflectivity(0.00);
+    let int_origin = position!(Up(4.0));
+    let int_tris = ObjFile::read_from_string(include_str!("../meshes/capsule0.obj")).expect("reading mesh")
+        .get_object("default")
+        .get_mesh_triangles();
+    scene.add_obj(Mesh::new(int_origin, int_tris, int_mat).with_id(3));
+
+    scene
+}
