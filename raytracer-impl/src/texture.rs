@@ -52,9 +52,8 @@ pub struct TestTexture;
 
 impl Texture for TestTexture {
     fn value(&self, hit_record: &HitRecord) -> V3 {
-        let red = V3(1.0, 0.0, 0.0);
-        let blue = V3(0.0, 0.0, 1.0);
-        (blue * hit_record.uv.0) + (red * hit_record.uv.1)
+        let V2(u, v) = hit_record.uv;
+        V3(u, v, 1.0 - u - v)
     }
 }
 

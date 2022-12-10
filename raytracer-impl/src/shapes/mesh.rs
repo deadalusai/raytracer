@@ -13,45 +13,62 @@ struct MeshTriHit {
     uv: V2,
 }
 
-// Ref: https://www.scratchapixel.com/lessons/3d-basic-rendering/ray-tracing-rendering-a-triangle/ray-triangle-intersection-geometric-solution
 fn try_hit_triangle(ray: &Ray, tri: &MeshTri) -> Option<MeshTriHit> {
-    // Find the normal of the triangle, using v0 as the origin
-    let normal = V3::cross(tri.b - tri.a, tri.c - tri.a).unit();
-    // Find the intesection `p` with the tiangle plane
+    // compute normal of and area of the triangle
+    // NOTE: not normalized! Used for area calculations
+    let edge_ab = tri.b - tri.a;
+    let edge_ac = tri.c - tri.a;
+    let normal = V3::cross(edge_ab, edge_ac);
+
+    // Step 1: find the intersection {P}
     let t = super::plane::intersect_plane(ray, tri.a, normal)?;
-    // `p` is a point on the same plane as all three vertices of the triangle
-    let p = ray.point_at_parameter(t);
-    // Test if `p` is a point inside the triangle by determining if it is "left" of each edge.
-    // (The cross product of the angle of `p` with each point should align with the normal)
-    if V3::dot(normal, V3::cross(tri.b - tri.a, p - tri.a)) < 0.0 ||
-        V3::dot(normal, V3::cross(tri.c - tri.b, p - tri.b)) < 0.0 ||
-        V3::dot(normal, V3::cross(tri.a - tri.c, p - tri.c)) < 0.0 {
+    if t < 0.0 {
+        // Triangle is behind the ray origin
         return None;
     }
-    let uv = map_p_to_uv(p, tri);
-    Some(MeshTriHit { p, normal, t, uv })
-}
+    
+    let p = ray.point_at_parameter(t);
 
-/// Compute UV co-ordinates {u, v} for point {p} with respect to triangle {tri}.
-/// See: https://computergraphics.stackexchange.com/a/1867,
-/// See: https://gamedev.stackexchange.com/a/23745
-fn map_p_to_uv(p: V3, tri: &MeshTri) -> V2 {
-    let v0 = tri.b - tri.a;
-    let v1 = tri.c - tri.a;
-    let v2 = p - tri.a;
+    // Step 2: determine if p is inside the triangle
+    // by checking to see if it is to the left of each edge
 
-    let d00 = V3::dot(v0, v0);
-    let d01 = V3::dot(v0, v1);
-    let d11 = V3::dot(v1, v1);
-    let d20 = V3::dot(v2, v0);
-    let d21 = V3::dot(v2, v1);
+    // edge ab
+    let normal_abp = V3::cross(edge_ab, p - tri.a);
+    if V3::dot(normal, normal_abp) < 0.0 {
+        // P is to the right of edge ab
+        return None;
+    }
 
-    let denominator = d00 * d11 - d01 * d01;
-    let bary_a = (d11 * d20 - d01 * d21) / denominator;
-    let bary_b = (d00 * d21 - d01 * d20) / denominator;
-    let bary_c = 1.0 - bary_a - bary_b;
+    // edge bc
+    let normal_bcp = V3::cross(tri.c - tri.b, p - tri.b);
+    if V3::dot(normal, normal_bcp) < 0.0 {
+        // P is to the right of edge bc
+        return None;
+    }
 
-    (tri.a_uv * bary_a) + (tri.b_uv * bary_b) + (tri.c_uv * bary_c)
+    // edge ca
+    let normal_cap = V3::cross(tri.a - tri.c, p - tri.c);
+    if V3::dot(normal, normal_cap) < 0.0 {
+        // P is to the right of edge ca
+        return None;
+    }
+    
+    // Calculate uv/barycentric coordinates.
+    // Given a triangle ABC and point P:
+    //                  C  
+    //                u P w
+    //               A  v  B
+    // u = {area of CAP} / {area of ABC}
+    // v = {area of ABP} / {area of ABC}
+    // w = {area of BCP} / {area of ABC}
+    // P = wA + uB + vC
+    let area2 = normal.length();
+    let u = normal_cap.length() / area2;
+    let v = normal_abp.length() / area2;
+    let w = 1.0 - u - v;
+    let uv = (tri.a_uv * w) + (tri.b_uv * u) + (tri.c_uv * v);
+
+    return Some(MeshTriHit { p, normal: normal.unit(), t, uv })
 }
 
 fn tri_aabb(tri: &MeshTri) -> AABB {
@@ -252,15 +269,17 @@ pub trait MeshTriConvert {
 
 impl MeshTriConvert for ObjObject {
     fn get_mesh_triangles(&self) -> Vec<MeshTri> {
+        let get_vertex = |i: usize| self.vertices.get(i - 1).cloned().unwrap();
+        let get_uv_vertex = |oi: Option<usize>| oi.and_then(|i| self.uv.get(i - 1).cloned()).unwrap_or_default();
         let mut tris = Vec::new();
         for face in self.faces.iter() {
             tris.push(MeshTri {
-                a: self.vertices.get(face.a.vertex_index - 1).cloned().unwrap(),
-                b: self.vertices.get(face.b.vertex_index - 1).cloned().unwrap(),
-                c: self.vertices.get(face.c.vertex_index - 1).cloned().unwrap(),
-                a_uv: face.a.uv_index.and_then(|i| self.uv.get(i - 1)).cloned().unwrap_or_default(),
-                b_uv: face.b.uv_index.and_then(|i| self.uv.get(i - 1)).cloned().unwrap_or_default(),
-                c_uv: face.c.uv_index.and_then(|i| self.uv.get(i - 1)).cloned().unwrap_or_default(),
+                a: get_vertex(face.a.vertex_index),
+                b: get_vertex(face.b.vertex_index),
+                c: get_vertex(face.c.vertex_index),
+                a_uv: get_uv_vertex(face.a.uv_index),
+                b_uv: get_uv_vertex(face.b.uv_index),
+                c_uv: get_uv_vertex(face.c.uv_index),
             });
         }
         tris
