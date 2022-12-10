@@ -1,7 +1,7 @@
 #![allow(unused)]
 
 use raytracer_impl::shapes::mesh::MeshReflectionMode;
-use raytracer_impl::texture::{ ColorTexture, CheckerTexture };
+use raytracer_impl::texture::{ ColorTexture, CheckerTexture, TestTexture };
 use raytracer_impl::types::{ V3, Ray };
 use raytracer_impl::materials::{ MatLambertian, MatDielectric, MatMetal };
 use raytracer_impl::shapes::{ Sphere, Plane, Mesh, MeshTri, MeshTriConvert };
@@ -545,7 +545,8 @@ pub fn interceptor(config: &CameraConfiguration) -> Scene {
     scene.add_obj(Sphere::new(world_pos, world_radius, world_mat).with_id(0));
     
     // Interceptor
-    let int_mat = MatLambertian::with_texture(ColorTexture(rgb(200, 200, 000))).with_reflectivity(0.08);
+    let int_tex = crate::texture_loader::load_bitmap_texture_from_bytes(include_bytes!("../textures/interceptor.bmp"));
+    let int_mat = MatLambertian::with_texture(int_tex).with_reflectivity(0.08);
     let int_origin = position!(Up(4.0));
     let int_tris = ObjFile::read_from_string(include_str!("../meshes/interceptor.obj")).expect("reading mesh")
         .get_object("Heavyinterceptor")

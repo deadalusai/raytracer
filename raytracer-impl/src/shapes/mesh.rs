@@ -1,33 +1,57 @@
 use std::sync::Arc;
 
 use crate::obj_format::ObjObject;
-use crate::types::{ V3, Ray, IntoArc };
+use crate::types::{ V3, V2, Ray, IntoArc };
 use crate::implementation::{ Material, Hitable, HitRecord, AABB };
 
 // Triangle Mesh BVH
 
-struct TriIntersect {
+struct MeshTriHit {
     p: V3,
     normal: V3,
     t: f32,
+    uv: V2,
 }
 
 // Ref: https://www.scratchapixel.com/lessons/3d-basic-rendering/ray-tracing-rendering-a-triangle/ray-triangle-intersection-geometric-solution
-fn tri_intersect(ray: &Ray, a: V3, b: V3, c: V3) -> Option<TriIntersect> {
+fn try_hit_triangle(ray: &Ray, tri: &MeshTri) -> Option<MeshTriHit> {
     // Find the normal of the triangle, using v0 as the origin
-    let normal = V3::cross(b - a, c - a).unit();
+    let normal = V3::cross(tri.b - tri.a, tri.c - tri.a).unit();
     // Find the intesection `p` with the tiangle plane
-    let t = super::plane::intersect_plane(ray, a, normal)?;
+    let t = super::plane::intersect_plane(ray, tri.a, normal)?;
     // `p` is a point on the same plane as all three vertices of the triangle
     let p = ray.point_at_parameter(t);
     // Test if `p` is a point inside the triangle by determining if it is "left" of each edge.
     // (The cross product of the angle of `p` with each point should align with the normal)
-    if V3::dot(normal, V3::cross(b - a, p - a)) < 0.0 ||
-        V3::dot(normal, V3::cross(c - b, p - b)) < 0.0 ||
-        V3::dot(normal, V3::cross(a - c, p - c)) < 0.0 {
+    if V3::dot(normal, V3::cross(tri.b - tri.a, p - tri.a)) < 0.0 ||
+        V3::dot(normal, V3::cross(tri.c - tri.b, p - tri.b)) < 0.0 ||
+        V3::dot(normal, V3::cross(tri.a - tri.c, p - tri.c)) < 0.0 {
         return None;
     }
-    Some(TriIntersect { p, normal, t })
+    let uv = map_p_to_uv(p, tri);
+    Some(MeshTriHit { p, normal, t, uv })
+}
+
+/// Compute UV co-ordinates {u, v} for point {p} with respect to triangle {tri}.
+/// See: https://computergraphics.stackexchange.com/a/1867,
+/// See: https://gamedev.stackexchange.com/a/23745
+fn map_p_to_uv(p: V3, tri: &MeshTri) -> V2 {
+    let v0 = tri.b - tri.a;
+    let v1 = tri.c - tri.a;
+    let v2 = p - tri.a;
+
+    let d00 = V3::dot(v0, v0);
+    let d01 = V3::dot(v0, v1);
+    let d11 = V3::dot(v1, v1);
+    let d20 = V3::dot(v2, v0);
+    let d21 = V3::dot(v2, v1);
+
+    let denominator = d00 * d11 - d01 * d01;
+    let bary_a = (d11 * d20 - d01 * d21) / denominator;
+    let bary_b = (d00 * d21 - d01 * d20) / denominator;
+    let bary_c = 1.0 - bary_a - bary_b;
+
+    (tri.a_uv * bary_a) + (tri.b_uv * bary_b) + (tri.c_uv * bary_c)
 }
 
 fn tri_aabb(tri: &MeshTri) -> AABB {
@@ -37,8 +61,9 @@ fn tri_aabb(tri: &MeshTri) -> AABB {
 pub struct MeshBvhLeaf(MeshTri);
 
 impl MeshBvhLeaf {
-    fn hit_node(&self, ray: &Ray, t_min: f32, t_max: f32) -> Option<TriIntersect> {
-        tri_intersect(ray, self.0.a, self.0.b, self.0.c).filter(|x| t_min < x.t && x.t < t_max)
+    fn hit_node(&self, ray: &Ray, t_min: f32, t_max: f32) -> Option<MeshTriHit> {
+        try_hit_triangle(ray, &self.0)
+            .filter(|hit| t_min < hit.t && hit.t < t_max)
     }
 
     fn aabb(&self) -> AABB {
@@ -53,7 +78,7 @@ pub struct MeshBvhBranch {
 }
 
 impl MeshBvhBranch {
-    fn hit_node(&self, ray: &Ray, t_min: f32, t_max: f32) -> Option<TriIntersect> {
+    fn hit_node(&self, ray: &Ray, t_min: f32, t_max: f32) -> Option<MeshTriHit> {
         if !self.aabb.hit_aabb(ray, t_min, t_max) {
             return None;
         }
@@ -78,7 +103,7 @@ pub enum MeshBvhNode {
 }
 
 impl MeshBvhNode {
-    fn hit_node(&self, ray: &Ray, t_min: f32, t_max: f32) -> Option<TriIntersect> {
+    fn hit_node(&self, ray: &Ray, t_min: f32, t_max: f32) -> Option<MeshTriHit> {
         match self {
             MeshBvhNode::Leaf(leaf) => leaf.hit_node(ray, t_min, t_max),
             MeshBvhNode::Branch(branch) => branch.hit_node(ray, t_min, t_max),
@@ -137,9 +162,9 @@ pub struct MeshTri {
     a: V3,
     b: V3,
     c: V3,
-    a_uv: (f32, f32),
-    b_uv: (f32, f32),
-    c_uv: (f32, f32),
+    a_uv: V2,
+    b_uv: V2,
+    c_uv: V2,
 }
 
 impl MeshTri {
@@ -198,12 +223,13 @@ impl Hitable for Mesh {
             },
         }?;
         Some(HitRecord {
-            // Shift the hit back into world space
-            p: mesh_hit.p + self.origin,
-            t: mesh_hit.t,
             object_id: self.object_id,
-            material: self.material.as_ref(),
+            // Shift the hit back into world space
+            t: mesh_hit.t,
+            p: mesh_hit.p + self.origin,
             normal,
+            uv: mesh_hit.uv,
+            material: self.material.as_ref(),
         })
     }
 
@@ -232,9 +258,9 @@ impl MeshTriConvert for ObjObject {
                 a: self.vertices.get(face.a.v_index - 1).cloned().unwrap(),
                 b: self.vertices.get(face.b.v_index - 1).cloned().unwrap(),
                 c: self.vertices.get(face.c.v_index - 1).cloned().unwrap(),
-                a_uv: face.a.uv_index.and_then(|i| self.uv.get(i - 1)).cloned().unwrap_or_default(),
-                b_uv: face.b.uv_index.and_then(|i| self.uv.get(i - 1)).cloned().unwrap_or_default(),
-                c_uv: face.c.uv_index.and_then(|i| self.uv.get(i - 1)).cloned().unwrap_or_default(),
+                a_uv: face.a.uv_index.and_then(|i| self.uv_vertices.get(i - 1)).cloned().unwrap_or_default(),
+                b_uv: face.b.uv_index.and_then(|i| self.uv_vertices.get(i - 1)).cloned().unwrap_or_default(),
+                c_uv: face.c.uv_index.and_then(|i| self.uv_vertices.get(i - 1)).cloned().unwrap_or_default(),
             });
         }
         tris

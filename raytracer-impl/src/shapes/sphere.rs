@@ -1,5 +1,5 @@
 use std::sync::Arc;
-use crate::types::{ V3, Ray, IntoArc };
+use crate::types::{ V2, V3, Ray, IntoArc };
 use crate::implementation::{ Material, Hitable, HitRecord, AABB };
 
 fn intersect_sphere(ray: &Ray, origin: V3, radius: f32) -> Option<[f32; 2]> {
@@ -47,7 +47,15 @@ impl Hitable for Sphere {
             if let Some(t) = t {
                 let p = ray.point_at_parameter(t);
                 let normal = ((p - self.origin) / self.radius).unit();
-                return Some(HitRecord { object_id, t, p, normal, material });
+                return Some(HitRecord {
+                    object_id,
+                    t,
+                    p,
+                    normal,
+                    //  TODO: UV on a sphere
+                    uv: V2::zero(),
+                    material,
+                });
             }
         }
 

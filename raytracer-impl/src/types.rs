@@ -222,3 +222,102 @@ macro_rules! derive_into_arc {
 }
 
 pub(crate) use derive_into_arc;
+
+//
+// Vec2
+//
+
+#[derive(Debug, Copy, Clone, PartialEq)]
+pub struct V2(pub f32, pub f32); // x, y
+
+impl V2 {
+    pub fn x(&self) -> f32 {
+        self.0
+    }
+    
+    pub fn y(&self) -> f32 {
+        self.1
+    }
+
+    pub fn zero() -> Self {
+        V2(0.0, 0.0)
+    }
+}
+
+impl Add for V2 {
+    type Output = V2;
+    fn add(self, other: V2) -> V2 {
+        V2(self.0 + other.0,
+           self.1 + other.1)
+    }
+}
+
+impl Add<f32> for V2 {
+    type Output = V2;
+    fn add(self, f: f32) -> V2 {
+        V2(self.0 + f,
+           self.1 + f)
+    }
+}
+
+impl Sub for V2 {
+    type Output = V2;
+    fn sub(self, other: V2) -> V2 {
+        V2(self.0 - other.0,
+           self.1 - other.1)
+    }
+}
+
+impl Sub<f32> for V2 {
+    type Output = V2;
+    fn sub(self, f: f32) -> V2 {
+        V2(self.0 - f,
+           self.1 - f)
+    }
+}
+
+impl Mul for V2 {
+    type Output = V2;
+    fn mul(self, other: V2) -> V2 {
+        V2(self.0 * other.0,
+           self.1 * other.1)
+    }
+}
+
+impl Mul<f32> for V2 {
+    type Output = V2;
+    fn mul(self, f: f32) -> V2 {
+        V2(self.0 * f,
+           self.1 * f)
+    }
+}
+
+impl Div for V2 {
+    type Output = V2;
+    fn div(self, other: V2) -> V2 {
+        V2(self.0 / other.0,
+           self.1 / other.1)
+    }
+}
+
+impl Div<f32> for V2 {
+    type Output = V2;
+    fn div(self, f: f32) -> V2 {
+        V2(self.0 / f,
+           self.1 / f)
+    }
+}
+
+impl Neg for V2 {
+    type Output = V2;
+    fn neg(self) -> V2 {
+        V2(-self.0,
+           -self.1)
+    }
+}
+
+impl Default for V2 {
+    fn default() -> V2 {
+        V2::zero()
+    }
+}

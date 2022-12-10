@@ -1,7 +1,7 @@
 use std;
 use std::sync::Arc;
 
-use crate::types::{ V3, Ray, IntoArc };
+use crate::types::{ V2, V3, Ray, IntoArc };
 use crate::viewport::{ Viewport };
 
 use rand::{ RngCore, Rng };
@@ -122,7 +122,7 @@ super::types::derive_into_arc!(Material);
 // Textures
 
 pub trait Texture: Send + Sync {
-    fn value(&self, u: f32, v: f32, p: &V3) -> V3;
+    fn value(&self, hit_record: &HitRecord) -> V3;
 }
 
 super::types::derive_into_arc!(Texture);
@@ -134,6 +134,7 @@ pub struct HitRecord<'mat> {
     pub t: f32,
     pub p: V3,
     pub normal: V3,
+    pub uv: V2,
     pub material: &'mat dyn Material,
 }
 

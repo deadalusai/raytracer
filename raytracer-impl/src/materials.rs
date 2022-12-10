@@ -52,7 +52,7 @@ impl Material for MatLambertian {
         MatRecord {
             reflection: Some(Reflect { ray, intensity: self.reflectivity }),
             refraction: None,
-            albedo: self.texture.value(0.0, 0.0, &hit_record.p)
+            albedo: self.texture.value(hit_record)
         }
     }
 }

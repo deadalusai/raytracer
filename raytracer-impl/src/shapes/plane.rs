@@ -1,5 +1,5 @@
 use std::sync::Arc;
-use crate::types::{ V3, Ray, IntoArc };
+use crate::types::{ V2, V3, Ray, IntoArc };
 use crate::implementation::{ Material, Hitable, HitRecord, AABB };
 
 pub fn intersect_plane(ray: &Ray, origin: V3, normal: V3) -> Option<f32> {
@@ -61,7 +61,15 @@ impl Hitable for Plane {
         // If this plane is facing away from the ray we want to flip the reported normal
         // so that reflections work in both directions.
         let normal = if V3::dot(ray.direction, self.normal) > 0.0 { -self.normal } else { self.normal };
-        return Some(HitRecord { object_id, t, p, normal, material });
+        return Some(HitRecord {
+            object_id,
+            t,
+            p,
+            normal,
+            // TODO(benf): UV mapping for plane
+            uv: V2::zero(),
+            material,
+        });
     }
 
     fn bounding_box(&self) -> Option<AABB> {

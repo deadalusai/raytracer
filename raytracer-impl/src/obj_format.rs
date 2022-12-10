@@ -1,7 +1,7 @@
 use std::collections::HashMap;
 use std::io::{BufRead, BufReader, Read};
 
-use super::types::V3;
+use crate::types::{ V2, V3 };
 
 #[derive(Debug)]
 pub enum ObjParseError {
@@ -36,8 +36,8 @@ impl std::convert::From<std::io::Error> for ObjParseError {
 
 pub struct ObjObject {
     pub vertices: Vec<V3>,
+    pub uv_vertices: Vec<V2>,
     pub faces: Vec<TriFace>,
-    pub uv: Vec<(f32, f32)>,
 }
 
 #[derive(Default, Copy, Clone)]
@@ -110,11 +110,11 @@ pub fn parse_obj_file(source: impl Read) -> Result<ObjFile, ObjParseError> {
     
     let mut objects = HashMap::new();
 
-    // Braindead OBJ parser, supports o, v & f directives only.
-    let mut current_object = None;
-    let mut current_vertices = Vec::new();
-    let mut current_uv = Vec::new();
-    let mut current_faces = Vec::new();
+    // Braindead OBJ parser, supports o, v, vt & f directives only.
+    let mut name = None;
+    let mut vertices = Vec::new();
+    let mut uv = Vec::new();
+    let mut faces = Vec::new();
 
     for line in BufReader::new(source).lines() {
         let line = line?;
@@ -127,40 +127,39 @@ pub fn parse_obj_file(source: impl Read) -> Result<ObjFile, ObjParseError> {
         match directive {
             // Object
             Some("o") => {
-                if let Some(name) = current_object.take() {
+                if let Some(name) = name.take() {
                     objects.insert(name, ObjObject {
-                        vertices: std::mem::replace(&mut current_vertices, Vec::new()),
-                        faces: std::mem::replace(&mut current_faces, Vec::new()),
-                        uv: std::mem::replace(&mut current_uv, Vec::new()),
+                        vertices: std::mem::replace(&mut vertices, Vec::new()),
+                        faces: std::mem::replace(&mut faces, Vec::new()),
+                        uv_vertices: std::mem::replace(&mut uv, Vec::new()),
                     });
                 }
-                let name = &line[2..];
-                current_object = Some(name.to_string());
+                name = Some(line[2..].to_string());
             },
             // Vertex
             Some("v") => {
                 let [x, y, z] = parse_elements(&line[2..])?;
-                current_vertices.push(V3(x, y, z));
+                vertices.push(V3(x, y, z));
             },
             // Texture vertex
             Some("vt") => {
                 let [u, v] = parse_elements(&line[3..])?;
-                current_uv.push((u, v));
+                uv.push(V2(u, v));
             },
             // Face
             Some("f") => {
                 let [a, b, c] = parse_elements(&line[2..])?;
-                current_faces.push(TriFace { a, b, c });
+                faces.push(TriFace { a, b, c });
             },
             _ => {}
         }
     }
 
-    if let Some(name) = current_object.take() {
+    if let Some(name) = name.take() {
         objects.insert(name, ObjObject {
-            vertices: current_vertices,
-            faces: current_faces,
-            uv: current_uv,
+            vertices,
+            faces,
+            uv_vertices: uv,
         });
     }
 
