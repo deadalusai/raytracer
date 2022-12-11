@@ -388,7 +388,7 @@ pub fn planes_scene(config: &CameraConfiguration) -> Scene {
 pub fn hall_of_mirrors(config: &CameraConfiguration) -> Scene {
 
     // Camera
-    let look_from = position!(Up(3.0), South(2.5), East(1.2));
+    let look_from = position!(Up(1.0), South(2.0), East(1.5));
     let look_to =   position!(Up(0.5));
     let camera = config.make_camera(look_to, look_from);
 
@@ -580,13 +580,13 @@ pub fn capsule(config: &CameraConfiguration) -> Scene {
     scene.add_obj(Sphere::new(world_pos, world_radius, world_mat).with_id(0));
     
     // Interceptor
-    let int_tex = crate::texture_loader::load_bitmap_texture_from_bytes(include_bytes!("../textures/capsule0.bmp"));
-    let int_mat = MatLambertian::with_texture(int_tex).with_reflectivity(0.00);
-    let int_origin = position!(Up(4.0));
-    let int_tris = ObjFile::read_from_string(include_str!("../meshes/capsule0.obj")).expect("reading mesh")
+    let capsule_tex = crate::texture_loader::load_bitmap_texture_from_bytes(include_bytes!("../textures/capsule0.bmp"));
+    let capsule_mat = MatLambertian::with_texture(capsule_tex).with_reflectivity(0.00);
+    let capsule_origin = position!(Up(4.0));
+    let capsule_tris = ObjFile::read_from_string(include_str!("../meshes/capsule0.obj")).expect("reading mesh")
         .get_object("default")
         .get_mesh_triangles();
-    scene.add_obj(Mesh::new(int_origin, int_tris, int_mat).with_id(3));
+    scene.add_obj(Mesh::new(capsule_origin, capsule_tris, capsule_mat).with_id(3));
 
     scene
 }

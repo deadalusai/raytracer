@@ -4,9 +4,9 @@ use raytracer_impl::types::V3;
 pub type Rgba = [u8; 4];
 
 pub fn v3_to_rgba(v3: V3) -> Rgba {
-    let r = (255.0 * v3.0.sqrt()) as u8;
-    let g = (255.0 * v3.1.sqrt()) as u8;
-    let b = (255.0 * v3.2.sqrt()) as u8;
+    let r = (255.0 * v3.0) as u8;
+    let g = (255.0 * v3.1) as u8;
+    let b = (255.0 * v3.2) as u8;
     let a = 255;
     [r, g, b, a]
 }
