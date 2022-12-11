@@ -1,6 +1,5 @@
 #![allow(unused)]
 
-use raytracer_impl::shapes::mesh::MeshReflectionMode;
 use raytracer_impl::texture::{ ColorTexture, CheckerTexture, TestTexture };
 use raytracer_impl::types::{ V3, Ray };
 use raytracer_impl::materials::{ MatLambertian, MatDielectric, MatMetal };
@@ -458,11 +457,11 @@ pub fn triangle_world(config: &CameraConfiguration) -> Scene {
     let tri_pos = position!(Origin);
     let tri_mat = MatLambertian::with_texture(ColorTexture(rgb(200, 100, 80))).with_reflectivity(0.0);
     let tri_vertices = MeshTri::from_abc(
-        position!(Up(0.2), North(1.0)),
-        position!(Up(0.4), South(1.0)),
-        position!(Up(0.6), West(1.0))
+        position!(Up(0.3), South(1.0)),
+        position!(Up(0.6), East(1.0)),
+        position!(Up(0.8), West(1.0))
     );
-    scene.add_obj(Mesh::new(tri_pos, vec![tri_vertices], tri_mat).with_reflection_mode(MeshReflectionMode::BiDirectional));
+    scene.add_obj(Mesh::new(tri_pos, vec![tri_vertices], tri_mat));
 
     let tri_pos = position!(Up(1.0));
     let tri_mat = MatLambertian::with_texture(ColorTexture(rgb(100, 100, 200))).with_reflectivity(0.0);
@@ -471,7 +470,7 @@ pub fn triangle_world(config: &CameraConfiguration) -> Scene {
         position!(Up(0.8), South(1.0)),
         position!(Up(0.6), East(1.0))
     );
-    scene.add_obj(Mesh::new(tri_pos, vec![tri_vertices], tri_mat).with_reflection_mode(MeshReflectionMode::BiDirectional));
+    scene.add_obj(Mesh::new(tri_pos, vec![tri_vertices], tri_mat));
 
     scene
 }
@@ -607,12 +606,12 @@ pub fn mesh_plane(config: &CameraConfiguration) -> Scene {
 
     // Planbe
     let plane_tex = crate::texture_loader::load_bitmap_texture_from_bytes(include_bytes!("../textures/test.bmp"));
-    let plane_mat = MatLambertian::with_texture(plane_tex);
+    let plane_mat = MatLambertian::with_texture(TestTexture);
     let plane_origin = look_to;
     let plane_tris = ObjFile::read_from_string(include_str!("../meshes/plane.obj")).expect("reading mesh")
         .get_object("plane")
         .get_mesh_triangles();
-    scene.add_obj(Mesh::new(plane_origin, plane_tris, plane_mat).with_id(1).with_reflection_mode(MeshReflectionMode::BiDirectional));
+    scene.add_obj(Mesh::new(plane_origin, plane_tris, plane_mat).with_id(1));
 
     scene
 }

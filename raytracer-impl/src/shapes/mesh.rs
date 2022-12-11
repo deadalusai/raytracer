@@ -169,11 +169,6 @@ pub fn build_triangle_bvh_hierachy(triangles: &[MeshTri]) -> Option<MeshBvhNode>
 
 // Mesh
 
-pub enum MeshReflectionMode {
-    MonoDirectional,
-    BiDirectional,
-}
-
 #[derive(Clone, Default)]
 pub struct MeshTri {
     a: V3,
@@ -195,7 +190,6 @@ pub struct Mesh {
     origin: V3,
     mesh_node: MeshBvhNode,
     material: Arc<dyn Material>,
-    reflection_mode: MeshReflectionMode,
 }
 
 impl Mesh {
@@ -205,19 +199,12 @@ impl Mesh {
             origin,
             mesh_node: build_triangle_bvh_hierachy(&triangles).expect("Expected at least one triangle for mesh"),
             material: material.into_arc(),
-            reflection_mode: MeshReflectionMode::MonoDirectional,
         }
     }
 
     #[allow(unused)]
     pub fn with_id(mut self, id: u32) -> Self {
         self.object_id = Some(id);
-        self
-    }
-
-    #[allow(unused)]
-    pub fn with_reflection_mode(mut self, mode: MeshReflectionMode) -> Self {
-        self.reflection_mode = mode;
         self
     }
 }
@@ -227,24 +214,12 @@ impl Hitable for Mesh {
         // Shift the ray into mesh space
         let mesh_ray = Ray::new(ray.origin - self.origin, ray.direction);
         let mesh_hit = self.mesh_node.hit_node(&mesh_ray, t_min, t_max)?;
-        let is_plane_facing_away = V3::dot(ray.direction, mesh_hit.normal) > 0.0;
-        let normal = match self.reflection_mode {
-            MeshReflectionMode::MonoDirectional => {
-                // If the plane is facing away from the ray then consider this a miss
-                if is_plane_facing_away { None } else { Some(mesh_hit.normal) }
-            },
-            MeshReflectionMode::BiDirectional => {
-                // If this plane is facing away from the ray we want to flip the reported normal
-                // so that reflections work in both directions.
-                if is_plane_facing_away { Some(-mesh_hit.normal) } else { Some(mesh_hit.normal) }
-            },
-        }?;
         Some(HitRecord {
             object_id: self.object_id,
             // Shift the hit back into world space
             t: mesh_hit.t,
             p: mesh_hit.p + self.origin,
-            normal,
+            normal: mesh_hit.normal,
             uv: mesh_hit.uv,
             material: self.material.as_ref(),
         })
