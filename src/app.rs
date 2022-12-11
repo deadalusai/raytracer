@@ -101,6 +101,7 @@ impl App {
             TestScene::Mesh          => raytracer_samples::samples::mesh_demo(&camera_config),
             TestScene::Interceptor   => raytracer_samples::samples::interceptor(&camera_config),
             TestScene::Capsule       => raytracer_samples::samples::capsule(&camera_config),
+            TestScene::MeshPlane     => raytracer_samples::samples::mesh_plane(&camera_config),
         };
 
         scene.reorganize_objects_into_bvh();

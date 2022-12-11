@@ -536,7 +536,7 @@ pub fn interceptor(config: &CameraConfiguration) -> Scene {
     // Lights
     let lamp_pos = position!(Up(20.0), East(20.0));
     let lamp_direction = position!(Origin) - lamp_pos;
-    scene.add_light(DirectionalLight::with_direction(lamp_direction).with_intensity(0.5));
+    scene.add_light(DirectionalLight::with_direction(lamp_direction).with_intensity(0.9));
 
     // World sphere
     let world_radius = 1000.0;
@@ -545,7 +545,7 @@ pub fn interceptor(config: &CameraConfiguration) -> Scene {
     scene.add_obj(Sphere::new(world_pos, world_radius, world_mat).with_id(0));
     
     // Interceptor
-    let int_tex = crate::texture_loader::load_bitmap_texture_from_bytes(include_bytes!("../textures/interceptor.bmp"));
+    let int_tex = crate::texture_loader::load_bitmap_texture_from_bytes(include_bytes!("../textures/test.bmp"));
     let int_mat = MatLambertian::with_texture(int_tex).with_reflectivity(0.08);
     let int_origin = position!(Up(4.0));
     let int_tris = ObjFile::read_from_string(include_str!("../meshes/interceptor.obj")).expect("reading mesh")
@@ -579,14 +579,40 @@ pub fn capsule(config: &CameraConfiguration) -> Scene {
     let world_pos = position!(Down(world_radius));
     scene.add_obj(Sphere::new(world_pos, world_radius, world_mat).with_id(0));
     
-    // Interceptor
+    // Capsule
     let capsule_tex = crate::texture_loader::load_bitmap_texture_from_bytes(include_bytes!("../textures/capsule0.bmp"));
-    let capsule_mat = MatLambertian::with_texture(capsule_tex).with_reflectivity(0.00);
+    let capsule_mat = MatLambertian::with_texture(capsule_tex);
     let capsule_origin = position!(Up(4.0));
     let capsule_tris = ObjFile::read_from_string(include_str!("../meshes/capsule0.obj")).expect("reading mesh")
         .get_object("default")
         .get_mesh_triangles();
     scene.add_obj(Mesh::new(capsule_origin, capsule_tris, capsule_mat).with_id(3));
+
+    scene
+}
+
+pub fn mesh_plane(config: &CameraConfiguration) -> Scene {
+    // Camera
+    let look_from = position!(East(2.0));
+    let look_to =   position!(Origin);
+    let camera = config.make_camera(look_to, look_from);
+
+    // Scene
+    let mut scene = Scene::new(camera, SceneSky::Black);
+
+    // Lights
+    let lamp_pos = look_from;
+    let lamp_direction = look_to - lamp_pos;
+    scene.add_light(DirectionalLight::with_direction(lamp_direction).with_intensity(1.0));
+
+    // Planbe
+    let plane_tex = crate::texture_loader::load_bitmap_texture_from_bytes(include_bytes!("../textures/test.bmp"));
+    let plane_mat = MatLambertian::with_texture(plane_tex);
+    let plane_origin = look_to;
+    let plane_tris = ObjFile::read_from_string(include_str!("../meshes/plane.obj")).expect("reading mesh")
+        .get_object("plane")
+        .get_mesh_triangles();
+    scene.add_obj(Mesh::new(plane_origin, plane_tris, plane_mat).with_id(1).with_reflection_mode(MeshReflectionMode::BiDirectional));
 
     scene
 }

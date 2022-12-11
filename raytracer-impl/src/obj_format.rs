@@ -97,19 +97,18 @@ impl ObjFile {
     }
 }
 
-pub fn parse_elements<T, const N: usize>(line: &str) -> Result<[T; N], ObjParseError>
+pub fn parse_elements<T, const N: usize>(element_name: &str, line: &str) -> Result<[T; N], ObjParseError>
     where T: std::str::FromStr, T: Default, T: Copy
 {
-    let structure_error = || ObjParseError::ParserError(format!("expected {} values", N));
-    let parse_error = |_| ObjParseError::ParserError(format!("error parsing {} values", N));
+    let parse_error = || ObjParseError::ParserError(format!("{}: error parsing {} values", element_name, N));
 
     let mut values = [Default::default(); N];
     let mut parts = line.split(char::is_whitespace);
     for i in 0..N {
-        values[i] = parts.next().ok_or_else(structure_error)?.parse().map_err(parse_error)?;
+        values[i] = parts.next().ok_or_else(|| parse_error())?.parse().map_err(|_| parse_error())?;
     }
     if parts.next().is_some() {
-        return Err(structure_error());
+        return Err(parse_error());
     }
     Ok(values)
 }
@@ -147,12 +146,12 @@ pub fn parse_obj_file(source: impl Read) -> Result<ObjFile, ObjParseError> {
             },
             // Vertex
             Some("v") => {
-                let [x, y, z] = parse_elements(&line[2..])?;
+                let [x, y, z] = parse_elements("vertex", &line[2..])?;
                 vertices.push(V3(x, y, z));
             },
             // Texture vertex
             Some("vt") => {
-                let [u, v] = parse_elements(&line[3..])?;
+                let [u, v] = parse_elements("texture vertex", &line[3..])?;
                 uv.push(V2(u, v));
             },
             // Vertex normals
@@ -161,7 +160,7 @@ pub fn parse_obj_file(source: impl Read) -> Result<ObjFile, ObjParseError> {
             },
             // Face
             Some("f") => {
-                let [a, b, c] = parse_elements(&line[2..])?;
+                let [a, b, c] = parse_elements("face", &line[2..])?;
                 faces.push(TriFace { a, b, c });
             },
             _ => {}

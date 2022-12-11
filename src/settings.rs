@@ -10,8 +10,9 @@ pub enum TestScene {
     Mesh,
     Interceptor,
     Capsule,
+    MeshPlane,
 }
-const TEST_SCENES: [TestScene; 8] = [
+const TEST_SCENES: [TestScene; 9] = [
     TestScene::RandomSpheres,
     TestScene::Simple,
     TestScene::Planes,
@@ -20,6 +21,7 @@ const TEST_SCENES: [TestScene; 8] = [
     TestScene::Mesh,
     TestScene::Interceptor,
     TestScene::Capsule,
+    TestScene::MeshPlane,
 ];
 
 #[derive(Debug, serde::Deserialize, serde::Serialize)]
