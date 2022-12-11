@@ -606,7 +606,7 @@ pub fn mesh_plane(config: &CameraConfiguration) -> Scene {
 
     // Planbe
     let plane_tex = crate::texture_loader::load_bitmap_texture_from_bytes(include_bytes!("../textures/test.bmp"));
-    let plane_mat = MatLambertian::with_texture(TestTexture);
+    let plane_mat = MatLambertian::with_texture(plane_tex);
     let plane_origin = look_to;
     let plane_tris = ObjFile::read_from_string(include_str!("../meshes/plane.obj")).expect("reading mesh")
         .get_object("plane")

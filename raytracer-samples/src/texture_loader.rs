@@ -17,11 +17,13 @@ fn load_bitmap_texture<R: std::io::Read>(mut reader: R) -> ImageTexture {
     let width = image.get_width();
     let height = image.get_height();
     let mut pixels = Vec::with_capacity((width * height) as usize);
+    
+    // Read all pixels into V3 format with 0,0 being bottom left
+    // The {bmp} crate inverts the Y coordinates, so need to flip them when reading.
 
-    // Read all pixels, with 0,0 being bottom left
     for y in 0..height {
         for x in 0..width {
-            let pixel = image.get_pixel(x, y);
+            let pixel = image.get_pixel(x, height - y - 1);
             pixels.push(rgb_to_v3(&pixel));
         }
     }
