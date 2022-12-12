@@ -3,16 +3,14 @@ use std::io::{BufRead, BufReader, Read};
 
 use crate::types::{ V2, V3 };
 
-#[derive(Debug)]
-pub enum ObjParseError {
-    ParserError(String),
-    IoError(std::io::Error)
-}
-
-impl std::convert::From<std::io::Error> for ObjParseError {
-    fn from(err: std::io::Error) -> Self {
-        ObjParseError::IoError(err)
-    }
+#[derive(thiserror::Error, Debug)]
+pub enum ObjError {
+    #[error("Error parsing OBJ file: {0}")]
+    General(String),
+    #[error("IO Error")]
+    IoError(#[from] std::io::Error),
+    #[error("Int parse error")]
+    IntParseError(#[from] std::num::ParseIntError),
 }
 
 // Obj parser
@@ -47,26 +45,36 @@ pub struct TriVertex {
     pub normal_index: Option<usize>,
 }
 
+#[derive(thiserror::Error, Debug)]
+pub enum VertexParseError {
+    #[error("Face vertex: Unexpected number of parts")]
+    UnexpectedPartCount,
+    #[error("Face vertex: Invalid integer")]
+    ParseIntError(#[from] std::num::ParseIntError),
+}
+
 impl std::str::FromStr for TriVertex {
-    type Err = ObjParseError;
-    fn from_str(s: &str) -> Result<Self, Self::Err> {
-        let parser_error = || ObjParseError::ParserError("Expected vertex index".into());
+    type Err = VertexParseError;
+    fn from_str(s: &str) -> Result<Self, VertexParseError> {
         // Parses vertex definitions of the form `v/vt?/vn?`
         let mut parts = s.split("/");
         let vertex_index = match parts.next() {
-            None => return Err(parser_error()),
-            Some(v) => v.parse().map_err(|_| parser_error())?,
+            None => return Err(VertexParseError::UnexpectedPartCount),
+            Some(v) => v.parse()?,
         };
         let uv_index = match parts.next() {
             None => None,
             Some("") => None,
-            Some(v) => Some(v.parse().map_err(|_| parser_error())?),
+            Some(v) => Some(v.parse()?),
         };
         let normal_index = match parts.next() {
             None => None,
             Some("") => None,
-            Some(v) => Some(v.parse().map_err(|_| parser_error())?),
+            Some(v) => Some(v.parse()?),
         };
+        if parts.next().is_some() {
+            return Err(VertexParseError::UnexpectedPartCount);
+        }
         Ok(TriVertex { vertex_index, uv_index, normal_index })
     }
 }
@@ -83,12 +91,12 @@ pub struct ObjFile {
 
 impl ObjFile {
     #[allow(unused)]
-    pub fn read_from_string(s: &str) -> Result<Self, ObjParseError> {
+    pub fn read_from_string(s: &str) -> Result<Self, ObjError> {
         parse_obj_file(s.as_bytes())
     }
 
     #[allow(unused)]
-    pub fn read_from_file(f: &std::fs::File) -> Result<Self, ObjParseError> {
+    pub fn read_from_file(f: &std::fs::File) -> Result<Self, ObjError> {
         parse_obj_file(f)
     }
 
@@ -97,23 +105,22 @@ impl ObjFile {
     }
 }
 
-pub fn parse_elements<T, const N: usize>(element_name: &str, line: &str) -> Result<[T; N], ObjParseError>
+pub fn try_parse_elements<T, const N: usize>(line: &str) -> Option<[T; N]>
     where T: std::str::FromStr, T: Default, T: Copy
 {
-    let parse_error = || ObjParseError::ParserError(format!("{}: error parsing {} values", element_name, N));
-
     let mut values = [Default::default(); N];
     let mut parts = line.split(char::is_whitespace);
     for i in 0..N {
-        values[i] = parts.next().ok_or_else(|| parse_error())?.parse().map_err(|_| parse_error())?;
+        let part = parts.next()?;
+        values[i] = part.parse().ok()?;
     }
     if parts.next().is_some() {
-        return Err(parse_error());
+        return None;
     }
-    Ok(values)
+    Some(values)
 }
 
-pub fn parse_obj_file(source: impl Read) -> Result<ObjFile, ObjParseError> {
+pub fn parse_obj_file(source: impl Read) -> Result<ObjFile, ObjError> {
     
     let mut objects = HashMap::new();
 
@@ -123,7 +130,7 @@ pub fn parse_obj_file(source: impl Read) -> Result<ObjFile, ObjParseError> {
     let mut uv = Vec::new();
     let mut faces = Vec::new();
 
-    for line in BufReader::new(source).lines() {
+    for (line_no, line) in BufReader::new(source).lines().enumerate() {
         let line = line?;
         let line = line.trim();
         // Skip comments
@@ -142,16 +149,18 @@ pub fn parse_obj_file(source: impl Read) -> Result<ObjFile, ObjParseError> {
                         uv: std::mem::replace(&mut uv, Vec::new()),
                     });
                 }
-                name = Some(line[2..].to_string());
+                name = Some(line[1..].trim().to_string());
             },
             // Vertex
             Some("v") => {
-                let [x, y, z] = parse_elements("vertex", &line[2..])?;
+                let [x, y, z] = try_parse_elements(&line[2..])
+                    .ok_or_else(|| ObjError::General(format!("Unable to parse vertex on line: {line_no}")))?;
                 vertices.push(V3(x, y, z));
             },
             // Texture vertex
             Some("vt") => {
-                let [u, v] = parse_elements("texture vertex", &line[3..])?;
+                let [u, v] = try_parse_elements(&line[3..])
+                    .ok_or_else(|| ObjError::General(format!("Unable to parse texture vertex on line: {line_no}")))?;
                 uv.push(V2(u, v));
             },
             // Vertex normals
@@ -160,7 +169,8 @@ pub fn parse_obj_file(source: impl Read) -> Result<ObjFile, ObjParseError> {
             },
             // Face
             Some("f") => {
-                let [a, b, c] = parse_elements("face", &line[2..])?;
+                let [a, b, c] = try_parse_elements(&line[2..])
+                    .ok_or_else(|| ObjError::General(format!("Unable to parse face on line: {line_no}")))?;
                 faces.push(TriFace { a, b, c });
             },
             _ => {}
