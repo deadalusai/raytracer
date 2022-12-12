@@ -502,23 +502,28 @@ pub fn mesh_demo(config: &CameraConfiguration) -> Scene {
     let world_pos = position!(Down(1000.0));
     scene.add_obj(Sphere::new(world_pos, 1000.0, world_mat).with_id(0));
 
-    // // Cube
-    // let cube_mat = MatLambertian::with_texture(ColorTexture(rgb(36, 193, 89))).with_reflectivity(0.0);
-    // let cube_origin = position!(South(1.5), West(1.5));
-    // let cube_tris = ObjMeshBuilder::read_from_string(include_str!("../meshes/cube.obj")).expect("reading cube mesh").get_object("Cube").get_mesh_triangles();
-    // scene.add_obj(Mesh::new(cube_origin, cube_tris, cube_mat).with_id(1));
+    let mut mesh_builder = ObjMeshBuilder::default();
+    mesh_builder.load_objects_from_string(include_str!("../meshes/cube.obj"));
+    mesh_builder.load_objects_from_string(include_str!("../meshes/thing.obj"));
+    mesh_builder.load_objects_from_string(include_str!("../meshes/suzanne.obj"));
 
-    // // Thing
-    // let thing_mat = MatMetal::with_albedo(rgb(89, 172, 255)).with_reflectivity(0.8).with_fuzz(0.02);
-    // let thing_origin = position!(North(1.5), East(1.5));
-    // let thing_tris = ObjMeshBuilder::read_from_string(include_str!("../meshes/thing.obj")).expect("reading thing mesh").get_object("Thing").get_mesh_triangles();
-    // scene.add_obj(Mesh::new(thing_origin, thing_tris, thing_mat).with_id(2));
+    // Cube
+    let cube_mat = MatLambertian::with_texture(ColorTexture(rgb(36, 193, 89))).with_reflectivity(0.0);
+    let cube_origin = position!(South(1.5), West(1.5));
+    let (cube_faces, _) = mesh_builder.build_mesh_and_materials("Cube");
+    scene.add_obj(Mesh::new(cube_origin, cube_faces, cube_mat).with_id(1));
 
-    // // Suzanne
-    // let suz_mat = MatDielectric::with_albedo(rgb(255, 137, 58)).with_opacity(0.2).with_ref_index(0.8).with_reflectivity(0.0);
-    // let suz_origin = position!(Origin);
-    // let suz_tris = ObjMeshBuilder::read_from_string(include_str!("../meshes/suzanne.obj")).expect("reading cube mesh").get_object("Suzanne").get_mesh_triangles();
-    // scene.add_obj(Mesh::new(suz_origin, suz_tris, suz_mat).with_id(3));
+    // Thing
+    let thing_mat = MatMetal::with_albedo(rgb(89, 172, 255)).with_reflectivity(0.8).with_fuzz(0.02);
+    let thing_origin = position!(North(1.5), East(1.5));
+    let (thing_faces, _) = mesh_builder.build_mesh_and_materials("Thing");
+    scene.add_obj(Mesh::new(thing_origin, thing_faces, thing_mat).with_id(2));
+
+    // Suzanne
+    let suz_mat = MatDielectric::with_albedo(rgb(255, 137, 58)).with_opacity(0.2).with_ref_index(0.8).with_reflectivity(0.0);
+    let suz_origin = position!(Origin);
+    let (suz_faces, _) = mesh_builder.build_mesh_and_materials("Suzanne");
+    scene.add_obj(Mesh::new(suz_origin, suz_faces, suz_mat).with_id(3));
 
     scene
 }
@@ -543,15 +548,26 @@ pub fn interceptor(config: &CameraConfiguration) -> Scene {
     let world_mat = MatLambertian::with_texture(ColorTexture(rgb(200, 200, 200)));
     let world_pos = position!(Down(world_radius));
     scene.add_obj(Sphere::new(world_pos, world_radius, world_mat).with_id(0));
-    
-    // // Interceptor
-    // let int_tex = load_bitmap_texture_from_bytes(include_bytes!("../textures/test.bmp"));
-    // let int_mat = MatLambertian::with_texture(int_tex).with_reflectivity(0.08);
-    // let int_origin = position!(Up(4.0));
-    // let int_tris = ObjMeshBuilder::read_from_string(include_str!("../meshes/interceptor.obj")).expect("reading mesh")
-    //     .get_object("Heavyinterceptor")
-    //     .get_mesh_triangles();
-    // scene.add_obj(Mesh::new(int_origin, int_tris, int_mat).with_id(3));
+
+    let mut mesh_builder = ObjMeshBuilder::default();
+    mesh_builder.load_objects_from_string(include_str!("../meshes/Interceptor-T/Heavyinterceptor.obj"));
+    mesh_builder.load_materials_from_string(include_str!("../meshes/Interceptor-T/Heavyinterceptor.mtl"));
+    mesh_builder.load_objects_from_string(include_str!("../meshes/suzanne.obj"));
+    mesh_builder.add_color_map("engine_back.bmp", load_bitmap_texture_from_bytes(include_bytes!("../meshes/Interceptor-T/engine_back.bmp")));
+    mesh_builder.add_color_map("intake_front.bmp", load_bitmap_texture_from_bytes(include_bytes!("../meshes/Interceptor-T/intake_front.bmp")));
+    mesh_builder.add_color_map("page0.bmp", load_bitmap_texture_from_bytes(include_bytes!("../meshes/Interceptor-T/page0.bmp")));
+    mesh_builder.add_color_map("page1.bmp", load_bitmap_texture_from_bytes(include_bytes!("../meshes/Interceptor-T/page1.bmp")));
+    mesh_builder.add_color_map("page2.bmp", load_bitmap_texture_from_bytes(include_bytes!("../meshes/Interceptor-T/page2.bmp")));
+    mesh_builder.add_color_map("Rwingbottem.bmp", load_bitmap_texture_from_bytes(include_bytes!("../meshes/Interceptor-T/Rwingbottem.bmp")));
+    mesh_builder.add_color_map("rwinginside.bmp", load_bitmap_texture_from_bytes(include_bytes!("../meshes/Interceptor-T/rwinginside.bmp")));
+    mesh_builder.add_color_map("topfin_sides.bmp", load_bitmap_texture_from_bytes(include_bytes!("../meshes/Interceptor-T/topfin_sides.bmp")));
+
+    // Interceptor
+    let int_tex = load_bitmap_texture_from_bytes(include_bytes!("../textures/test.bmp"));
+    let int_origin = position!(Up(4.0));
+    let (int_faces, int_materials) = mesh_builder.build_mesh_and_materials("default");
+    let int_mat = MatLambertian::with_texture(int_materials);
+    scene.add_obj(Mesh::new(int_origin, int_faces, int_mat));
 
     scene
 }
