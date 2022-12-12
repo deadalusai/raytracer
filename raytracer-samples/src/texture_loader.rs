@@ -2,7 +2,7 @@ use std::path::{ Path };
 use std::fs::{ File };
 use std::io::{ BufReader };
 
-use raytracer_impl::texture::{ ImageTexture };
+use raytracer_impl::texture::{ ImageColorMap };
 use raytracer_impl::types::{ V3 };
 
 fn rgb_to_v3(pixel: &bmp::Pixel) -> V3 {
@@ -12,7 +12,7 @@ fn rgb_to_v3(pixel: &bmp::Pixel) -> V3 {
     V3(r, g, b)
 }
 
-fn load_bitmap_texture<R: std::io::Read>(mut reader: R) -> ImageTexture {
+fn load_bitmap_texture<R: std::io::Read>(mut reader: R) -> ImageColorMap {
     let image = bmp::from_reader(&mut reader).unwrap();
     let width = image.get_width();
     let height = image.get_height();
@@ -28,7 +28,7 @@ fn load_bitmap_texture<R: std::io::Read>(mut reader: R) -> ImageTexture {
         }
     }
 
-    ImageTexture {
+    ImageColorMap {
         width: width as usize,
         height: height as usize,
         pixels,
@@ -36,12 +36,12 @@ fn load_bitmap_texture<R: std::io::Read>(mut reader: R) -> ImageTexture {
 }
 
 #[allow(unused)]
-pub fn load_bitmap_texture_from_path(path: &Path) -> ImageTexture {
+pub fn load_bitmap_texture_from_path(path: &Path) -> ImageColorMap {
     let mut file = File::open(path).unwrap();
     load_bitmap_texture(BufReader::new(file))
 }
 
 #[allow(unused)]
-pub fn load_bitmap_texture_from_bytes(bytes: &[u8]) -> ImageTexture {
+pub fn load_bitmap_texture_from_bytes(bytes: &[u8]) -> ImageColorMap {
     load_bitmap_texture(bytes)
 }

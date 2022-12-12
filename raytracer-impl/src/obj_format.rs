@@ -1,4 +1,3 @@
-use std::collections::HashMap;
 use std::io::{BufRead, BufReader, Read};
 
 use crate::types::{ V2, V3 };
@@ -33,13 +32,20 @@ pub enum ObjError {
 // - every face has three components `f a b c` (triangles only)
 
 pub struct ObjObject {
+    pub name: String,
     pub vertices: Vec<V3>,
     pub uv: Vec<V2>,
-    pub faces: Vec<TriFace>,
+    pub faces: Vec<ObjFace>,
+}
+
+pub struct ObjMaterial {
+    pub name: String,
+    pub diffuse_color: V3,
+    pub diffuse_color_map: Option<String>,
 }
 
 #[derive(Default, Copy, Clone)]
-pub struct TriVertex {
+pub struct ObjVertex {
     pub vertex_index: usize,
     pub uv_index: Option<usize>,
     pub normal_index: Option<usize>,
@@ -53,7 +59,7 @@ pub enum VertexParseError {
     ParseIntError(#[from] std::num::ParseIntError),
 }
 
-impl std::str::FromStr for TriVertex {
+impl std::str::FromStr for ObjVertex {
     type Err = VertexParseError;
     fn from_str(s: &str) -> Result<Self, VertexParseError> {
         // Parses vertex definitions of the form `v/vt?/vn?`
@@ -75,34 +81,15 @@ impl std::str::FromStr for TriVertex {
         if parts.next().is_some() {
             return Err(VertexParseError::UnexpectedPartCount);
         }
-        Ok(TriVertex { vertex_index, uv_index, normal_index })
+        Ok(ObjVertex { vertex_index, uv_index, normal_index })
     }
 }
 
-pub struct TriFace {
-    pub a: TriVertex,
-    pub b: TriVertex,
-    pub c: TriVertex,
-}
-
-pub struct ObjFile {
-    objects: HashMap<String, ObjObject>,
-}
-
-impl ObjFile {
-    #[allow(unused)]
-    pub fn read_from_string(s: &str) -> Result<Self, ObjError> {
-        parse_obj_file(s.as_bytes())
-    }
-
-    #[allow(unused)]
-    pub fn read_from_file(f: &std::fs::File) -> Result<Self, ObjError> {
-        parse_obj_file(f)
-    }
-
-    pub fn get_object(&self, name: &str) -> &ObjObject {
-        self.objects.get(name).expect("Expected object")
-    }
+pub struct ObjFace {
+    pub a: ObjVertex,
+    pub b: ObjVertex,
+    pub c: ObjVertex,
+    pub mtl: Option<String>,
 }
 
 pub fn try_parse_elements<T, const N: usize>(line: &str) -> Option<[T; N]>
@@ -120,15 +107,16 @@ pub fn try_parse_elements<T, const N: usize>(line: &str) -> Option<[T; N]>
     Some(values)
 }
 
-pub fn parse_obj_file(source: impl Read) -> Result<ObjFile, ObjError> {
+pub fn parse_obj_file(source: impl Read) -> Result<Vec<ObjObject>, ObjError> {
     
-    let mut objects = HashMap::new();
+    let mut objects = Vec::new();
 
     // Braindead OBJ parser, supports o, v, vt & f directives only.
     let mut name = None;
     let mut vertices = Vec::new();
     let mut uv = Vec::new();
     let mut faces = Vec::new();
+    let mut mtl = None;
 
     for (line_no, line) in BufReader::new(source).lines().enumerate() {
         let line = line?;
@@ -143,7 +131,8 @@ pub fn parse_obj_file(source: impl Read) -> Result<ObjFile, ObjError> {
             Some("o") => {
                 // Starting a new object?
                 if let Some(name) = name.take() {
-                    objects.insert(name, ObjObject {
+                    objects.push(ObjObject {
+                        name,
                         vertices: std::mem::replace(&mut vertices, Vec::new()),
                         faces: std::mem::replace(&mut faces, Vec::new()),
                         uv: std::mem::replace(&mut uv, Vec::new()),
@@ -167,11 +156,15 @@ pub fn parse_obj_file(source: impl Read) -> Result<ObjFile, ObjError> {
             Some("vn") => {
                 // TODO
             },
+            Some("usemtl") => {
+                mtl = Some(line[6..].trim().to_string());
+            },
             // Face
             Some("f") => {
+                let mtl = mtl.clone();
                 let [a, b, c] = try_parse_elements(&line[2..])
                     .ok_or_else(|| ObjError::General(format!("Unable to parse face on line: {line_no}")))?;
-                faces.push(TriFace { a, b, c });
+                faces.push(ObjFace { a, b, c, mtl });
             },
             _ => {}
         }
@@ -179,12 +172,68 @@ pub fn parse_obj_file(source: impl Read) -> Result<ObjFile, ObjError> {
 
     // Emit the last object
     let name = name.unwrap_or_else(|| "default".to_string());
-    objects.insert(name, ObjObject {
+    objects.push(ObjObject {
+        name,
         vertices,
         faces,
         uv,
     });
 
-    // Ignore comments
-    Ok(ObjFile { objects })
+    Ok(objects)
+}
+
+pub fn parse_mtl_file(source: impl Read) -> Result<Vec<ObjMaterial>, ObjError> {
+    
+    let mut materials = Vec::new();
+
+    // Braindead MTL parser, supports newmtl, Kd and Kd_map directives only.
+    let mut name: Option<String> = None;
+    let mut diffuse_color = V3::zero();
+    let mut diffuse_color_map = None;
+
+    for (line_no, line) in BufReader::new(source).lines().enumerate() {
+        let line = line?;
+        let line = line.trim();
+        // Skip comments
+        if line.starts_with("#") {
+            continue;
+        }
+        let directive = line.split(' ').next();
+        match directive {
+            // Object
+            Some("newmtl") => {
+                // Starting a new object?
+                if let Some(name) = name.take() {
+                    materials.push(ObjMaterial {
+                        name: name.to_string(),
+                        diffuse_color: std::mem::replace(&mut diffuse_color, V3::zero()),
+                        diffuse_color_map: diffuse_color_map.take(),
+                    });
+                }
+                name = Some(line[6..].trim().to_string());
+            },
+            // Diffuse color
+            Some("Kd") => {
+                let [r, g, b] = try_parse_elements(&line[2..].trim())
+                    .ok_or_else(|| ObjError::General(format!("Unable to parse kD on line: {line_no}")))?;
+                diffuse_color = V3(r, g, b);
+            },
+            // Diffuse color map
+            Some("map_Kd") => {
+                diffuse_color_map = Some(line[6..].trim().to_string());
+            },
+            _ => {}
+        }
+    }
+
+    // Emit the last object
+    if let Some(name) = name {
+        materials.push(ObjMaterial {
+            name,
+            diffuse_color,
+            diffuse_color_map,
+        });
+    }
+
+    Ok(materials)
 }

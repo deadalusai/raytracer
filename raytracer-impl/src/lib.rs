@@ -8,3 +8,4 @@ pub mod lights;
 pub mod implementation;
 pub mod viewport;
 pub mod obj_format;
+pub mod obj_data;

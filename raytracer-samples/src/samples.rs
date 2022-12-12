@@ -3,11 +3,12 @@
 use raytracer_impl::texture::{ ColorTexture, CheckerTexture, TestTexture };
 use raytracer_impl::types::{ V3, Ray };
 use raytracer_impl::materials::{ MatLambertian, MatDielectric, MatMetal };
-use raytracer_impl::shapes::{ Sphere, Plane, Mesh, MeshTri, MeshTriConvert };
+use raytracer_impl::shapes::{ Sphere, Plane, Mesh, MeshFace };
 use raytracer_impl::viewport::{ Viewport };
 use raytracer_impl::lights::{ PointLight, DirectionalLight, LampLight };
 use raytracer_impl::implementation::{ Scene, SceneSky, Camera, Material };
-use raytracer_impl::obj_format::{ ObjFile };
+use raytracer_impl::obj_data::{ ObjMeshBuilder };
+use crate::texture_loader::{ load_bitmap_texture_from_bytes };
 
 use rand::{ Rng, SeedableRng, rngs::StdRng };
 
@@ -456,7 +457,7 @@ pub fn triangle_world(config: &CameraConfiguration) -> Scene {
     // Triangle
     let tri_pos = position!(Origin);
     let tri_mat = MatLambertian::with_texture(ColorTexture(rgb(200, 100, 80))).with_reflectivity(0.0);
-    let tri_vertices = MeshTri::from_abc(
+    let tri_vertices = MeshFace::from_abc(
         position!(Up(0.3), South(1.0)),
         position!(Up(0.6), East(1.0)),
         position!(Up(0.8), West(1.0))
@@ -465,7 +466,7 @@ pub fn triangle_world(config: &CameraConfiguration) -> Scene {
 
     let tri_pos = position!(Up(1.0));
     let tri_mat = MatLambertian::with_texture(ColorTexture(rgb(100, 100, 200))).with_reflectivity(0.0);
-    let tri_vertices = MeshTri::from_abc(
+    let tri_vertices = MeshFace::from_abc(
         position!(Up(0.4), North(1.0)),
         position!(Up(0.8), South(1.0)),
         position!(Up(0.6), East(1.0))
@@ -501,23 +502,23 @@ pub fn mesh_demo(config: &CameraConfiguration) -> Scene {
     let world_pos = position!(Down(1000.0));
     scene.add_obj(Sphere::new(world_pos, 1000.0, world_mat).with_id(0));
 
-    // Cube
-    let cube_mat = MatLambertian::with_texture(ColorTexture(rgb(36, 193, 89))).with_reflectivity(0.0);
-    let cube_origin = position!(South(1.5), West(1.5));
-    let cube_tris = ObjFile::read_from_string(include_str!("../meshes/cube.obj")).expect("reading cube mesh").get_object("Cube").get_mesh_triangles();
-    scene.add_obj(Mesh::new(cube_origin, cube_tris, cube_mat).with_id(1));
+    // // Cube
+    // let cube_mat = MatLambertian::with_texture(ColorTexture(rgb(36, 193, 89))).with_reflectivity(0.0);
+    // let cube_origin = position!(South(1.5), West(1.5));
+    // let cube_tris = ObjMeshBuilder::read_from_string(include_str!("../meshes/cube.obj")).expect("reading cube mesh").get_object("Cube").get_mesh_triangles();
+    // scene.add_obj(Mesh::new(cube_origin, cube_tris, cube_mat).with_id(1));
 
-    // Thing
-    let thing_mat = MatMetal::with_albedo(rgb(89, 172, 255)).with_reflectivity(0.8).with_fuzz(0.02);
-    let thing_origin = position!(North(1.5), East(1.5));
-    let thing_tris = ObjFile::read_from_string(include_str!("../meshes/thing.obj")).expect("reading thing mesh").get_object("Thing").get_mesh_triangles();
-    scene.add_obj(Mesh::new(thing_origin, thing_tris, thing_mat).with_id(2));
+    // // Thing
+    // let thing_mat = MatMetal::with_albedo(rgb(89, 172, 255)).with_reflectivity(0.8).with_fuzz(0.02);
+    // let thing_origin = position!(North(1.5), East(1.5));
+    // let thing_tris = ObjMeshBuilder::read_from_string(include_str!("../meshes/thing.obj")).expect("reading thing mesh").get_object("Thing").get_mesh_triangles();
+    // scene.add_obj(Mesh::new(thing_origin, thing_tris, thing_mat).with_id(2));
 
-    // Suzanne
-    let suz_mat = MatDielectric::with_albedo(rgb(255, 137, 58)).with_opacity(0.2).with_ref_index(0.8).with_reflectivity(0.0);
-    let suz_origin = position!(Origin);
-    let suz_tris = ObjFile::read_from_string(include_str!("../meshes/suzanne.obj")).expect("reading cube mesh").get_object("Suzanne").get_mesh_triangles();
-    scene.add_obj(Mesh::new(suz_origin, suz_tris, suz_mat).with_id(3));
+    // // Suzanne
+    // let suz_mat = MatDielectric::with_albedo(rgb(255, 137, 58)).with_opacity(0.2).with_ref_index(0.8).with_reflectivity(0.0);
+    // let suz_origin = position!(Origin);
+    // let suz_tris = ObjMeshBuilder::read_from_string(include_str!("../meshes/suzanne.obj")).expect("reading cube mesh").get_object("Suzanne").get_mesh_triangles();
+    // scene.add_obj(Mesh::new(suz_origin, suz_tris, suz_mat).with_id(3));
 
     scene
 }
@@ -543,14 +544,14 @@ pub fn interceptor(config: &CameraConfiguration) -> Scene {
     let world_pos = position!(Down(world_radius));
     scene.add_obj(Sphere::new(world_pos, world_radius, world_mat).with_id(0));
     
-    // Interceptor
-    let int_tex = crate::texture_loader::load_bitmap_texture_from_bytes(include_bytes!("../textures/test.bmp"));
-    let int_mat = MatLambertian::with_texture(int_tex).with_reflectivity(0.08);
-    let int_origin = position!(Up(4.0));
-    let int_tris = ObjFile::read_from_string(include_str!("../meshes/interceptor.obj")).expect("reading mesh")
-        .get_object("Heavyinterceptor")
-        .get_mesh_triangles();
-    scene.add_obj(Mesh::new(int_origin, int_tris, int_mat).with_id(3));
+    // // Interceptor
+    // let int_tex = load_bitmap_texture_from_bytes(include_bytes!("../textures/test.bmp"));
+    // let int_mat = MatLambertian::with_texture(int_tex).with_reflectivity(0.08);
+    // let int_origin = position!(Up(4.0));
+    // let int_tris = ObjMeshBuilder::read_from_string(include_str!("../meshes/interceptor.obj")).expect("reading mesh")
+    //     .get_object("Heavyinterceptor")
+    //     .get_mesh_triangles();
+    // scene.add_obj(Mesh::new(int_origin, int_tris, int_mat).with_id(3));
 
     scene
 }
@@ -579,13 +580,15 @@ pub fn capsule(config: &CameraConfiguration) -> Scene {
     scene.add_obj(Sphere::new(world_pos, world_radius, world_mat).with_id(0));
     
     // Capsule
-    let capsule_tex = crate::texture_loader::load_bitmap_texture_from_bytes(include_bytes!("../textures/capsule0.bmp"));
-    let capsule_mat = MatLambertian::with_texture(capsule_tex);
+    let mut mesh_builder = ObjMeshBuilder::default();
+    mesh_builder.load_objects_from_string(include_str!("../meshes/capsule.obj"));
+    mesh_builder.load_materials_from_string(include_str!("../meshes/capsule.mtl"));
+    mesh_builder.add_color_map("capsule.bmp", load_bitmap_texture_from_bytes(include_bytes!("../textures/capsule.bmp")));
+
+    let (capsule_faces, capsule_materials) = mesh_builder.build_mesh_and_materials("default");
+    let capsule_mat = MatLambertian::with_texture(capsule_materials);
     let capsule_origin = position!(Up(4.0));
-    let capsule_tris = ObjFile::read_from_string(include_str!("../meshes/capsule0.obj")).expect("reading mesh")
-        .get_object("default")
-        .get_mesh_triangles();
-    scene.add_obj(Mesh::new(capsule_origin, capsule_tris, capsule_mat).with_id(3));
+    scene.add_obj(Mesh::new(capsule_origin, capsule_faces, capsule_mat));
 
     scene
 }
@@ -604,14 +607,16 @@ pub fn mesh_plane(config: &CameraConfiguration) -> Scene {
     let lamp_direction = look_to - lamp_pos;
     scene.add_light(DirectionalLight::with_direction(lamp_direction).with_intensity(1.0));
 
-    // Planbe
-    let plane_tex = crate::texture_loader::load_bitmap_texture_from_bytes(include_bytes!("../textures/test.bmp"));
-    let plane_mat = MatLambertian::with_texture(plane_tex);
+    let mut mesh_builder = ObjMeshBuilder::default();
+    mesh_builder.load_objects_from_string(include_str!("../meshes/plane.obj"));
+
+    let plane_color_map = load_bitmap_texture_from_bytes(include_bytes!("../textures/test.bmp"));
+
+    // Plane
+    let plane_mat = MatLambertian::with_texture(plane_color_map);
     let plane_origin = look_to;
-    let plane_tris = ObjFile::read_from_string(include_str!("../meshes/plane.obj")).expect("reading mesh")
-        .get_object("plane")
-        .get_mesh_triangles();
-    scene.add_obj(Mesh::new(plane_origin, plane_tris, plane_mat).with_id(1));
+    let (plane_faces, _) = mesh_builder.build_mesh_and_materials("plane");
+    scene.add_obj(Mesh::new(plane_origin, plane_faces, plane_mat).with_id(1));
 
     scene
 }

@@ -1,27 +1,27 @@
 use std::sync::Arc;
 
-use crate::obj_format::ObjObject;
 use crate::types::{ V3, V2, Ray, IntoArc };
 use crate::implementation::{ Material, Hitable, HitRecord, AABB };
 
 // Triangle Mesh BVH
 
-struct MeshTriHit {
+struct MeshFaceHit {
     p: V3,
     normal: V3,
     t: f32,
-    uv: V2,
+    mtl_uv: V2,
+    mtl_index: Option<usize>,
 }
 
-fn try_hit_triangle(ray: &Ray, tri: &MeshTri) -> Option<MeshTriHit> {
+fn try_hit_face(ray: &Ray, face: &MeshFace) -> Option<MeshFaceHit> {
     // compute normal of and area of the triangle
     // NOTE: not normalized! Used for area calculations
-    let edge_ab = tri.b - tri.a;
-    let edge_ac = tri.c - tri.a;
+    let edge_ab = face.b - face.a;
+    let edge_ac = face.c - face.a;
     let normal = V3::cross(edge_ab, edge_ac);
 
     // Step 1: find the intersection {P}
-    let t = super::plane::intersect_plane(ray, tri.a, normal)?;
+    let t = super::plane::intersect_plane(ray, face.a, normal)?;
     if t < 0.0 {
         // Triangle is behind the ray origin
         return None;
@@ -33,26 +33,29 @@ fn try_hit_triangle(ray: &Ray, tri: &MeshTri) -> Option<MeshTriHit> {
     // by checking to see if it is to the left of each edge
 
     // edge ab
-    let normal_abp = V3::cross(edge_ab, p - tri.a);
+    let normal_abp = V3::cross(edge_ab, p - face.a);
     if V3::dot(normal, normal_abp) < 0.0 {
         // P is to the right of edge ab
         return None;
     }
 
     // edge bc
-    let normal_bcp = V3::cross(tri.c - tri.b, p - tri.b);
+    let normal_bcp = V3::cross(face.c - face.b, p - face.b);
     if V3::dot(normal, normal_bcp) < 0.0 {
         // P is to the right of edge bc
         return None;
     }
 
     // edge ca
-    let normal_cap = V3::cross(tri.a - tri.c, p - tri.c);
+    let normal_cap = V3::cross(face.a - face.c, p - face.c);
     if V3::dot(normal, normal_cap) < 0.0 {
         // P is to the right of edge ca
         return None;
     }
     
+    // TODO(benf): Only need to calculate UV if there is a {mtl_index} set?
+    // Could refactor this to skip the uv calculations if we don't need to do them.
+
     // Calculate uv/barycentric coordinates.
     // Given a triangle ABC and point P:
     //                  C  
@@ -66,25 +69,26 @@ fn try_hit_triangle(ray: &Ray, tri: &MeshTri) -> Option<MeshTriHit> {
     let u = normal_cap.length() / area2;
     let v = normal_abp.length() / area2;
     let w = 1.0 - u - v;
-    let uv = (tri.a_uv * w) + (tri.b_uv * u) + (tri.c_uv * v);
+    let mtl_uv = (face.a_uv * w) + (face.b_uv * u) + (face.c_uv * v);
+    let mtl_index = face.mtl_index.clone();
 
-    return Some(MeshTriHit { p, normal: normal.unit(), t, uv })
+    return Some(MeshFaceHit { p, normal: normal.unit(), t, mtl_uv, mtl_index })
 }
 
-fn tri_aabb(tri: &MeshTri) -> AABB {
+fn face_aabb(tri: &MeshFace) -> AABB {
     AABB::from_vertices(&[tri.a, tri.b, tri.c])
 }
 
-pub struct MeshBvhLeaf(MeshTri);
+pub struct MeshBvhLeaf(MeshFace);
 
 impl MeshBvhLeaf {
-    fn hit_node(&self, ray: &Ray, t_min: f32, t_max: f32) -> Option<MeshTriHit> {
-        try_hit_triangle(ray, &self.0)
+    fn hit_node(&self, ray: &Ray, t_min: f32, t_max: f32) -> Option<MeshFaceHit> {
+        try_hit_face(ray, &self.0)
             .filter(|hit| t_min < hit.t && hit.t < t_max)
     }
 
     fn aabb(&self) -> AABB {
-        tri_aabb(&self.0)
+        face_aabb(&self.0)
     }
 }
 
@@ -95,7 +99,7 @@ pub struct MeshBvhBranch {
 }
 
 impl MeshBvhBranch {
-    fn hit_node(&self, ray: &Ray, t_min: f32, t_max: f32) -> Option<MeshTriHit> {
+    fn hit_node(&self, ray: &Ray, t_min: f32, t_max: f32) -> Option<MeshFaceHit> {
         if !self.aabb.hit_aabb(ray, t_min, t_max) {
             return None;
         }
@@ -120,7 +124,7 @@ pub enum MeshBvhNode {
 }
 
 impl MeshBvhNode {
-    fn hit_node(&self, ray: &Ray, t_min: f32, t_max: f32) -> Option<MeshTriHit> {
+    fn hit_node(&self, ray: &Ray, t_min: f32, t_max: f32) -> Option<MeshFaceHit> {
         match self {
             MeshBvhNode::Leaf(leaf) => leaf.hit_node(ray, t_min, t_max),
             MeshBvhNode::Branch(branch) => branch.hit_node(ray, t_min, t_max),
@@ -135,19 +139,19 @@ impl MeshBvhNode {
     }
 }
 
-pub fn build_triangle_bvh_hierachy(triangles: &[MeshTri]) -> Option<MeshBvhNode> {
+pub fn build_face_bvh_hierachy(faces: &[MeshFace]) -> Option<MeshBvhNode> {
     use super::bvh::{ SortAxis, compare_aabb };
 
-    fn inner(triangles: &mut [(AABB, &MeshTri)], axis: SortAxis) -> Option<MeshBvhNode> {
+    fn inner(faces: &mut [(AABB, &MeshFace)], axis: SortAxis) -> Option<MeshBvhNode> {
 
-        let node = match triangles {
+        let node = match faces {
             [] => return None,
             [a] => MeshBvhNode::Leaf(MeshBvhLeaf(a.1.clone())),
             _ => {
-                triangles.sort_by(|l, r| compare_aabb(&l.0, &r.0, axis));
-                let mid = triangles.len() / 2;
-                let left = inner(&mut triangles[0..mid], axis.next()).unwrap();
-                let right = inner(&mut triangles[mid..], axis.next()).unwrap();
+                faces.sort_by(|l, r| compare_aabb(&l.0, &r.0, axis));
+                let mid = faces.len() / 2;
+                let left = inner(&mut faces[0..mid], axis.next()).unwrap();
+                let right = inner(&mut faces[mid..], axis.next()).unwrap();
                 MeshBvhNode::Branch(MeshBvhBranch {
                     aabb: AABB::surrounding(left.aabb(), right.aabb()),
                     left: Box::new(left),
@@ -160,26 +164,27 @@ pub fn build_triangle_bvh_hierachy(triangles: &[MeshTri]) -> Option<MeshBvhNode>
     }
 
     // Pre-caculate triangle bounding boxes
-    let mut triangles = triangles.iter()
-        .map(|tri| (tri_aabb(tri), tri))
+    let mut faces = faces.iter()
+        .map(|f| (face_aabb(f), f))
         .collect::<Vec<_>>();
 
-    inner(&mut triangles, SortAxis::X)
+    inner(&mut faces, SortAxis::X)
 }
 
 // Mesh
 
 #[derive(Clone, Default)]
-pub struct MeshTri {
-    a: V3,
-    b: V3,
-    c: V3,
-    a_uv: V2,
-    b_uv: V2,
-    c_uv: V2,
+pub struct MeshFace {
+    pub a: V3,
+    pub b: V3,
+    pub c: V3,
+    pub a_uv: V2,
+    pub b_uv: V2,
+    pub c_uv: V2,
+    pub mtl_index: Option<usize>,
 }
 
-impl MeshTri {
+impl MeshFace {
     pub fn from_abc(a: V3, b: V3, c: V3) -> Self {
         Self { a, b, c, ..Default::default() }
     }
@@ -188,16 +193,16 @@ impl MeshTri {
 pub struct Mesh {
     object_id: Option<u32>,
     origin: V3,
-    mesh_node: MeshBvhNode,
+    root_node: MeshBvhNode,
     material: Arc<dyn Material>,
 }
 
 impl Mesh {
-    pub fn new(origin: V3, triangles: Vec<MeshTri>, material: impl IntoArc<dyn Material>) -> Self {
+    pub fn new(origin: V3, faces: Vec<MeshFace>, material: impl IntoArc<dyn Material>) -> Self {
         Mesh {
             object_id: None,
             origin,
-            mesh_node: build_triangle_bvh_hierachy(&triangles).expect("Expected at least one triangle for mesh"),
+            root_node: build_face_bvh_hierachy(&faces).expect("Expected at least one triangle for mesh"),
             material: material.into_arc(),
         }
     }
@@ -213,50 +218,25 @@ impl Hitable for Mesh {
     fn hit<'a> (&'a self, ray: &Ray, t_min: f32, t_max: f32) -> Option<HitRecord<'a>> {
         // Shift the ray into mesh space
         let mesh_ray = Ray::new(ray.origin - self.origin, ray.direction);
-        let mesh_hit = self.mesh_node.hit_node(&mesh_ray, t_min, t_max)?;
+        let mesh_hit = self.root_node.hit_node(&mesh_ray, t_min, t_max)?;
         Some(HitRecord {
             object_id: self.object_id,
             // Shift the hit back into world space
             t: mesh_hit.t,
             p: mesh_hit.p + self.origin,
             normal: mesh_hit.normal,
-            uv: mesh_hit.uv,
+            mtl_uv: mesh_hit.mtl_uv,
+            mtl_index: mesh_hit.mtl_index,
             material: self.material.as_ref(),
         })
     }
 
     fn bounding_box(&self) -> Option<AABB> {
         // Shift the mesh bounding box into world space
-        let aabb = self.mesh_node.aabb();
+        let aabb = self.root_node.aabb();
         Some(AABB {
             min: self.origin + aabb.min,
             max: self.origin + aabb.max,
         })
-    }
-}
-
-
-// Convert OBJ triangles into MeshTri list
-
-pub trait MeshTriConvert {
-    fn get_mesh_triangles(&self) -> Vec<MeshTri>;
-}
-
-impl MeshTriConvert for ObjObject {
-    fn get_mesh_triangles(&self) -> Vec<MeshTri> {
-        let get_vertex = |i: usize| self.vertices.get(i - 1).cloned().unwrap();
-        let get_uv_vertex = |oi: Option<usize>| oi.and_then(|i| self.uv.get(i - 1).cloned()).unwrap_or_default();
-        let mut tris = Vec::new();
-        for face in self.faces.iter() {
-            tris.push(MeshTri {
-                a: get_vertex(face.a.vertex_index),
-                b: get_vertex(face.b.vertex_index),
-                c: get_vertex(face.c.vertex_index),
-                a_uv: get_uv_vertex(face.a.uv_index),
-                b_uv: get_uv_vertex(face.b.uv_index),
-                c_uv: get_uv_vertex(face.c.uv_index),
-            });
-        }
-        tris
     }
 }

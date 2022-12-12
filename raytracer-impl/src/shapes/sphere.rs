@@ -53,7 +53,8 @@ impl Hitable for Sphere {
                     p,
                     normal,
                     //  TODO: UV on a sphere
-                    uv: V2::zero(),
+                    mtl_uv: V2::zero(),
+                    mtl_index: None,
                     material,
                 });
             }

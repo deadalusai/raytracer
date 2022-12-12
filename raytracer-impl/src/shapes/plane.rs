@@ -67,7 +67,8 @@ impl Hitable for Plane {
             p,
             normal,
             // TODO(benf): UV mapping for plane
-            uv: V2::zero(),
+            mtl_uv: V2::zero(),
+            mtl_index: None,
             material,
         });
     }
