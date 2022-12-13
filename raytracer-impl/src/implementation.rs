@@ -147,6 +147,7 @@ pub struct HitRecord<'mat> {
 
 pub trait Hitable: Send + Sync {
     fn hit<'a>(&'a self, ray: &Ray, t_min: f32, t_max: f32) -> Option<HitRecord<'a>>;
+    fn origin(&self) -> V3;
     fn bounding_box(&self) -> Option<AABB>;
 }
 

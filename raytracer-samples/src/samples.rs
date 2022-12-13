@@ -1,13 +1,17 @@
 #![allow(unused)]
 
+use std::f32::consts::PI;
+
 use raytracer_impl::texture::{ ColorTexture, CheckerTexture, TestTexture };
 use raytracer_impl::types::{ V3, Ray };
 use raytracer_impl::materials::{ MatLambertian, MatDielectric, MatMetal };
 use raytracer_impl::shapes::{ Sphere, Plane, Mesh, MeshFace };
+use raytracer_impl::transform::{ Translatable, Rotatable };
 use raytracer_impl::viewport::{ Viewport };
 use raytracer_impl::lights::{ PointLight, DirectionalLight, LampLight };
 use raytracer_impl::implementation::{ Scene, SceneSky, Camera, Material };
 use raytracer_impl::obj_data::{ ObjMeshBuilder };
+
 use crate::texture_loader::{ load_bitmap_from_bytes };
 
 use rand::{ Rng, SeedableRng, rngs::StdRng };
@@ -33,6 +37,10 @@ fn create_rng_from_seed(a: u128, b: u128) -> StdRng {
 // Configuration
 //
 
+fn deg_to_rad(deg: f32) -> f32 {
+    (deg / 180.0) * std::f32::consts::PI
+}
+
 pub struct CameraConfiguration {
     pub width: f32,
     pub height: f32,
@@ -49,9 +57,6 @@ impl CameraConfiguration {
     }
 
     fn make_camera(&self, look_to: V3, default_look_from: V3) -> Camera {
-        fn deg_to_rad(deg: f32) -> f32 {
-            (deg / 180.0) * std::f32::consts::PI
-        }
 
         let look_from = {
             // Translate into rotation space
@@ -531,8 +536,8 @@ pub fn mesh_demo(config: &CameraConfiguration) -> Scene {
 pub fn interceptor(config: &CameraConfiguration) -> Scene {
     
     // Camera
-    let look_from = position!(Up(18.0), South(26.0), East(26.0));
-    let look_to =   position!(Up(4.0), East(1.0));
+    let look_from = position!(Up(40.0), South(60.0));
+    let look_to =   position!(Up(20.0));
     let camera = config.make_camera(look_to, look_from);
 
     // Scene
@@ -546,13 +551,12 @@ pub fn interceptor(config: &CameraConfiguration) -> Scene {
     // World sphere
     let world_radius = 1000.0;
     let world_mat = MatLambertian::with_texture(ColorTexture(rgb(200, 200, 200)));
-    let world_pos = position!(Down(world_radius));
+    let world_pos = position!(Down(world_radius), Down(20.0));
     scene.add_obj(Sphere::new(world_pos, world_radius, world_mat).with_id(0));
 
     let mut mesh_builder = ObjMeshBuilder::default();
     mesh_builder.load_objects_from_string(include_str!("../meshes/Interceptor-T/Heavyinterceptor.obj"));
     mesh_builder.load_materials_from_string(include_str!("../meshes/Interceptor-T/Heavyinterceptor.mtl"));
-    mesh_builder.load_objects_from_string(include_str!("../meshes/suzanne.obj"));
     mesh_builder.add_color_map("engine_back.bmp", load_bitmap_from_bytes(include_bytes!("../meshes/Interceptor-T/engine_back.bmp")));
     mesh_builder.add_color_map("intake_front.bmp", load_bitmap_from_bytes(include_bytes!("../meshes/Interceptor-T/intake_front.bmp")));
     mesh_builder.add_color_map("page0.bmp", load_bitmap_from_bytes(include_bytes!("../meshes/Interceptor-T/page0.bmp")));
@@ -563,11 +567,14 @@ pub fn interceptor(config: &CameraConfiguration) -> Scene {
     mesh_builder.add_color_map("topfin_sides.bmp", load_bitmap_from_bytes(include_bytes!("../meshes/Interceptor-T/topfin_sides.bmp")));
 
     // Interceptor
-    let int_tex = load_bitmap_from_bytes(include_bytes!("../textures/test.bmp"));
-    let int_origin = position!(Up(4.0));
+    let int_origin = look_to;
     let (int_faces, int_materials) = mesh_builder.build_mesh_and_materials("default");
     let int_mat = MatLambertian::with_texture(int_materials);
-    scene.add_obj(Mesh::new(int_origin, int_faces, int_mat));
+    let int_mesh = Mesh::new(int_origin, int_faces, int_mat)
+        // Interceptor model is facing +Z rotated on its side (X UP?)
+        .rotated(V3::POS_Z, -(PI/2.0));
+
+    scene.add_obj(int_mesh);
 
     scene
 }

@@ -1,6 +1,6 @@
 use std::sync::Arc;
 
-use crate::types::{ Ray };
+use crate::types::{ Ray, V3 };
 use crate::implementation::{ AABB, Hitable, HitRecord };
 
 // Hacky Bounding Volume Hierachy implementation for Hitable objects
@@ -34,6 +34,11 @@ impl Hitable for BvhNode {
             (None,    Some(r)) => Some(r),
             _                  => None,
         }
+    }
+
+    fn origin(&self) -> V3 {
+        // BVH trees are always anchored at 0,0,0
+        V3::zero()
     }
 
     fn bounding_box(&self) -> Option<AABB> {

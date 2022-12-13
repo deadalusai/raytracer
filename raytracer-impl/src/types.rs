@@ -11,6 +11,13 @@ use std::default::{ Default };
 pub struct V3(pub f32, pub f32, pub f32); // x, y, z
 
 impl V3 {
+    pub const POS_X: V3 = V3(1.0, 0.0, 0.0);
+    pub const POS_Y: V3 = V3(0.0, 1.0, 0.0);
+    pub const POS_Z: V3 = V3(0.0, 0.0, 1.0);
+    pub const NEG_X: V3 = V3(-1.0, 0.0, 0.0);
+    pub const NEG_Y: V3 = V3(0.0, -1.0, 0.0);
+    pub const NEG_Z: V3 = V3(0.0, 0.0, -1.0);
+
     pub fn x(&self) -> f32 {
         self.0
     }

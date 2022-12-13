@@ -73,6 +73,10 @@ impl Hitable for Plane {
         });
     }
 
+    fn origin(&self) -> V3 {
+        self.origin.clone()
+    }
+
     fn bounding_box(&self) -> Option<AABB> {
         // No bounding box for a plane
         None

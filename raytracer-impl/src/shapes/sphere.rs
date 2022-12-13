@@ -63,6 +63,10 @@ impl Hitable for Sphere {
         None
     }
 
+    fn origin(&self) -> V3 {
+        self.origin.clone()
+    }
+
     fn bounding_box(&self) -> Option<AABB> {
         // Find the bounding box for a sphere
         Some(AABB::from_min_max(self.origin - self.radius, self.origin + self.radius))

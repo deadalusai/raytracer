@@ -231,6 +231,10 @@ impl Hitable for Mesh {
         })
     }
 
+    fn origin(&self) -> V3 {
+        self.origin.clone()
+    }
+
     fn bounding_box(&self) -> Option<AABB> {
         // Shift the mesh bounding box into world space
         let aabb = self.root_node.aabb();
