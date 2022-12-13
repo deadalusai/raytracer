@@ -25,8 +25,14 @@ pub struct Sphere {
 }
 
 impl Sphere {
-    pub fn new(origin: V3, radius: f32, material: impl IntoArc<dyn Material>) -> Self {
-        Sphere { object_id: None, origin, radius: radius, material: material.into_arc() }
+    pub fn new(radius: f32, material: impl IntoArc<dyn Material>) -> Self {
+        Sphere { object_id: None, origin: V3::zero(), radius: radius, material: material.into_arc() }
+    }
+
+    #[allow(unused)]
+    pub fn with_origin(mut self, origin: V3) -> Self {
+        self.origin = origin;
+        self
     }
 
     #[allow(unused)]

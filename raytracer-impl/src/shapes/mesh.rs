@@ -198,13 +198,19 @@ pub struct Mesh {
 }
 
 impl Mesh {
-    pub fn new(origin: V3, faces: Vec<MeshFace>, material: impl IntoArc<dyn Material>) -> Self {
+    pub fn new(faces: Vec<MeshFace>, material: impl IntoArc<dyn Material>) -> Self {
         Mesh {
             object_id: None,
-            origin,
+            origin: V3::zero(),
             root_node: build_face_bvh_hierachy(&faces).expect("Expected at least one triangle for mesh"),
             material: material.into_arc(),
         }
+    }
+
+    #[allow(unused)]
+    pub fn with_origin(mut self, origin: V3) -> Self {
+        self.origin = origin;
+        self
     }
 
     #[allow(unused)]

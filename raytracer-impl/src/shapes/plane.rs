@@ -26,11 +26,16 @@ pub struct Plane {
 }
 
 impl Plane {
-    pub fn new(origin: V3, normal: V3, material: impl IntoArc<dyn Material>) -> Self {
-        Plane { object_id: None, origin, normal: normal.unit(), material: material.into_arc(), radius: None }
+    pub fn new(normal: V3, material: impl IntoArc<dyn Material>) -> Self {
+        Plane { object_id: None, origin: V3::zero(), normal: normal.unit(), material: material.into_arc(), radius: None }
     }
 
-    pub fn with_radius(mut self, radius: f32) -> Plane {
+    pub fn with_origin(mut self, origin: V3) -> Self {
+        self.origin = origin;
+        self
+    }
+
+    pub fn with_radius(mut self, radius: f32) -> Self {
         self.radius = Some(radius);
         self
     }
