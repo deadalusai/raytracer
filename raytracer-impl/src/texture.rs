@@ -1,7 +1,7 @@
 use std::sync::Arc;
 
 use super::implementation::{ Texture, ColorMap, HitRecord };
-use super::types::{ V2, V3, IntoArc };
+use super::types::{ V2, V3 };
 
 // Constant colors
 
@@ -16,23 +16,20 @@ impl Texture for ColorTexture {
 
 // Checker texture
 
-pub struct CheckerTexture {
+#[derive(Clone)]
+pub struct CheckerTexture<T1: Texture, T2: Texture> {
     size: f32,
-    odd: Arc<dyn Texture>,
-    even: Arc<dyn Texture>,
+    odd: T1,
+    even: T2,
 }
 
-impl CheckerTexture {
-    pub fn new(size: f32, odd: impl IntoArc<dyn Texture>, even: impl IntoArc<dyn Texture>) -> CheckerTexture {
-        CheckerTexture {
-            size,
-            odd: odd.into_arc(),
-            even: even.into_arc(),
-        }
+impl<T1: Texture, T2: Texture> CheckerTexture<T1, T2> {
+    pub fn new(size: f32, odd: T1, even: T2) -> Self {
+        Self { size, odd, even }
     }
 }
 
-impl Texture for CheckerTexture {
+impl<T1: Texture, T2: Texture> Texture for CheckerTexture<T1, T2> {
     fn value(&self, hit_record: &HitRecord) -> V3 {
         let sines =
             (self.size * hit_record.p.x()).sin() *
