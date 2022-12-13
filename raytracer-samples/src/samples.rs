@@ -8,7 +8,7 @@ use raytracer_impl::viewport::{ Viewport };
 use raytracer_impl::lights::{ PointLight, DirectionalLight, LampLight };
 use raytracer_impl::implementation::{ Scene, SceneSky, Camera, Material };
 use raytracer_impl::obj_data::{ ObjMeshBuilder };
-use crate::texture_loader::{ load_bitmap_texture_from_bytes };
+use crate::texture_loader::{ load_bitmap_from_bytes };
 
 use rand::{ Rng, SeedableRng, rngs::StdRng };
 
@@ -553,17 +553,17 @@ pub fn interceptor(config: &CameraConfiguration) -> Scene {
     mesh_builder.load_objects_from_string(include_str!("../meshes/Interceptor-T/Heavyinterceptor.obj"));
     mesh_builder.load_materials_from_string(include_str!("../meshes/Interceptor-T/Heavyinterceptor.mtl"));
     mesh_builder.load_objects_from_string(include_str!("../meshes/suzanne.obj"));
-    mesh_builder.add_color_map("engine_back.bmp", load_bitmap_texture_from_bytes(include_bytes!("../meshes/Interceptor-T/engine_back.bmp")));
-    mesh_builder.add_color_map("intake_front.bmp", load_bitmap_texture_from_bytes(include_bytes!("../meshes/Interceptor-T/intake_front.bmp")));
-    mesh_builder.add_color_map("page0.bmp", load_bitmap_texture_from_bytes(include_bytes!("../meshes/Interceptor-T/page0.bmp")));
-    mesh_builder.add_color_map("page1.bmp", load_bitmap_texture_from_bytes(include_bytes!("../meshes/Interceptor-T/page1.bmp")));
-    mesh_builder.add_color_map("page2.bmp", load_bitmap_texture_from_bytes(include_bytes!("../meshes/Interceptor-T/page2.bmp")));
-    mesh_builder.add_color_map("Rwingbottem.bmp", load_bitmap_texture_from_bytes(include_bytes!("../meshes/Interceptor-T/Rwingbottem.bmp")));
-    mesh_builder.add_color_map("rwinginside.bmp", load_bitmap_texture_from_bytes(include_bytes!("../meshes/Interceptor-T/rwinginside.bmp")));
-    mesh_builder.add_color_map("topfin_sides.bmp", load_bitmap_texture_from_bytes(include_bytes!("../meshes/Interceptor-T/topfin_sides.bmp")));
+    mesh_builder.add_color_map("engine_back.bmp", load_bitmap_from_bytes(include_bytes!("../meshes/Interceptor-T/engine_back.bmp")));
+    mesh_builder.add_color_map("intake_front.bmp", load_bitmap_from_bytes(include_bytes!("../meshes/Interceptor-T/intake_front.bmp")));
+    mesh_builder.add_color_map("page0.bmp", load_bitmap_from_bytes(include_bytes!("../meshes/Interceptor-T/page0.bmp")));
+    mesh_builder.add_color_map("page1.bmp", load_bitmap_from_bytes(include_bytes!("../meshes/Interceptor-T/page1.bmp")));
+    mesh_builder.add_color_map("page2.bmp", load_bitmap_from_bytes(include_bytes!("../meshes/Interceptor-T/page2.bmp")));
+    mesh_builder.add_color_map("Rwingbottem.bmp", load_bitmap_from_bytes(include_bytes!("../meshes/Interceptor-T/Rwingbottem.bmp")));
+    mesh_builder.add_color_map("rwinginside.bmp", load_bitmap_from_bytes(include_bytes!("../meshes/Interceptor-T/rwinginside.bmp")));
+    mesh_builder.add_color_map("topfin_sides.bmp", load_bitmap_from_bytes(include_bytes!("../meshes/Interceptor-T/topfin_sides.bmp")));
 
     // Interceptor
-    let int_tex = load_bitmap_texture_from_bytes(include_bytes!("../textures/test.bmp"));
+    let int_tex = load_bitmap_from_bytes(include_bytes!("../textures/test.bmp"));
     let int_origin = position!(Up(4.0));
     let (int_faces, int_materials) = mesh_builder.build_mesh_and_materials("default");
     let int_mat = MatLambertian::with_texture(int_materials);
@@ -599,7 +599,7 @@ pub fn capsule(config: &CameraConfiguration) -> Scene {
     let mut mesh_builder = ObjMeshBuilder::default();
     mesh_builder.load_objects_from_string(include_str!("../meshes/capsule.obj"));
     mesh_builder.load_materials_from_string(include_str!("../meshes/capsule.mtl"));
-    mesh_builder.add_color_map("capsule.bmp", load_bitmap_texture_from_bytes(include_bytes!("../textures/capsule.bmp")));
+    mesh_builder.add_color_map("capsule.bmp", load_bitmap_from_bytes(include_bytes!("../textures/capsule.bmp")));
 
     let (capsule_faces, capsule_materials) = mesh_builder.build_mesh_and_materials("default");
     let capsule_mat = MatLambertian::with_texture(capsule_materials);
@@ -626,7 +626,7 @@ pub fn mesh_plane(config: &CameraConfiguration) -> Scene {
     let mut mesh_builder = ObjMeshBuilder::default();
     mesh_builder.load_objects_from_string(include_str!("../meshes/plane.obj"));
 
-    let plane_color_map = load_bitmap_texture_from_bytes(include_bytes!("../textures/test.bmp"));
+    let plane_color_map = load_bitmap_from_bytes(include_bytes!("../textures/test.bmp"));
 
     // Plane
     let plane_mat = MatLambertian::with_texture(plane_color_map);

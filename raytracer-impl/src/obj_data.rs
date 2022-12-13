@@ -50,9 +50,16 @@ impl ObjMeshBuilder {
                     continue;
                 },
             };
-            let diffuse_color_map = mtl.diffuse_color_map.as_ref()
-                .and_then(|name| self.color_maps.get(name))
-                .map(|map| map.clone());
+            let diffuse_color_map = match mtl.diffuse_color_map.as_ref() {
+                None => None,
+                Some(name) => match self.color_maps.get(name) {
+                    Some(map) => Some(map.clone()),
+                    None => {
+                        println!("WARNING: Unable to find color map {}", name);
+                        None
+                    },
+                }
+            };
 
             materials.push(MeshMaterial {
                 name: mtl.name.clone(),
