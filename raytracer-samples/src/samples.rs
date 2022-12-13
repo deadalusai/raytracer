@@ -151,7 +151,7 @@ fn rgb(r: u8, g: u8, b: u8) -> V3 {
 
 // Random material factories
 
-fn make_lambertian<R: Rng> (rng: &mut R) -> MatLambertian {
+fn make_lambertian<R: Rng> (rng: &mut R) -> MatLambertian<ColorTexture> {
     let albedo = V3(
         /* r */ rng.gen::<f32>() * rng.gen::<f32>(),
         /* g */ rng.gen::<f32>() * rng.gen::<f32>(),
@@ -160,24 +160,24 @@ fn make_lambertian<R: Rng> (rng: &mut R) -> MatLambertian {
     MatLambertian::with_texture(ColorTexture(albedo))
 }
 
-fn make_metal<R: Rng> (rng: &mut R) -> MatMetal {
-    let albedo = V3(
+fn make_metal<R: Rng> (rng: &mut R) -> MatMetal<ColorTexture> {
+    let color = V3(
         /* r */ 0.5 * (1.0 + rng.gen::<f32>()),
         /* g */ 0.5 * (1.0 + rng.gen::<f32>()),
         /* b */ 0.5 * (1.0 + rng.gen::<f32>())
     );
     let fuzz = 0.5 * rng.gen::<f32>();
-    MatMetal::with_albedo(albedo).with_fuzz(fuzz)
+    MatMetal::with_texture(ColorTexture(color)).with_fuzz(fuzz)
 }
 
-fn make_glass<R: Rng> (rng: &mut R) -> MatDielectric {
+fn make_glass<R: Rng> (rng: &mut R) -> MatDielectric<ColorTexture> {
     let refractive_index = 1.5;
-    let albedo = V3(
+    let color = V3(
         /* r */ 0.5 * (1.0 + rng.gen::<f32>()),
         /* g */ 0.5 * (1.0 + rng.gen::<f32>()),
         /* b */ 0.5 * (1.0 + rng.gen::<f32>())
     );
-    MatDielectric::with_albedo(albedo).with_ref_index(refractive_index)
+    MatDielectric::with_texture(ColorTexture(color)).with_ref_index(refractive_index)
 }
 
 //
@@ -214,13 +214,13 @@ pub fn random_sphere_scene(config: &CameraConfiguration) -> Scene {
     
     // Large hollow glass sphere
     let hollow_sphere_center = V3(0.0, 1.0, 0.0);
-    let hollow_sphere_mat = MatDielectric::with_albedo(V3(0.95, 0.95, 0.95)).with_ref_index(1.5);
+    let hollow_sphere_mat = MatDielectric::with_texture(ColorTexture(V3(0.95, 0.95, 0.95))).with_ref_index(1.5);
     scene.add_obj(Sphere::new(hollow_sphere_center.clone(),  1.0, hollow_sphere_mat.clone()));
     // scene.add_obj(Sphere::new(hollow_sphere_center.clone(), -0.99, hollow_sphere_mat));
 
     // Large mat sphere
     let metal_sphere_center = V3(4.0, 1.0, 0.0);
-    let metal_sphere_mat = MatMetal::with_albedo(V3(0.8, 0.8, 0.8)).with_fuzz(0.0);
+    let metal_sphere_mat = MatMetal::with_texture(ColorTexture(V3(0.8, 0.8, 0.8))).with_fuzz(0.0);
     scene.add_obj(Sphere::new(metal_sphere_center.clone(), 1.0, metal_sphere_mat));
 
     let sphere_centers = [lam_sphere_center, hollow_sphere_center, metal_sphere_center];
@@ -308,23 +308,23 @@ pub fn simple_scene(config: &CameraConfiguration) -> Scene {
     scene.add_obj(Sphere::new(plastic_pos, 1.0, plastic_mat));
 
     // Glass sphere (large)
-    let glass_mat = MatDielectric::with_albedo(rgb(130, 255, 140));
+    let glass_mat = MatDielectric::with_texture(ColorTexture(rgb(130, 255, 140)));
     let glass_pos = position!(Up(1.0), South(2.0), East(2.0));
     scene.add_obj(Sphere::new(glass_pos.clone(), 1.0, glass_mat));
     
     // Glass sphere (small)
-    let small_glass_mat = MatDielectric::with_albedo(rgb(66, 206, 245)).with_opacity(0.01).with_reflectivity(0.98);
+    let small_glass_mat = MatDielectric::with_texture(ColorTexture(rgb(66, 206, 245))).with_opacity(0.01).with_reflectivity(0.98);
     let small_glass_pos = lerp_v3(plastic_pos, lamp_pos, 0.2); // Find a point between the lamp and the plastic sphere
     scene.add_obj(Sphere::new(small_glass_pos, 0.5, small_glass_mat));
 
     // Metal sphere
-    let metal_mat = MatMetal::with_albedo(rgb(147, 154, 186)).with_fuzz(0.001).with_reflectivity(0.91);
+    let metal_mat = MatMetal::with_texture(ColorTexture(rgb(147, 154, 186))).with_fuzz(0.001).with_reflectivity(0.91);
     let metal_pos = position!(Up(1.0), North(2.0), West(2.0));
     scene.add_obj(Sphere::new(metal_pos, 1.0, metal_mat).with_id(1));
 
 
     // Small metal spheres (buried) drawn between these points
-    let small_metal_mat = MatMetal::with_albedo(V3(0.8, 0.1, 0.1)).with_fuzz(0.01).with_reflectivity(0.4);
+    let small_metal_mat = MatMetal::with_texture(ColorTexture(V3(0.8, 0.1, 0.1))).with_fuzz(0.01).with_reflectivity(0.4);
     let small_metal_sphere_count = 6;
     let small_metal_start_pos = position!(West(3.5), North(1.0));
     let small_metal_end_pos = position!(West(2.5), South(3.5));
@@ -336,7 +336,7 @@ pub fn simple_scene(config: &CameraConfiguration) -> Scene {
     }
 
     // Small plastic spheres (buried) drawn between these points
-    let small_plastic_mat = MatDielectric::with_albedo(V3(0.1, 0.9, 0.1));
+    let small_plastic_mat = MatDielectric::with_texture(ColorTexture(V3(0.1, 0.9, 0.1)));
     let small_plastic_sphere_count = 12;
     let small_plastic_start_pos = position!(West(2.5), South(0.5));
     let small_plastic_end_pos = position!(West(0.5), South(2.5));
@@ -377,7 +377,7 @@ pub fn planes_scene(config: &CameraConfiguration) -> Scene {
     let world_pos = position!(Down(1000.0));
     scene.add_obj(Sphere::new(world_pos, 1000.0, world_mat));
 
-    let plane_mat = MatMetal::with_albedo(rgb(240, 240, 240)).with_reflectivity(0.8).with_fuzz(0.02);
+    let plane_mat = MatMetal::with_texture(ColorTexture(rgb(240, 240, 240))).with_reflectivity(0.8).with_fuzz(0.02);
     let plane_pos = position!(West(1.0));
     let plane_normal = position!(Origin) - plane_pos; // normal facing world origin
     scene.add_obj(Plane::new(plane_pos, plane_normal, plane_mat));
@@ -416,7 +416,7 @@ pub fn hall_of_mirrors(config: &CameraConfiguration) -> Scene {
         position!(West(3.0))
     ];
     for plane_origin in cardinals {
-        let plane_mat = MatMetal::with_albedo(V3::one()).with_reflectivity(0.98).with_fuzz(0.01);
+        let plane_mat = MatMetal::with_texture(ColorTexture(V3::one())).with_reflectivity(0.98).with_fuzz(0.01);
         let plane_normal = position!(Origin) - plane_origin; // normal facing world origin
         scene.add_obj(
             Plane::new(plane_origin, plane_normal, plane_mat)
@@ -514,13 +514,13 @@ pub fn mesh_demo(config: &CameraConfiguration) -> Scene {
     scene.add_obj(Mesh::new(cube_origin, cube_faces, cube_mat).with_id(1));
 
     // Thing
-    let thing_mat = MatMetal::with_albedo(rgb(89, 172, 255)).with_reflectivity(0.8).with_fuzz(0.02);
+    let thing_mat = MatMetal::with_texture(ColorTexture(rgb(89, 172, 255))).with_reflectivity(0.8).with_fuzz(0.02);
     let thing_origin = position!(North(1.5), East(1.5));
     let (thing_faces, _) = mesh_builder.build_mesh_and_materials("Thing");
     scene.add_obj(Mesh::new(thing_origin, thing_faces, thing_mat).with_id(2));
 
     // Suzanne
-    let suz_mat = MatDielectric::with_albedo(rgb(255, 137, 58)).with_opacity(0.2).with_ref_index(0.8).with_reflectivity(0.0);
+    let suz_mat = MatDielectric::with_texture(ColorTexture(rgb(255, 137, 58))).with_opacity(0.2).with_ref_index(0.8).with_reflectivity(0.0);
     let suz_origin = position!(Origin);
     let (suz_faces, _) = mesh_builder.build_mesh_and_materials("Suzanne");
     scene.add_obj(Mesh::new(suz_origin, suz_faces, suz_mat).with_id(3));

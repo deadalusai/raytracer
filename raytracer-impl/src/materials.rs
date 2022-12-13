@@ -22,27 +22,27 @@ macro_rules! assert_in_range {
 //
 
 #[derive(Clone)]
-pub struct MatLambertian {
-    texture: Arc<dyn Texture>,
+pub struct MatLambertian<T: Texture> {
+    texture: T,
     reflectivity: f32,
 }
 
-impl MatLambertian {
-    pub fn with_texture(texture: impl IntoArc<dyn Texture>) -> MatLambertian {
+impl<T: Texture> MatLambertian<T> {
+    pub fn with_texture(texture: T) -> MatLambertian<T> {
         MatLambertian { 
-            texture: texture.into_arc(),
+            texture,
             reflectivity: 0.0,
         }
     }
 
-    pub fn with_reflectivity(mut self, reflectivity: f32) -> MatLambertian {
+    pub fn with_reflectivity(mut self, reflectivity: f32) -> MatLambertian<T> {
         assert_in_range!(reflectivity);
         self.reflectivity = reflectivity;
         self
     }
 }
 
-impl Material for MatLambertian {
+impl<T: Texture> Material for MatLambertian<T> {
     fn scatter(&self, _r: &Ray, hit_record: &HitRecord, rng: &mut dyn RngCore) -> MatRecord {
         // TODO(benf): Ensure "direction" is within 90 degrees of the normal?
         // Otherwise we're scattering backwards.
@@ -58,28 +58,28 @@ impl Material for MatLambertian {
 }
 
 #[derive(Clone)]
-pub struct MatMetal {
-    albedo: V3,
+pub struct MatMetal<T: Texture> {
+    texture: T,
     reflectiveness: f32,
     fuzz: f32,
 }
 
-impl MatMetal {
-    pub fn with_albedo(albedo: V3) -> MatMetal {
-        MatMetal {
-            albedo: albedo,
-            reflectiveness: 0.99,
+impl<T: Texture> MatMetal<T> {
+    pub fn with_texture(texture: T) -> Self {
+        Self {
+            texture,
+            reflectiveness: 1.0,
             fuzz: 0.0
         }
     }
 
-    pub fn with_reflectivity(mut self, reflectiveness: f32) -> MatMetal {
+    pub fn with_reflectivity(mut self, reflectiveness: f32) -> Self {
         assert_in_range!(reflectiveness);
         self.reflectiveness = reflectiveness;
         self
     }
 
-    pub fn with_fuzz (mut self, fuzz: f32) -> MatMetal {
+    pub fn with_fuzz(mut self, fuzz: f32) -> Self {
         assert_in_range!(fuzz);
         self.fuzz = fuzz;
         self
@@ -91,7 +91,7 @@ fn reflect(incident_direction: V3, surface_normal: V3) -> V3 {
     dir - (surface_normal * V3::dot(dir, surface_normal) * 2.0)
 }
 
-impl Material for MatMetal {
+impl<T: Texture> Material for MatMetal<T> {
     fn scatter(&self, ray: &Ray, hit_record: &HitRecord, rng: &mut dyn RngCore) -> MatRecord {
         let reflected = reflect(ray.direction, hit_record.normal);
         let scattered =
@@ -112,42 +112,42 @@ impl Material for MatMetal {
         MatRecord {
             reflection: reflection,
             refraction: None,
-            albedo: self.albedo.clone()
+            albedo: self.texture.value(hit_record)
         }
     }
 }
 
 #[derive(Clone)]
-pub struct MatDielectric {
-    albedo: V3,
+pub struct MatDielectric<T: Texture> {
+    texture: T,
     reflectivity: f32,
     opacity: f32,
     ref_index: f32,
 }
 
-impl MatDielectric {
-    pub fn with_albedo(albedo: V3) -> MatDielectric {
-        MatDielectric {
-            albedo: albedo,
+impl<T: Texture> MatDielectric<T> {
+    pub fn with_texture(texture: T) -> Self {
+        Self {
+            texture,
             reflectivity: 1.0,
             opacity: 0.0,
             ref_index: 1.5,
         }
     }
 
-    pub fn with_reflectivity(mut self, reflectivity: f32) -> MatDielectric {
+    pub fn with_reflectivity(mut self, reflectivity: f32) -> Self {
         assert_in_range!(reflectivity);
         self.reflectivity = reflectivity;
         self
     }
 
-    pub fn with_opacity(mut self, opacity: f32) -> MatDielectric {
+    pub fn with_opacity(mut self, opacity: f32) -> Self {
         assert_in_range!(opacity);
         self.opacity = opacity;
         self
     }
 
-    pub fn with_ref_index(mut self, ref_index: f32) -> MatDielectric {
+    pub fn with_ref_index(mut self, ref_index: f32) -> Self {
         self.ref_index = ref_index;
         self
     }
@@ -170,7 +170,7 @@ fn schlick_reflect_prob (cosine: f32, ref_idx: f32) -> f32 {
     r0 + (1.0 - r0) * (1.0 - cosine).powf(5.0)
 }
 
-impl Material for MatDielectric {
+impl<T: Texture> Material for MatDielectric<T> {
     fn scatter (&self, ray: &Ray, hit_record: &HitRecord, rng: &mut dyn RngCore) -> MatRecord {
         let dot = V3::dot(ray.direction, hit_record.normal);
         let (outward_normal, ni_over_nt, cosine) =
@@ -205,7 +205,7 @@ impl Material for MatDielectric {
         MatRecord {
             refraction: refraction,
             reflection: reflection,
-            albedo: self.albedo.clone()
+            albedo: self.texture.value(hit_record),
         }
     }
 }

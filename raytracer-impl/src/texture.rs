@@ -5,6 +5,7 @@ use super::types::{ V2, V3, IntoArc };
 
 // Constant colors
 
+#[derive(Clone)]
 pub struct ColorTexture(pub V3);
 
 impl Texture for ColorTexture {
