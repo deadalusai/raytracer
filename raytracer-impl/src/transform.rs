@@ -76,13 +76,23 @@ impl<T: Hitable + Sized> Hitable for Rotated<T> {
         self.inner.origin()
     }
 
-    fn bounding_box(&self) -> Option<crate::implementation::AABB> {
-        // let aabb = self.inner.bounding_box()?;
-        // let origin = self.origin();
-
-        // TODO
+    fn bounding_box(&self) -> Option<AABB> {
         // rotate the bounding box and find the new min/max
-
-        self.inner.bounding_box()
+        // this may leave an AABB with lots of extra empty space, but is faster to recompute?
+        let aabb = self.inner.bounding_box()?;
+        let origin = self.origin();
+        let min = aabb.min - origin;
+        let max = aabb.max - origin;
+        let corners = [
+            origin + min.rotate_about_axis(self.axis, self.theta),
+            origin + V3(min.0, min.1, max.2).rotate_about_axis(self.axis, self.theta),
+            origin + V3(min.0, max.1, min.2).rotate_about_axis(self.axis, self.theta),
+            origin + V3(max.0, min.1, min.2).rotate_about_axis(self.axis, self.theta),
+            origin + V3(max.0, max.1, min.2).rotate_about_axis(self.axis, self.theta),
+            origin + V3(max.0, min.1, max.2).rotate_about_axis(self.axis, self.theta),
+            origin + V3(min.0, max.1, max.2).rotate_about_axis(self.axis, self.theta),
+            origin + max.rotate_about_axis(self.axis, self.theta),
+        ];
+        Some(AABB::from_vertices(&corners))
     }
 }
