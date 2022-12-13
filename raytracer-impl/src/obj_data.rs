@@ -1,7 +1,7 @@
 use std::collections::{HashMap, HashSet};
 
 use crate::shapes::{MeshFace};
-use crate::texture::{MeshMaterial};
+use crate::texture::{MeshTexture};
 use crate::implementation::{ColorMap};
 use crate::types::{IntoArc};
 use crate::obj_format::{ObjObject, ObjMaterial};
@@ -32,16 +32,16 @@ impl ObjMeshBuilder {
         self.color_maps.insert(name.to_string(), color_map.into_arc());
     }
 
-    pub fn build_mesh_and_materials(&self, object_name: &str) -> (Vec<MeshFace>, Vec<MeshMaterial>) {
+    pub fn build_mesh_and_materials(&self, object_name: &str) -> (Vec<MeshFace>, Vec<MeshTexture>) {
 
         let obj = self.objects.get(object_name).expect("Selecting object");
         
-        // Prepare materials
+        // Prepare materials as "texture" lookups
         let material_names = obj.faces.iter()
             .filter_map(|o| o.mtl.as_ref())
             .collect::<HashSet<_>>();
 
-        let mut materials = Vec::new();
+        let mut textures = Vec::new();
         for name in material_names {
             let mtl = match self.materials.get(name) {
                 Some(mtl) => mtl,
@@ -61,7 +61,7 @@ impl ObjMeshBuilder {
                 }
             };
 
-            materials.push(MeshMaterial {
+            textures.push(MeshTexture {
                 name: mtl.name.clone(),
                 diffuse_color: mtl.diffuse_color,
                 diffuse_color_map,
@@ -74,7 +74,7 @@ impl ObjMeshBuilder {
         let mut faces = Vec::new();
         for face in obj.faces.iter() {
 
-            let mtl_id = face.mtl.as_ref().and_then(|name| materials.iter().position(|m| &m.name == name));
+            let mtl_id = face.mtl.as_ref().and_then(|name| textures.iter().position(|m| &m.name == name));
             
             faces.push(MeshFace {
                 a: get_vertex(face.a.vertex_index),
@@ -87,6 +87,6 @@ impl ObjMeshBuilder {
             });
         }
 
-        (faces, materials)
+        (faces, textures)
     }
 }

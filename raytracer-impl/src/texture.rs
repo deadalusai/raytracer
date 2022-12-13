@@ -59,13 +59,13 @@ impl Texture for TestTexture {
 
 // Image texture / color maps
 
-pub struct ImageColorMap {
+pub struct UVColorMap {
     pub width: usize,
     pub height: usize,
     pub pixels: Vec<V3>,
 }
 
-impl ColorMap for ImageColorMap {
+impl ColorMap for UVColorMap {
     fn value(&self, u: f32, v: f32) -> V3 {
         let x = (u * self.width as f32) as usize;
         let y = (v * self.height as f32) as usize;
@@ -75,21 +75,21 @@ impl ColorMap for ImageColorMap {
 }
 
 // Can use a color map as a texture directly
-impl Texture for ImageColorMap {
+impl Texture for UVColorMap {
     fn value(&self, hit_record: &HitRecord) -> V3 {
         let V2(u, v) = hit_record.mtl_uv;
         ColorMap::value(self, u, v)
     }
 }
 
-/// A material loaded from an OBJ mtl ile
-pub struct MeshMaterial {
+/// A texture loaded from an OBJ mtl ile
+pub struct MeshTexture {
     pub name: String,
     pub diffuse_color: V3,
     pub diffuse_color_map: Option<Arc<dyn ColorMap>>,
 }
 
-impl Texture for MeshMaterial {
+impl Texture for MeshTexture {
     fn value(&self, hit_record: &HitRecord) -> V3 {
         match self.diffuse_color_map {
             Some(ref map) => map.value(hit_record.mtl_uv.0, hit_record.mtl_uv.1),
@@ -99,8 +99,8 @@ impl Texture for MeshMaterial {
 }
 
 // A collection of OBJ mtl materials.
-// Only used if the HitRecord specifies a {mtl_index}
-impl Texture for Vec<MeshMaterial> {
+// Only supported if the HitRecord specifies a {mtl_index}
+impl Texture for Vec<MeshTexture> {
     fn value(&self, hit_record: &HitRecord) -> V3 {
         hit_record.mtl_index
             .and_then(|id| self.get(id))

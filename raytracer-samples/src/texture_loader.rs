@@ -1,4 +1,4 @@
-use raytracer_impl::texture::{ ImageColorMap };
+use raytracer_impl::texture::{ UVColorMap };
 use raytracer_impl::types::{ V3 };
 
 fn rgb_to_v3(pixel: &bmp::Pixel) -> V3 {
@@ -8,7 +8,7 @@ fn rgb_to_v3(pixel: &bmp::Pixel) -> V3 {
     V3(r, g, b)
 }
 
-fn load_bitmap_color_map<R: std::io::Read>(mut reader: R) -> ImageColorMap {
+fn load_bitmap_color_map<R: std::io::Read>(mut reader: R) -> UVColorMap {
     let image = bmp::from_reader(&mut reader).unwrap();
     let width = image.get_width();
     let height = image.get_height();
@@ -24,13 +24,13 @@ fn load_bitmap_color_map<R: std::io::Read>(mut reader: R) -> ImageColorMap {
         }
     }
 
-    ImageColorMap {
+    UVColorMap {
         width: width as usize,
         height: height as usize,
         pixels,
     }
 }
 
-pub fn load_bitmap_from_bytes(bytes: &[u8]) -> ImageColorMap {
+pub fn load_bitmap_from_bytes(bytes: &[u8]) -> UVColorMap {
     load_bitmap_color_map(bytes)
 }

@@ -583,8 +583,8 @@ pub fn interceptor(config: &CameraConfiguration) -> Scene {
 
     // Interceptor
     let int_origin = look_to;
-    let (int_faces, int_materials) = mesh_builder.build_mesh_and_materials("default");
-    let int_mat = MatLambertian::with_texture(int_materials);
+    let (int_faces, int_tex) = mesh_builder.build_mesh_and_materials("default");
+    let int_mat = MatLambertian::with_texture(int_tex);
     let int_mesh = Mesh::new(int_faces, int_mat)
         .with_origin(int_origin)
         // Interceptor model is facing +Z rotated on its side (X UP?)
