@@ -79,6 +79,7 @@ fn face_aabb(tri: &MeshFace) -> AABB {
     AABB::from_vertices(&[tri.a, tri.b, tri.c])
 }
 
+#[derive(Clone)]
 pub struct MeshBvhLeaf(MeshFace);
 
 impl MeshBvhLeaf {
@@ -92,6 +93,7 @@ impl MeshBvhLeaf {
     }
 }
 
+#[derive(Clone)]
 pub struct MeshBvhBranch {
     aabb: AABB,
     left: Box<MeshBvhNode>,
@@ -118,6 +120,7 @@ impl MeshBvhBranch {
     }
 }
 
+#[derive(Clone)]
 pub enum MeshBvhNode {
     Leaf(MeshBvhLeaf),
     Branch(MeshBvhBranch)
@@ -190,6 +193,7 @@ impl MeshFace {
     }
 }
 
+#[derive(Clone)]
 pub struct Mesh {
     object_id: Option<u32>,
     origin: V3,

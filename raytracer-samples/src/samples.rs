@@ -549,7 +549,7 @@ pub fn mesh_demo(config: &CameraConfiguration) -> Scene {
 pub fn interceptor(config: &CameraConfiguration) -> Scene {
     
     // Camera
-    let look_from = position!(Up(40.0), South(60.0));
+    let look_from = position!(Up(40.0), South(100.0), East(120.0));
     let look_to =   position!(Up(20.0));
     let camera = config.make_camera(look_to, look_from);
 
@@ -588,10 +588,15 @@ pub fn interceptor(config: &CameraConfiguration) -> Scene {
     let int_mesh = Mesh::new(int_faces, int_mat)
         .with_origin(int_origin)
         // Interceptor model is facing +Z rotated on its side (X UP?)
-        .rotated(V3::POS_Z, -(PI / 2.0));
+        .rotated(V3::POS_Z, -deg_to_rad(90.0));
+
+    let int2_mesh = int_mesh.clone()
+        .translated(position!(North(30.0), Down(30.0)))
+        .rotated(V3::POS_Z, -deg_to_rad(20.0))
+        .rotated(V3::POS_X, -deg_to_rad(20.0));
 
     scene.add_obj(int_mesh);
-
+    scene.add_obj(int2_mesh);
     scene
 }
 

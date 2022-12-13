@@ -30,11 +30,13 @@ impl Plane {
         Plane { object_id: None, origin: V3::zero(), normal: normal.unit(), material: material.into_arc(), radius: None }
     }
 
+    #[allow(unused)]
     pub fn with_origin(mut self, origin: V3) -> Self {
         self.origin = origin;
         self
     }
 
+    #[allow(unused)]
     pub fn with_radius(mut self, radius: f32) -> Self {
         self.radius = Some(radius);
         self

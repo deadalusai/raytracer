@@ -7,6 +7,7 @@ pub trait Translatable: Hitable + Sized {
     fn translated(self, translation: V3) -> Translated<Self>;
 }
 
+#[derive(Clone)]
 pub struct Translated<T: Translatable> {
     inner: T,
     translation: V3,
@@ -42,6 +43,7 @@ pub trait Rotatable: Hitable + Sized {
     fn rotated(self, axis: V3, theta: f32) -> Rotated<Self>;
 }
 
+#[derive(Clone)]
 pub struct Rotated<T: Rotatable> {
     inner: T,
     axis: V3,
