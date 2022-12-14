@@ -38,7 +38,7 @@ impl Hitable for BvhNode {
 
     fn origin(&self) -> V3 {
         // BVH trees are always anchored at 0,0,0
-        V3::zero()
+        V3::ZERO
     }
 
     fn bounding_box(&self) -> Option<AABB> {

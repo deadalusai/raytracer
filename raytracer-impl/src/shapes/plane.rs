@@ -27,7 +27,7 @@ pub struct Plane {
 
 impl Plane {
     pub fn new(normal: V3, material: impl IntoArc<dyn Material>) -> Self {
-        Plane { object_id: None, origin: V3::zero(), normal: normal.unit(), material: material.into_arc(), radius: None }
+        Plane { object_id: None, origin: V3::ZERO, normal: normal.unit(), material: material.into_arc(), radius: None }
     }
 
     #[allow(unused)]

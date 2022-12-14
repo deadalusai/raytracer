@@ -205,7 +205,7 @@ impl Mesh {
     pub fn new(faces: Vec<MeshFace>, material: impl IntoArc<dyn Material>) -> Self {
         Mesh {
             object_id: None,
-            origin: V3::zero(),
+            origin: V3::ZERO,
             root_node: build_face_bvh_hierachy(&faces).expect("Expected at least one triangle for mesh"),
             material: material.into_arc(),
         }

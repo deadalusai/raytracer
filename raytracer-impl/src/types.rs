@@ -17,6 +17,8 @@ impl V3 {
     pub const NEG_X: V3 = V3(-1.0, 0.0, 0.0);
     pub const NEG_Y: V3 = V3(0.0, -1.0, 0.0);
     pub const NEG_Z: V3 = V3(0.0, 0.0, -1.0);
+    pub const ZERO: V3  = V3(0.0, 0.0, 0.0);
+    pub const ONE: V3   = V3(1.0, 1.0, 1.0);
 
     pub fn x(&self) -> f32 {
         self.0
@@ -32,14 +34,6 @@ impl V3 {
 
     pub fn xyz(&self) -> [f32; 3] {
         [self.0, self.1, self.2]
-    }
-
-    pub fn zero() -> V3 {
-        V3(0.0, 0.0, 0.0)
-    }
-
-    pub fn one() -> V3 {
-        V3(1.0, 1.0, 1.0)
     }
 
     pub fn unit(self) -> V3 {
@@ -162,7 +156,7 @@ impl Neg for V3 {
 
 impl Default for V3 {
     fn default() -> V3 {
-        V3::zero()
+        V3::ZERO
     }
 }
 

@@ -67,7 +67,7 @@ impl CameraConfiguration {
             let p = p.rotate_about_axis(v_axis, deg_to_rad(self.angle_adjust_h));
             
             // The horizontal axis (to rotate about vertically)
-            let w = (V3::zero() - p).unit();            // Vector to origin 
+            let w = (V3::ZERO - p).unit();            // Vector to origin 
             let h_axis = V3::cross(v_axis, w).unit();  // Vector to camera right
             let p = p.rotate_about_axis(h_axis, deg_to_rad(self.angle_adjust_v));
 
@@ -420,7 +420,7 @@ pub fn hall_of_mirrors(config: &CameraConfiguration) -> Scene {
         position!(West(3.0))
     ];
     for plane_origin in cardinals {
-        let plane_mat = MatSpecular::with_texture(ColorTexture(V3::one())).with_reflectivity(0.98).with_fuzz(0.01);
+        let plane_mat = MatSpecular::with_texture(ColorTexture(V3::ONE)).with_reflectivity(0.98).with_fuzz(0.01);
         let plane_normal = position!(Origin) - plane_origin; // normal facing world origin
         scene.add_obj(
             Plane::new(plane_normal, plane_mat)

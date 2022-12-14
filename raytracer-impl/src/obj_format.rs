@@ -188,7 +188,7 @@ pub fn parse_mtl_file(source: impl Read) -> Result<Vec<ObjMaterial>, ObjError> {
 
     // Braindead MTL parser, supports newmtl, Kd and Kd_map directives only.
     let mut name: Option<String> = None;
-    let mut diffuse_color = V3::zero();
+    let mut diffuse_color = V3::ZERO;
     let mut diffuse_color_map = None;
 
     for (line_no, line) in BufReader::new(source).lines().enumerate() {
@@ -206,7 +206,7 @@ pub fn parse_mtl_file(source: impl Read) -> Result<Vec<ObjMaterial>, ObjError> {
                 if let Some(name) = name.take() {
                     materials.push(ObjMaterial {
                         name: name.to_string(),
-                        diffuse_color: std::mem::replace(&mut diffuse_color, V3::zero()),
+                        diffuse_color: std::mem::replace(&mut diffuse_color, V3::ZERO),
                         diffuse_color_map: diffuse_color_map.take(),
                     });
                 }

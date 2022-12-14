@@ -156,7 +156,7 @@ fn refract (v: V3, n: V3, ni_over_nt: f32) -> V3 {
     let dt = V3::dot(uv, n);
     let discriminant = 1.0 - ni_over_nt * ni_over_nt * (1.0 - dt * dt);
     if discriminant <= 0.0 {
-        V3::zero()
+        V3::ZERO
     } else {
         (uv - (n * dt)) * ni_over_nt - (n * discriminant.sqrt())
     }

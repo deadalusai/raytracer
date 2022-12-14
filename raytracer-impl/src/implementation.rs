@@ -325,7 +325,7 @@ const BIAS: f32 = 0.001;
 // Sky
 
 fn color_sky_black () -> V3 {
-    V3::zero()
+    V3::ZERO
 }
 
 fn color_sky_day (ray: &Ray) -> V3 {
@@ -369,7 +369,7 @@ fn cast_light_ray_to_lamp(hit_point: V3, light_record: &LightRecord, scene: &Sce
         }
 
         // Hit opaque object (in shadow)
-        return V3::zero();
+        return V3::ZERO;
     }
     
     // Escaped.
@@ -432,7 +432,7 @@ fn cast_ray(ray: &Ray, scene: &Scene, rng: &mut dyn RngCore, max_reflections: u3
                 };
 
                 // Determine color from lights in the scene.
-                let mut color_from_lights = V3::zero();
+                let mut color_from_lights = V3::ZERO;
                 for light in scene.lights.iter() {
                     if let Some(light_record) = light.get_direction_and_intensity(hit_point) {
                         let light_color =

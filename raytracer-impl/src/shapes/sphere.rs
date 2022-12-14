@@ -26,7 +26,7 @@ pub struct Sphere {
 
 impl Sphere {
     pub fn new(radius: f32, material: impl IntoArc<dyn Material>) -> Self {
-        Sphere { object_id: None, origin: V3::zero(), radius: radius, material: material.into_arc() }
+        Sphere { object_id: None, origin: V3::ZERO, radius: radius, material: material.into_arc() }
     }
 
     #[allow(unused)]
