@@ -30,6 +30,27 @@ pub fn random_point_in_unit_sphere(rng: &mut dyn RngCore) -> V3 {
     V3(x, y, z)
 }
 
+/// Given a {normal}, pick a random deflection from that normal of
+/// between 0 and 90 degrees, at any angle around the normal
+pub fn random_normal_reflection_angle(normal: V3, rng: &mut dyn RngCore) -> V3 {
+    let theta1 = rng.gen::<f32>() * PI / 2.0; // First angle, deflection from normal 0-90 deg
+    let theta2 = rng.gen::<f32>() * PI * 2.0; // Second angle, rotation around normal 0-360 deg
+    
+    fn arbitrary_perpendicular_vector(v: V3) -> V3 {
+        // Pick another arbitrary vector which is not parallel to the input vector
+        let v2 = v + if v.y() == -1.0 { V3::NEG_Y } else { V3::POS_Y };
+        // The cross product returns a vector which is perpendicular to the input vector {v}.
+        // The orientation of that vector depends on the vector {v2} and so is arbitrary
+        V3::cross(v, v2)
+    }
+
+    normal
+        // Deflect along the axis perpendicular to the normal
+        .rotate_about_axis(arbitrary_perpendicular_vector(normal), theta1)
+        // Rotate around the original normal
+        .rotate_about_axis(normal, theta2)
+}
+
 // AABB / Bounding Boxes
 
 #[derive(Clone)]

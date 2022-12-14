@@ -5,7 +5,8 @@ use std::mem::{ swap };
 use std::sync::Arc;
 
 use crate::types::{ V3, Ray, IntoArc };
-use crate::implementation::{ Material, MatRecord, Reflect, Refract, HitRecord, Texture, random_point_in_unit_sphere };
+use crate::implementation::{ Material, MatRecord, Reflect, Refract, HitRecord, Texture };
+use crate::implementation::{ random_normal_reflection_angle, random_point_in_unit_sphere };
 
 use rand::{ RngCore };
 
@@ -44,10 +45,7 @@ impl<T: Texture> MatLambertian<T> {
 
 impl<T: Texture> Material for MatLambertian<T> {
     fn scatter(&self, _r: &Ray, hit_record: &HitRecord, rng: &mut dyn RngCore) -> MatRecord {
-        // TODO(benf): Ensure "direction" is within 90 degrees of the normal?
-        // Otherwise we're scattering backwards.
-        let target = hit_record.p + hit_record.normal + random_point_in_unit_sphere(rng);
-        let direction = target - hit_record.p;
+        let direction = random_normal_reflection_angle(hit_record.normal, rng);
         let ray = Ray::new(hit_record.p.clone(), direction);
         MatRecord {
             reflection: Some(Reflect { ray, intensity: self.reflectivity }),

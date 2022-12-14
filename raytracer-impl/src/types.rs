@@ -202,6 +202,11 @@ impl V3 {
         let p = self.clone();
         (p * theta.cos()) + (V3::cross(axis, p) * theta.sin()) + (axis * V3::dot(axis, p) * (1.0 - theta.cos()))
     }
+
+    pub fn angle_between(a: V3, b: V3) -> f32 {
+        // θ = sin-1 [ |a × b| / (|a| |b|) ]
+        (V3::cross(a, b).length() / (a.length() * b.length())).asin()
+    }
 }
 
 //
