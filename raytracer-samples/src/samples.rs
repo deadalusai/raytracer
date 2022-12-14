@@ -4,7 +4,7 @@ use std::f32::consts::PI;
 
 use raytracer_impl::texture::{ ColorTexture, CheckerTexture, TestTexture };
 use raytracer_impl::types::{ V3, Ray };
-use raytracer_impl::materials::{ MatLambertian, MatDielectric, MatMetal };
+use raytracer_impl::materials::{ MatLambertian, MatDielectric, MatSpecular };
 use raytracer_impl::shapes::{ Sphere, Plane, Mesh, MeshFace };
 use raytracer_impl::transform::{ Translatable, Rotatable };
 use raytracer_impl::viewport::{ Viewport };
@@ -165,14 +165,14 @@ fn make_lambertian<R: Rng> (rng: &mut R) -> MatLambertian<ColorTexture> {
     MatLambertian::with_texture(ColorTexture(albedo))
 }
 
-fn make_metal<R: Rng> (rng: &mut R) -> MatMetal<ColorTexture> {
+fn make_metal<R: Rng> (rng: &mut R) -> MatSpecular<ColorTexture> {
     let color = V3(
         /* r */ 0.5 * (1.0 + rng.gen::<f32>()),
         /* g */ 0.5 * (1.0 + rng.gen::<f32>()),
         /* b */ 0.5 * (1.0 + rng.gen::<f32>())
     );
     let fuzz = 0.5 * rng.gen::<f32>();
-    MatMetal::with_texture(ColorTexture(color)).with_fuzz(fuzz)
+    MatSpecular::with_texture(ColorTexture(color)).with_fuzz(fuzz)
 }
 
 fn make_glass<R: Rng> (rng: &mut R) -> MatDielectric<ColorTexture> {
@@ -224,7 +224,7 @@ pub fn random_sphere_scene(config: &CameraConfiguration) -> Scene {
 
     // Large mat sphere
     let metal_sphere_center = V3(4.0, 1.0, 0.0);
-    let metal_sphere_mat = MatMetal::with_texture(ColorTexture(V3(0.8, 0.8, 0.8))).with_fuzz(0.0);
+    let metal_sphere_mat = MatSpecular::with_texture(ColorTexture(V3(0.8, 0.8, 0.8))).with_fuzz(0.0);
     scene.add_obj(Sphere::new(1.0, metal_sphere_mat).with_origin(metal_sphere_center.clone()));
 
     let sphere_centers = [lam_sphere_center, hollow_sphere_center, metal_sphere_center];
@@ -322,13 +322,13 @@ pub fn simple_scene(config: &CameraConfiguration) -> Scene {
     scene.add_obj(Sphere::new(0.5, small_glass_mat).with_origin(small_glass_pos));
 
     // Metal sphere
-    let metal_mat = MatMetal::with_texture(ColorTexture(rgb(147, 154, 186))).with_fuzz(0.001).with_reflectivity(0.91);
+    let metal_mat = MatSpecular::with_texture(ColorTexture(rgb(147, 154, 186))).with_fuzz(0.001).with_reflectivity(0.91);
     let metal_pos = position!(Up(1.0), North(2.0), West(2.0));
     scene.add_obj(Sphere::new(1.0, metal_mat).with_origin(metal_pos).with_id(1));
 
 
     // Small metal spheres (buried) drawn between these points
-    let small_metal_mat = MatMetal::with_texture(ColorTexture(V3(0.8, 0.1, 0.1))).with_fuzz(0.01).with_reflectivity(0.4);
+    let small_metal_mat = MatSpecular::with_texture(ColorTexture(V3(0.8, 0.1, 0.1))).with_fuzz(0.01).with_reflectivity(0.4);
     let small_metal_sphere_count = 6;
     let small_metal_start_pos = position!(West(3.5), North(1.0));
     let small_metal_end_pos = position!(West(2.5), South(3.5));
@@ -381,7 +381,7 @@ pub fn planes_scene(config: &CameraConfiguration) -> Scene {
     let world_pos = position!(Down(1000.0));
     scene.add_obj(Sphere::new(1000.0, world_mat).with_origin(world_pos));
 
-    let plane_mat = MatMetal::with_texture(ColorTexture(rgb(240, 240, 240))).with_reflectivity(0.8).with_fuzz(0.02);
+    let plane_mat = MatSpecular::with_texture(ColorTexture(rgb(240, 240, 240))).with_reflectivity(0.8).with_fuzz(0.02);
     let plane_pos = position!(West(1.0));
     let plane_normal = position!(Origin) - plane_pos; // normal facing world origin
     scene.add_obj(Plane::new(plane_normal, plane_mat).with_origin(plane_pos));
@@ -420,7 +420,7 @@ pub fn hall_of_mirrors(config: &CameraConfiguration) -> Scene {
         position!(West(3.0))
     ];
     for plane_origin in cardinals {
-        let plane_mat = MatMetal::with_texture(ColorTexture(V3::one())).with_reflectivity(0.98).with_fuzz(0.01);
+        let plane_mat = MatSpecular::with_texture(ColorTexture(V3::one())).with_reflectivity(0.98).with_fuzz(0.01);
         let plane_normal = position!(Origin) - plane_origin; // normal facing world origin
         scene.add_obj(
             Plane::new(plane_normal, plane_mat)
@@ -526,7 +526,7 @@ pub fn mesh_demo(config: &CameraConfiguration) -> Scene {
             .rotated(V3::POS_Y, PI / 4.0));
 
     // Thing
-    let thing_mat = MatMetal::with_texture(ColorTexture(rgb(89, 172, 255))).with_reflectivity(0.8).with_fuzz(0.02);
+    let thing_mat = MatSpecular::with_texture(ColorTexture(rgb(89, 172, 255))).with_reflectivity(0.8).with_fuzz(0.02);
     let thing_origin = position!(North(1.5), East(1.5));
     let (thing_faces, _) = mesh_builder.build_mesh_and_materials("Thing");
     scene.add_obj(

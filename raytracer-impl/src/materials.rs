@@ -56,13 +56,13 @@ impl<T: Texture> Material for MatLambertian<T> {
 }
 
 #[derive(Clone)]
-pub struct MatMetal<T: Texture> {
+pub struct MatSpecular<T: Texture> {
     texture: T,
     reflectiveness: f32,
     fuzz: f32,
 }
 
-impl<T: Texture> MatMetal<T> {
+impl<T: Texture> MatSpecular<T> {
     pub fn with_texture(texture: T) -> Self {
         Self {
             texture,
@@ -89,7 +89,7 @@ fn reflect(incident_direction: V3, surface_normal: V3) -> V3 {
     dir - (surface_normal * V3::dot(dir, surface_normal) * 2.0)
 }
 
-impl<T: Texture> Material for MatMetal<T> {
+impl<T: Texture> Material for MatSpecular<T> {
     fn scatter(&self, ray: &Ray, hit_record: &HitRecord, rng: &mut dyn RngCore) -> MatRecord {
         let reflected = reflect(ray.direction, hit_record.normal);
         let scattered =
