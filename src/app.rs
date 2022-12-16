@@ -299,7 +299,7 @@ impl eframe::App for App {
             if let Some(job) = self.render_job.as_ref() {
                 let (tex_dim, tex_data) = job.buffer.get_raw_rgba_data();
                 let tex_data = egui::ColorImage::from_rgba_unmultiplied(tex_dim, tex_data);
-                let tex_id = ctx.load_texture("output_tex", tex_data, egui::TextureFilter::Linear);
+                let tex_id = ctx.load_texture("output_tex", tex_data, egui::TextureOptions::LINEAR);
                 self.output_texture = Some((tex_id, tex_dim));
             }
         }

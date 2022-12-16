@@ -7,9 +7,9 @@ edition = "2018"
 [dependencies]
 raytracer-impl = { path = "./raytracer-impl" }
 raytracer-samples = { path = "./raytracer-samples" }
-eframe = "0.19.0" # egui, epi and web+native backends
+eframe = "0.20.1" # egui, epi and web+native backends
 serde = { version = "1", features = ["derive"] } # state serialization
-flume = "0.10.13"
+flume = "0.10.13" # mpmc / cross thread work queues
 rand = "0.6"
 
 [features]
