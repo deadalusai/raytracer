@@ -47,12 +47,27 @@ impl<T1: Texture, T2: Texture> Texture for CheckerTexture<T1, T2> {
 
 // Test texture
 
-pub struct TestTexture;
+pub struct UvTestTexture;
 
-impl Texture for TestTexture {
+impl Texture for UvTestTexture {
     fn value(&self, hit_record: &HitRecord) -> V3 {
         let V2(u, v) = hit_record.mtl_uv;
         V3(u, v, 1.0 - u - v)
+    }
+}
+
+pub struct XyzTestTexture(pub f32);
+
+impl Texture for XyzTestTexture {
+    fn value(&self, hit_record: &HitRecord) -> V3 {
+        fn map_into_range(max: f32, v: f32) -> f32 {
+            // Values on {-max..0..+max} range mapped to {0..1} range, so {0} always corresponds to {0.5}
+            0.5 + (v / max / 2.0)
+        }
+        let V3(x, y, z) = hit_record.p;
+        V3(map_into_range(self.0, x),
+           map_into_range(self.0, y),
+           map_into_range(self.0, z))
     }
 }
 

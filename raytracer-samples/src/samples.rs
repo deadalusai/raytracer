@@ -2,7 +2,7 @@
 
 use std::f32::consts::PI;
 
-use raytracer_impl::texture::{ ColorTexture, CheckerTexture, TestTexture };
+use raytracer_impl::texture::{ ColorTexture, CheckerTexture, UvTestTexture, XyzTestTexture };
 use raytracer_impl::types::{ V3, Ray };
 use raytracer_impl::materials::{ MatLambertian, MatDielectric, MatSpecular };
 use raytracer_impl::shapes::{ Sphere, Plane, Mesh, MeshFace };
@@ -591,9 +591,9 @@ pub fn interceptor(config: &CameraConfiguration) -> Scene {
         .rotated(V3::POS_Z, -deg_to_rad(90.0));
 
     let int2_mesh = int_mesh.clone()
-        .translated(position!(North(30.0), Down(30.0)))
-        .rotated(V3::POS_Z, -deg_to_rad(20.0))
-        .rotated(V3::POS_X, -deg_to_rad(20.0));
+        .translated(position!(North(45.0), Down(10.0)))
+        .rotated(V3::POS_Z, -deg_to_rad(25.0))
+        .rotated(V3::POS_X, deg_to_rad(25.0));
 
     scene.add_obj(int_mesh);
     scene.add_obj(int2_mesh);
