@@ -28,7 +28,7 @@ impl<T: Hitable + Sized> Hitable for Translated<T> {
     }
 
     fn origin(&self) -> V3 {
-        self.inner.origin()
+        self.inner.origin() + self.translation
     }
 
     fn bounding_box(&self) -> Option<crate::implementation::AABB> {
