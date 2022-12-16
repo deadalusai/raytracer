@@ -14,8 +14,8 @@ pub struct BvhNode {
 impl BvhNode {
     pub fn new(left: Arc<dyn Hitable>, right: Arc<dyn Hitable>) -> BvhNode {
         let aabb = AABB::surrounding(
-            left.bounding_box().expect("Left hitable bounding box"),
-            right.bounding_box().expect("Right hitable bounding box"),
+            left.aabb().expect("Left hitable bounding box"),
+            right.aabb().expect("Right hitable bounding box"),
         );
         BvhNode { aabb, left, right }
     }
@@ -41,7 +41,7 @@ impl Hitable for BvhNode {
         V3::ZERO
     }
 
-    fn bounding_box(&self) -> Option<AABB> {
+    fn aabb(&self) -> Option<AABB> {
         Some(self.aabb.clone())
     }
 }

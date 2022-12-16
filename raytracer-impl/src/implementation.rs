@@ -1,4 +1,3 @@
-use std;
 use std::sync::Arc;
 
 use crate::types::{ V2, V3, Ray, IntoArc };
@@ -53,7 +52,7 @@ pub fn random_normal_reflection_angle(normal: V3, rng: &mut dyn RngCore) -> V3 {
 
 // AABB / Bounding Boxes
 
-#[derive(Clone)]
+#[derive(Clone, Debug)]
 pub struct AABB {
     pub min: V3,
     pub max: V3,
@@ -114,6 +113,19 @@ impl AABB {
 
         true
     }
+
+    pub fn corners(&self) -> [V3; 8] {
+        [
+            self.min,
+            V3(self.min.0, self.min.1, self.max.2),
+            V3(self.min.0, self.max.1, self.min.2),
+            V3(self.max.0, self.min.1, self.min.2),
+            self.max,
+            V3(self.max.0, self.max.1, self.min.2),
+            V3(self.max.0, self.min.1, self.max.2),
+            V3(self.min.0, self.max.1, self.max.2),
+        ]
+    }
 }
 
 // Materials
@@ -168,8 +180,10 @@ pub struct HitRecord<'mat> {
 
 pub trait Hitable: Send + Sync {
     fn hit<'a>(&'a self, ray: &Ray, t_min: f32, t_max: f32) -> Option<HitRecord<'a>>;
+    /// Returns the origin of this hitable in worldspace coordinates
     fn origin(&self) -> V3;
-    fn bounding_box(&self) -> Option<AABB>;
+    /// Returns the AABB bounding box of this hitable in worldspace coordinates
+    fn aabb(&self) -> Option<AABB>;
 }
 
 super::types::derive_into_arc!(Hitable);
@@ -245,7 +259,7 @@ impl Scene {
         let mut bounded = Vec::new();
 
         for hitable in self.hitables.iter() {
-            if let Some(bbox) = hitable.bounding_box() {
+            if let Some(bbox) = hitable.aabb() {
                 bounded.push((bbox, hitable.clone()));
             }
             else {
