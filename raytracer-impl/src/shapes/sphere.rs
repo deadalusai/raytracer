@@ -46,14 +46,12 @@ impl Hitable for Sphere {
     fn hit<'a>(&'a self, ray: &Ray, t_min: f32, t_max: f32) -> Option<HitRecord<'a>> {
         let object_id = self.object_id;
         let material = self.material.as_ref();
-
-        if let Some(ts) = intersect_sphere(ray, self.origin, self.radius) {
+        let ts = intersect_sphere(ray, self.origin, self.radius)?;
             // Identify the best candidate intersection point
-            let t = ts.iter().cloned().filter(|&t| t_min < t && t < t_max).reduce(f32::min);
-            if let Some(t) = t {
+        let t = ts.iter().cloned().filter(|&t| t_min < t && t < t_max).reduce(f32::min)?;
                 let p = ray.point_at_parameter(t);
                 let normal = ((p - self.origin) / self.radius).unit();
-                return Some(HitRecord {
+        Some(HitRecord {
                     object_id,
                     t,
                     p,
@@ -62,11 +60,7 @@ impl Hitable for Sphere {
                     mtl_uv: V2::zero(),
                     mtl_index: None,
                     material,
-                });
-            }
-        }
-
-        None
+        })
     }
 
     fn origin(&self) -> V3 {
