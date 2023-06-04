@@ -12,7 +12,7 @@ use raytracer_samples::CameraConfiguration;
 use crate::rgba::{ RgbaBuffer, v3_to_rgba };
 use crate::frame_history::{ FrameHistory };
 use crate::thread_stats::{ ThreadStats };
-use crate::settings::{ SettingsWidget, Settings, TestScene };
+use crate::settings::{ SettingsWidget, Settings };
 
 fn duration_total_secs(elapsed: Duration) -> f64 {
     elapsed.as_secs() as f64 + elapsed.subsec_nanos() as f64 * 1e-9
@@ -92,17 +92,19 @@ impl App {
             angle_adjust_h: st.camera_angle_adjust_h,
             focus_dist_adjust: st.camera_focus_dist_adjust,
         };
-        let mut scene = match st.scene {
-            TestScene::RandomSpheres => raytracer_samples::samples::random_sphere_scene(&camera_config),
-            TestScene::Simple        => raytracer_samples::samples::simple_scene(&camera_config),
-            TestScene::Planes        => raytracer_samples::samples::planes_scene(&camera_config),
-            TestScene::Mirrors       => raytracer_samples::samples::hall_of_mirrors(&camera_config),
-            TestScene::Triangles     => raytracer_samples::samples::triangle_world(&camera_config),
-            TestScene::Mesh          => raytracer_samples::samples::mesh_demo(&camera_config),
-            TestScene::Interceptor   => raytracer_samples::samples::interceptor(&camera_config),
-            TestScene::Capsule       => raytracer_samples::samples::capsule(&camera_config),
-            TestScene::MeshPlane     => raytracer_samples::samples::mesh_plane(&camera_config),
-        };
+        // let mut scene = match st.scene {
+        //     TestScene::RandomSpheres => raytracer_samples::samples::random_sphere_scene(&camera_config),
+        //     TestScene::Simple        => raytracer_samples::samples::simple_scene(&camera_config),
+        //     TestScene::Planes        => raytracer_samples::samples::planes_scene(&camera_config),
+        //     TestScene::Mirrors       => raytracer_samples::samples::hall_of_mirrors(&camera_config),
+        //     TestScene::Triangles     => raytracer_samples::samples::triangle_world(&camera_config),
+        //     TestScene::Mesh          => raytracer_samples::samples::mesh_demo(&camera_config),
+        //     TestScene::Interceptor   => raytracer_samples::samples::interceptor(&camera_config),
+        //     TestScene::Capsule       => raytracer_samples::samples::capsule(&camera_config),
+        //     TestScene::MeshPlane     => raytracer_samples::samples::mesh_plane(&camera_config),
+        // };
+
+        let mut scene = raytracer_samples::samples::random_sphere_scene(&camera_config);
 
         scene.reorganize_objects_into_bvh();
         

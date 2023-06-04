@@ -51,7 +51,7 @@ pub struct UvTestTexture;
 
 impl Texture for UvTestTexture {
     fn value(&self, hit_record: &HitRecord) -> V3 {
-        let V2(u, v) = hit_record.mtl_uv;
+        let V2(u, v) = hit_record.uv;
         V3(u, v, 1.0 - u - v)
     }
 }
@@ -92,7 +92,7 @@ impl ColorMap for UVColorMap {
 // Can use a color map as a texture directly
 impl Texture for UVColorMap {
     fn value(&self, hit_record: &HitRecord) -> V3 {
-        let V2(u, v) = hit_record.mtl_uv;
+        let V2(u, v) = hit_record.uv;
         ColorMap::value(self, u, v)
     }
 }
@@ -107,7 +107,7 @@ pub struct MeshTexture {
 impl Texture for MeshTexture {
     fn value(&self, hit_record: &HitRecord) -> V3 {
         match self.diffuse_color_map {
-            Some(ref map) => map.value(hit_record.mtl_uv.0, hit_record.mtl_uv.1),
+            Some(ref map) => map.value(hit_record.uv.0, hit_record.uv.1),
             None => self.diffuse_color.clone()
         }
     }
@@ -117,7 +117,7 @@ impl Texture for MeshTexture {
 // Only supported if the HitRecord specifies a {mtl_index}
 impl Texture for Vec<MeshTexture> {
     fn value(&self, hit_record: &HitRecord) -> V3 {
-        hit_record.mtl_index
+        hit_record.material_id
             .and_then(|id| self.get(id))
             .map(|mat| mat.value(hit_record))
             .unwrap_or_default()

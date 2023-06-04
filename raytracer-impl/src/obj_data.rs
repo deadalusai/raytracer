@@ -83,7 +83,7 @@ impl ObjMeshBuilder {
                 a_uv: get_uv_vertex(face.a.uv_index),
                 b_uv: get_uv_vertex(face.b.uv_index),
                 c_uv: get_uv_vertex(face.c.uv_index),
-                mtl_index: mtl_id,
+                material_id: mtl_id,
             });
         }
 

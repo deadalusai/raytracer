@@ -143,7 +143,6 @@ pub struct Refract {
 pub struct MatRecord {
     pub reflection: Option<Reflect>,
     pub refraction: Option<Refract>,
-    pub albedo: V3,
 }
 
 pub trait Material: Send + Sync {
@@ -153,6 +152,9 @@ pub trait Material: Send + Sync {
 super::types::derive_into_arc!(Material);
 
 // Textures
+
+// TODO
+// pub struct TexRecord
 
 pub trait Texture: Send + Sync {
     fn value(&self, hit_record: &HitRecord) -> V3;
@@ -168,14 +170,15 @@ super::types::derive_into_arc!(ColorMap);
 
 // Hitables
 
-pub struct HitRecord<'mat> {
+pub struct HitRecord<'a> {
     pub object_id: Option<u32>,
     pub t: f32,
     pub p: V3,
     pub normal: V3,
-    pub mtl_uv: V2,
-    pub mtl_index: Option<usize>,
-    pub material: &'mat dyn Material,
+    pub uv: V2,
+    pub material_id: Option<usize>,
+    pub material: &'a dyn Material,
+    pub texture: &'a dyn Texture,
 }
 
 pub trait Hitable: Send + Sync {
@@ -377,7 +380,8 @@ fn cast_light_ray_to_lamp(hit_point: V3, light_record: &LightRecord, scene: &Sce
         if let Some(shadow_refraction) = shadow_mat.refraction {
             // Hit transparent object
             // Hack: simulate colored shadows by taking the albedo of transparent materials.
-            light_color = light_color * (shadow_mat.albedo * shadow_refraction.intensity);
+            let albedo = shadow_hit.texture.value(&shadow_hit);
+            light_color = light_color * (albedo * shadow_refraction.intensity);
             closest_so_far = shadow_hit.t;
             continue;
         }
@@ -461,10 +465,11 @@ fn cast_ray(ray: &Ray, scene: &Scene, rng: &mut dyn RngCore, max_reflections: u3
                 // HACK: Scale the light intensity further for highly reflective or refractive objects
                 // This makes sure that color from lights doesn't overwhelm reflective or refractive materials
                 let lights_intensity = f32::max(0.0, 1.0 - (reflection_intensity + refraction_intensity));
+                let albedo = hit_record.texture.value(&hit_record);
 
                 ((color_from_reflection * reflection_intensity) +
                  (color_from_refraction * refraction_intensity) +
-                 (color_from_lights * lights_intensity)) * mat_record.albedo
+                 (color_from_lights * lights_intensity)) * albedo
             }
         }
     }

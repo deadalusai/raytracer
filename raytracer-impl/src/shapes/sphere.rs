@@ -1,6 +1,6 @@
 use std::sync::Arc;
 use crate::types::{ V2, V3, Ray, IntoArc };
-use crate::implementation::{ Material, Hitable, HitRecord, AABB };
+use crate::implementation::{ Material, Hitable, HitRecord, AABB, Texture };
 
 fn intersect_sphere(ray: &Ray, origin: V3, radius: f32) -> Option<[f32; 2]> {
     let oc = ray.origin - origin;
@@ -22,11 +22,18 @@ pub struct Sphere {
     origin: V3,
     radius: f32,
     material: Arc<dyn Material>,
+    texture: Arc<dyn Texture>,
 }
 
 impl Sphere {
-    pub fn new(radius: f32, material: impl IntoArc<dyn Material>) -> Self {
-        Sphere { object_id: None, origin: V3::ZERO, radius: radius, material: material.into_arc() }
+    pub fn new(radius: f32, material: impl IntoArc<dyn Material>, texture: impl IntoArc<dyn Texture>) -> Self {
+        Sphere {
+            object_id: None,
+            origin: V3::ZERO,
+            radius: radius,
+            material: material.into_arc(),
+            texture: texture.into_arc(),
+        }
     }
 
     #[allow(unused)]
@@ -45,21 +52,21 @@ impl Sphere {
 impl Hitable for Sphere {
     fn hit<'a>(&'a self, ray: &Ray, t_min: f32, t_max: f32) -> Option<HitRecord<'a>> {
         let object_id = self.object_id;
-        let material = self.material.as_ref();
         let ts = intersect_sphere(ray, self.origin, self.radius)?;
             // Identify the best candidate intersection point
         let t = ts.iter().cloned().filter(|&t| t_min < t && t < t_max).reduce(f32::min)?;
                 let p = ray.point_at_parameter(t);
                 let normal = ((p - self.origin) / self.radius).unit();
         Some(HitRecord {
-                    object_id,
-                    t,
-                    p,
-                    normal,
-                    //  TODO: UV on a sphere
-                    mtl_uv: V2::zero(),
-                    mtl_index: None,
-                    material,
+            object_id,
+            t,
+            p,
+            normal,
+            //  TODO: UV on a sphere
+            uv: V2::zero(),
+            material_id: None,
+            material: self.material.as_ref(),
+            texture: self.texture.as_ref(),
         })
     }
 

@@ -23,54 +23,51 @@ macro_rules! assert_in_range {
 //
 
 #[derive(Clone)]
-pub struct MatLambertian<T: Texture> {
-    texture: T,
+pub struct MatLambertian {
     reflectivity: f32,
 }
 
-impl<T: Texture> MatLambertian<T> {
-    pub fn with_texture(texture: T) -> MatLambertian<T> {
-        MatLambertian { 
-            texture,
-            reflectivity: 0.0,
-        }
+impl Default for MatLambertian {
+    fn default() -> Self {
+        Self { reflectivity: 0.0 }
     }
+}
 
-    pub fn with_reflectivity(mut self, reflectivity: f32) -> MatLambertian<T> {
+impl MatLambertian {
+    pub fn with_reflectivity(mut self, reflectivity: f32) -> Self {
         assert_in_range!(reflectivity);
         self.reflectivity = reflectivity;
         self
     }
 }
 
-impl<T: Texture> Material for MatLambertian<T> {
+impl Material for MatLambertian {
     fn scatter(&self, _r: &Ray, hit_record: &HitRecord, rng: &mut dyn RngCore) -> MatRecord {
         let direction = random_normal_reflection_angle(hit_record.normal, rng);
         let ray = Ray::new(hit_record.p.clone(), direction);
         MatRecord {
             reflection: Some(Reflect { ray, intensity: self.reflectivity }),
             refraction: None,
-            albedo: self.texture.value(hit_record)
         }
     }
 }
 
 #[derive(Clone)]
-pub struct MatSpecular<T: Texture> {
-    texture: T,
+pub struct MatSpecular {
     reflectiveness: f32,
     fuzz: f32,
 }
 
-impl<T: Texture> MatSpecular<T> {
-    pub fn with_texture(texture: T) -> Self {
+impl Default for MatSpecular {
+    fn default() -> Self {
         Self {
-            texture,
             reflectiveness: 1.0,
             fuzz: 0.0
         }
     }
+}
 
+impl MatSpecular {
     pub fn with_reflectivity(mut self, reflectiveness: f32) -> Self {
         assert_in_range!(reflectiveness);
         self.reflectiveness = reflectiveness;
@@ -89,7 +86,7 @@ fn reflect(incident_direction: V3, surface_normal: V3) -> V3 {
     dir - (surface_normal * V3::dot(dir, surface_normal) * 2.0)
 }
 
-impl<T: Texture> Material for MatSpecular<T> {
+impl Material for MatSpecular {
     fn scatter(&self, ray: &Ray, hit_record: &HitRecord, rng: &mut dyn RngCore) -> MatRecord {
         let reflected = reflect(ray.direction, hit_record.normal);
         let scattered =
@@ -110,29 +107,28 @@ impl<T: Texture> Material for MatSpecular<T> {
         MatRecord {
             reflection: reflection,
             refraction: None,
-            albedo: self.texture.value(hit_record)
         }
     }
 }
 
 #[derive(Clone)]
-pub struct MatDielectric<T: Texture> {
-    texture: T,
+pub struct MatDielectric {
     reflectivity: f32,
     opacity: f32,
     ref_index: f32,
 }
 
-impl<T: Texture> MatDielectric<T> {
-    pub fn with_texture(texture: T) -> Self {
+impl Default for MatDielectric {
+    fn default() -> Self {
         Self {
-            texture,
             reflectivity: 1.0,
             opacity: 0.0,
             ref_index: 1.5,
         }
     }
+}
 
+impl MatDielectric {
     pub fn with_reflectivity(mut self, reflectivity: f32) -> Self {
         assert_in_range!(reflectivity);
         self.reflectivity = reflectivity;
@@ -168,7 +164,7 @@ fn schlick_reflect_prob (cosine: f32, ref_idx: f32) -> f32 {
     r0 + (1.0 - r0) * (1.0 - cosine).powf(5.0)
 }
 
-impl<T: Texture> Material for MatDielectric<T> {
+impl Material for MatDielectric {
     fn scatter (&self, ray: &Ray, hit_record: &HitRecord, rng: &mut dyn RngCore) -> MatRecord {
         let dot = V3::dot(ray.direction, hit_record.normal);
         let (outward_normal, ni_over_nt, cosine) =
@@ -203,7 +199,6 @@ impl<T: Texture> Material for MatDielectric<T> {
         MatRecord {
             refraction: refraction,
             reflection: reflection,
-            albedo: self.texture.value(hit_record),
         }
     }
 }

@@ -1,7 +1,7 @@
 use std::sync::Arc;
 
 use crate::types::{ V3, V2, Ray, IntoArc };
-use crate::implementation::{ Material, Hitable, HitRecord, AABB };
+use crate::implementation::{ Material, Hitable, HitRecord, AABB, Texture };
 
 // Triangle Mesh BVH
 
@@ -9,8 +9,8 @@ struct MeshFaceHit {
     p: V3,
     normal: V3,
     t: f32,
-    mtl_uv: V2,
-    mtl_index: Option<usize>,
+    uv: V2,
+    material_id: Option<usize>,
 }
 
 fn try_hit_face(ray: &Ray, face: &MeshFace) -> Option<MeshFaceHit> {
@@ -69,10 +69,10 @@ fn try_hit_face(ray: &Ray, face: &MeshFace) -> Option<MeshFaceHit> {
     let u = normal_cap.length() / area2;
     let v = normal_abp.length() / area2;
     let w = 1.0 - u - v;
-    let mtl_uv = (face.a_uv * w) + (face.b_uv * u) + (face.c_uv * v);
-    let mtl_index = face.mtl_index.clone();
+    let uv = (face.a_uv * w) + (face.b_uv * u) + (face.c_uv * v);
+    let material_id = face.material_id.clone();
 
-    return Some(MeshFaceHit { p, normal: normal.unit(), t, mtl_uv, mtl_index })
+    return Some(MeshFaceHit { p, normal: normal.unit(), t, uv, material_id })
 }
 
 fn face_aabb(tri: &MeshFace) -> AABB {
@@ -184,7 +184,7 @@ pub struct MeshFace {
     pub a_uv: V2,
     pub b_uv: V2,
     pub c_uv: V2,
-    pub mtl_index: Option<usize>,
+    pub material_id: Option<usize>,
 }
 
 impl MeshFace {
@@ -199,15 +199,17 @@ pub struct Mesh {
     origin: V3,
     root_node: MeshBvhNode,
     material: Arc<dyn Material>,
+    texture: Arc<dyn Texture>,
 }
 
 impl Mesh {
-    pub fn new(faces: Vec<MeshFace>, material: impl IntoArc<dyn Material>) -> Self {
+    pub fn new(faces: Vec<MeshFace>, material: impl IntoArc<dyn Material>, texture: impl IntoArc<dyn Texture>) -> Self {
         Mesh {
             object_id: None,
             origin: V3::ZERO,
             root_node: build_face_bvh_hierachy(&faces).expect("Expected at least one triangle for mesh"),
             material: material.into_arc(),
+            texture: texture.into_arc(),
         }
     }
 
@@ -235,9 +237,10 @@ impl Hitable for Mesh {
             t: mesh_hit.t,
             p: mesh_hit.p + self.origin,
             normal: mesh_hit.normal,
-            mtl_uv: mesh_hit.mtl_uv,
-            mtl_index: mesh_hit.mtl_index,
+            uv: mesh_hit.uv,
+            material_id: mesh_hit.material_id,
             material: self.material.as_ref(),
+            texture: self.texture.as_ref(),
         })
     }
 

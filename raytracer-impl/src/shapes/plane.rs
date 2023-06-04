@@ -1,6 +1,6 @@
 use std::sync::Arc;
 use crate::types::{ V2, V3, Ray, IntoArc };
-use crate::implementation::{ Material, Hitable, HitRecord, AABB };
+use crate::implementation::{ Material, Hitable, HitRecord, AABB, Texture };
 
 pub fn intersect_plane(ray: &Ray, origin: V3, normal: V3) -> Option<f32> {
     // intersection of ray with a plane at point `t`
@@ -21,13 +21,21 @@ pub struct Plane {
     object_id: Option<u32>,
     origin: V3,
     normal: V3,
-    material: Arc<dyn Material>,
     radius: Option<f32>,
+    material: Arc<dyn Material>,
+    texture: Arc<dyn Texture>,
 }
 
 impl Plane {
-    pub fn new(normal: V3, material: impl IntoArc<dyn Material>) -> Self {
-        Plane { object_id: None, origin: V3::ZERO, normal: normal.unit(), material: material.into_arc(), radius: None }
+    pub fn new(normal: V3, material: impl IntoArc<dyn Material>, texture: impl IntoArc<dyn Texture>) -> Self {
+        Plane {
+            object_id: None,
+            origin: V3::ZERO,
+            normal: normal.unit(),
+            radius: None,
+            material: material.into_arc(), 
+            texture: texture.into_arc(), 
+        }
     }
 
     #[allow(unused)]
@@ -64,7 +72,6 @@ impl Hitable for Plane {
             }
         }
         let object_id = self.object_id;
-        let material = self.material.as_ref();
         // If this plane is facing away from the ray we want to flip the reported normal
         // so that reflections work in both directions.
         let normal = if V3::dot(ray.direction, self.normal) > 0.0 { -self.normal } else { self.normal };
@@ -74,9 +81,10 @@ impl Hitable for Plane {
             p,
             normal,
             // TODO(benf): UV mapping for plane
-            mtl_uv: V2::zero(),
-            mtl_index: None,
-            material,
+            uv: V2::zero(),
+            material_id: None,
+            material: self.material.as_ref(),
+            texture: self.texture.as_ref(),
         });
     }
 
