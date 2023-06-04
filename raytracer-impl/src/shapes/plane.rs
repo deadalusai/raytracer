@@ -21,8 +21,8 @@ pub struct Plane {
     origin: V3,
     normal: V3,
     radius: Option<f32>,
-    material: MatId,
-    texture: TexId,
+    mat_id: MatId,
+    tex_id: TexId,
 }
 
 impl Plane {
@@ -32,8 +32,8 @@ impl Plane {
             origin: V3::ZERO,
             normal: normal.unit(),
             radius: None,
-            material, 
-            texture, 
+            mat_id: material, 
+            tex_id: texture, 
         }
     }
 
@@ -81,9 +81,9 @@ impl Hitable for Plane {
             normal,
             // TODO(benf): UV mapping for plane
             uv: V2::zero(),
-            material_id: None,
-            material: self.material,
-            texture: self.texture,
+            mat_id: self.mat_id,
+            tex_id: self.tex_id,
+            tex_key: None,
         });
     }
 

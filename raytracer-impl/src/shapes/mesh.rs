@@ -8,7 +8,7 @@ struct MeshFaceHit {
     normal: V3,
     t: f32,
     uv: V2,
-    material_id: Option<usize>,
+    tex_key: Option<usize>,
 }
 
 fn try_hit_face(ray: &Ray, face: &MeshFace) -> Option<MeshFaceHit> {
@@ -68,9 +68,9 @@ fn try_hit_face(ray: &Ray, face: &MeshFace) -> Option<MeshFaceHit> {
     let v = normal_abp.length() / area2;
     let w = 1.0 - u - v;
     let uv = (face.a_uv * w) + (face.b_uv * u) + (face.c_uv * v);
-    let material_id = face.material_id.clone();
+    let tex_key = face.tex_key.clone();
 
-    return Some(MeshFaceHit { p, normal: normal.unit(), t, uv, material_id })
+    return Some(MeshFaceHit { p, normal: normal.unit(), t, uv, tex_key })
 }
 
 fn face_aabb(tri: &MeshFace) -> AABB {
@@ -174,6 +174,10 @@ pub fn build_face_bvh_hierachy(faces: &[MeshFace]) -> Option<MeshBvhNode> {
 
 // Mesh
 
+pub struct Mesh {
+    pub faces: Vec<MeshFace>,
+}
+
 #[derive(Clone, Default)]
 pub struct MeshFace {
     pub a: V3,
@@ -182,7 +186,7 @@ pub struct MeshFace {
     pub a_uv: V2,
     pub b_uv: V2,
     pub c_uv: V2,
-    pub material_id: Option<usize>,
+    pub tex_key: Option<usize>,
 }
 
 impl MeshFace {
@@ -192,22 +196,22 @@ impl MeshFace {
 }
 
 #[derive(Clone)]
-pub struct Mesh {
+pub struct MeshObject {
     object_id: Option<u32>,
     origin: V3,
     root_node: MeshBvhNode,
-    material: MatId,
-    texture: TexId,
+    mat_id: MatId,
+    tex_id: TexId,
 }
 
-impl Mesh {
-    pub fn new(faces: Vec<MeshFace>, material: MatId, texture: TexId) -> Self {
-        Mesh {
+impl MeshObject {
+    pub fn new(mesh: &Mesh, mat_id: MatId, tex_id: TexId) -> Self {
+        MeshObject {
             object_id: None,
             origin: V3::ZERO,
-            root_node: build_face_bvh_hierachy(&faces).expect("Expected at least one triangle for mesh"),
-            material,
-            texture,
+            root_node: build_face_bvh_hierachy(&mesh.faces).expect("Expected at least one triangle for mesh"),
+            mat_id,
+            tex_id,
         }
     }
 
@@ -224,7 +228,7 @@ impl Mesh {
     }
 }
 
-impl Hitable for Mesh {
+impl Hitable for MeshObject {
     fn hit(&self, ray: &Ray, t_min: f32, t_max: f32) -> Option<HitRecord> {
         // Shift the ray into mesh space
         let mesh_ray = Ray::new(ray.origin - self.origin, ray.direction);
@@ -236,9 +240,9 @@ impl Hitable for Mesh {
             p: mesh_hit.p + self.origin,
             normal: mesh_hit.normal,
             uv: mesh_hit.uv,
-            material_id: mesh_hit.material_id,
-            material: self.material,
-            texture: self.texture,
+            mat_id: self.mat_id,
+            tex_id: self.tex_id,
+            tex_key: mesh_hit.tex_key,
         })
     }
 

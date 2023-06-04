@@ -176,9 +176,9 @@ pub struct HitRecord {
     pub p: V3,
     pub normal: V3,
     pub uv: V2,
-    pub material_id: Option<usize>,
-    pub material: MatId,
-    pub texture: TexId,
+    pub mat_id: MatId,
+    pub tex_id: TexId,
+    pub tex_key: Option<usize>,
 }
 
 pub trait Hitable: Send + Sync {
@@ -406,11 +406,11 @@ fn cast_light_ray_to_lamp(hit_point: V3, light_record: &LightRecord, scene: &Sce
     // Perform hit tests until we escape
     while let Some(shadow_hit) = scene.hit_closest(&light_ray, closest_so_far, t_max) {
 
-        let shadow_mat = scene.get_mat(shadow_hit.material).scatter(&light_ray, &shadow_hit, rng);
+        let shadow_mat = scene.get_mat(shadow_hit.mat_id).scatter(&light_ray, &shadow_hit, rng);
         if let Some(shadow_refraction) = shadow_mat.refraction {
             // Hit transparent object
             // Hack: simulate colored shadows by taking the albedo of transparent materials.
-            let albedo = scene.get_tex(shadow_hit.texture).value(&shadow_hit);
+            let albedo = scene.get_tex(shadow_hit.tex_id).value(&shadow_hit);
             light_color = light_color * (albedo * shadow_refraction.intensity);
             closest_so_far = shadow_hit.t;
             continue;
@@ -442,7 +442,7 @@ fn cast_ray(ray: &Ray, scene: &Scene, rng: &mut dyn RngCore, max_reflections: u3
             // Hit an object
             Some(hit_record) => {
 
-                let mat_record = scene.get_mat(hit_record.material).scatter(ray, &hit_record, rng);
+                let mat_record = scene.get_mat(hit_record.mat_id).scatter(ray, &hit_record, rng);
 
                 // We may need to recurse more than once, depending on the material we hit.
                 // In this case, split the recursion limit to avoid doubling our work.
@@ -495,7 +495,7 @@ fn cast_ray(ray: &Ray, scene: &Scene, rng: &mut dyn RngCore, max_reflections: u3
                 // HACK: Scale the light intensity further for highly reflective or refractive objects
                 // This makes sure that color from lights doesn't overwhelm reflective or refractive materials
                 let lights_intensity = f32::max(0.0, 1.0 - (reflection_intensity + refraction_intensity));
-                let albedo = scene.get_tex(hit_record.texture).value(&hit_record);
+                let albedo = scene.get_tex(hit_record.tex_id).value(&hit_record);
 
                 ((color_from_reflection * reflection_intensity) +
                  (color_from_refraction * refraction_intensity) +

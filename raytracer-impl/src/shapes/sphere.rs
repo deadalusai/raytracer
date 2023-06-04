@@ -20,18 +20,18 @@ pub struct Sphere {
     object_id: Option<u32>,
     origin: V3,
     radius: f32,
-    material: MatId,
-    texture: TexId,
+    mat_id: MatId,
+    tex_id: TexId,
 }
 
 impl Sphere {
-    pub fn new(radius: f32, material: MatId, texture: TexId) -> Self {
+    pub fn new(radius: f32, mat_id: MatId, tex_id: TexId) -> Self {
         Sphere {
             object_id: None,
             origin: V3::ZERO,
-            radius: radius,
-            material,
-            texture,
+            radius,
+            mat_id,
+            tex_id,
         }
     }
 
@@ -63,9 +63,9 @@ impl Hitable for Sphere {
             normal,
             //  TODO: UV on a sphere
             uv: V2::zero(),
-            material_id: None,
-            material: self.material,
-            texture: self.texture,
+            mat_id: self.mat_id,
+            tex_id: self.tex_id,
+            tex_key: None,
         })
     }
 

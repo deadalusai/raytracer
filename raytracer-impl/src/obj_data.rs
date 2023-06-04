@@ -1,7 +1,7 @@
 use std::collections::{HashMap, HashSet};
 
-use crate::shapes::{MeshFace};
-use crate::texture::{MeshTexture};
+use crate::shapes::{Mesh, MeshFace};
+use crate::texture::{MeshTexture, MeshTextureSet};
 use crate::implementation::{ColorMap};
 use crate::types::{IntoArc};
 use crate::obj_format::{ObjObject, ObjMaterial};
@@ -14,14 +14,14 @@ pub struct ObjMeshBuilder {
 }
 
 impl ObjMeshBuilder {
-    pub fn load_objects_from_string(&mut self, obj_source: &str) {
+    pub fn load_obj_from_string(&mut self, obj_source: &str) {
         let objects = crate::obj_format::parse_obj_file(obj_source.as_bytes()).expect("parse obj");
         for obj in objects.into_iter() {
             self.objects.insert(obj.name.clone(), obj);
         }
     }
 
-    pub fn load_materials_from_string(&mut self, mtl_source: &str) {
+    pub fn load_mtl_from_string(&mut self, mtl_source: &str) {
         let materials = crate::obj_format::parse_mtl_file(mtl_source.as_bytes()).expect("parse mtl");
         for mtl in materials.into_iter() {
             self.materials.insert(mtl.name.clone(), mtl);
@@ -32,7 +32,7 @@ impl ObjMeshBuilder {
         self.color_maps.insert(name.to_string(), color_map.into_arc());
     }
 
-    pub fn build_mesh_and_materials(&self, object_name: &str) -> (Vec<MeshFace>, Vec<MeshTexture>) {
+    pub fn build_mesh_and_texture(&self, object_name: &str) -> (Mesh, MeshTextureSet) {
 
         let obj = self.objects.get(object_name).expect("Selecting object");
         
@@ -74,7 +74,7 @@ impl ObjMeshBuilder {
         let mut faces = Vec::new();
         for face in obj.faces.iter() {
 
-            let mtl_id = face.mtl.as_ref().and_then(|name| textures.iter().position(|m| &m.name == name));
+            let texture_key = face.mtl.as_ref().and_then(|name| textures.iter().position(|m| &m.name == name));
             
             faces.push(MeshFace {
                 a: get_vertex(face.a.vertex_index),
@@ -83,10 +83,10 @@ impl ObjMeshBuilder {
                 a_uv: get_uv_vertex(face.a.uv_index),
                 b_uv: get_uv_vertex(face.b.uv_index),
                 c_uv: get_uv_vertex(face.c.uv_index),
-                material_id: mtl_id,
+                tex_key: texture_key,
             });
         }
 
-        (faces, textures)
+        (Mesh { faces }, MeshTextureSet { textures })
     }
 }

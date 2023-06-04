@@ -114,11 +114,15 @@ impl Texture for MeshTexture {
 }
 
 // A collection of OBJ mtl materials.
-// Only supported if the HitRecord specifies a {mtl_index}
-impl Texture for Vec<MeshTexture> {
+// Only supported if the HitRecord specifies a {tex_key}
+pub struct MeshTextureSet {
+    pub textures: Vec<MeshTexture>,
+}
+
+impl Texture for MeshTextureSet {
     fn value(&self, hit_record: &HitRecord) -> V3 {
-        hit_record.material_id
-            .and_then(|id| self.get(id))
+        hit_record.tex_key
+            .and_then(|key| self.textures.get(key))
             .map(|mat| mat.value(hit_record))
             .unwrap_or_default()
     }
