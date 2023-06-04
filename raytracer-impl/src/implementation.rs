@@ -162,12 +162,6 @@ pub trait Texture: Send + Sync {
 
 super::types::derive_into_arc!(Texture);
 
-pub trait ColorMap: Send + Sync {
-    fn value(&self, u: f32, v: f32) -> V3;
-}
-
-super::types::derive_into_arc!(ColorMap);
-
 // Hitables
 
 pub struct HitRecord {

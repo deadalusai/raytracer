@@ -1,6 +1,6 @@
 use std::sync::Arc;
 
-use super::implementation::{ Texture, ColorMap, HitRecord };
+use super::implementation::{ Texture, HitRecord };
 use super::types::{ V2, V3 };
 
 // Constant colors
@@ -74,14 +74,14 @@ impl Texture for XyzTestTexture {
 
 // Image texture / color maps
 
-pub struct UVColorMap {
+pub struct ColorMap {
     pub width: usize,
     pub height: usize,
     pub pixels: Vec<V3>,
 }
 
-impl ColorMap for UVColorMap {
-    fn value(&self, u: f32, v: f32) -> V3 {
+impl ColorMap {
+    fn uv_to_value(&self, u: f32, v: f32) -> V3 {
         let x = (u * self.width as f32) as usize;
         let y = (v * self.height as f32) as usize;
         let offset = y * self.width + x;
@@ -89,25 +89,17 @@ impl ColorMap for UVColorMap {
     }
 }
 
-// Can use a color map as a texture directly
-impl Texture for UVColorMap {
-    fn value(&self, hit_record: &HitRecord) -> V3 {
-        let V2(u, v) = hit_record.uv;
-        ColorMap::value(self, u, v)
-    }
-}
-
 /// A texture loaded from an OBJ mtl ile
 pub struct MeshTexture {
     pub name: String,
     pub diffuse_color: V3,
-    pub diffuse_color_map: Option<Arc<dyn ColorMap>>,
+    pub diffuse_color_map: Option<Arc<ColorMap>>,
 }
 
 impl Texture for MeshTexture {
     fn value(&self, hit_record: &HitRecord) -> V3 {
         match self.diffuse_color_map {
-            Some(ref map) => map.value(hit_record.uv.0, hit_record.uv.1),
+            Some(ref map) => map.uv_to_value(hit_record.uv.0, hit_record.uv.1),
             None => self.diffuse_color.clone()
         }
     }

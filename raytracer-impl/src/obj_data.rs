@@ -1,16 +1,14 @@
 use std::collections::{HashMap, HashSet};
 
 use crate::shapes::{Mesh, MeshFace};
-use crate::texture::{MeshTexture, MeshTextureSet};
-use crate::implementation::{ColorMap};
-use crate::types::{IntoArc};
+use crate::texture::{MeshTexture, MeshTextureSet, ColorMap};
 use crate::obj_format::{ObjObject, ObjMaterial};
 
 #[derive(Default)]
 pub struct ObjMeshBuilder {
     objects: HashMap<String, ObjObject>,
     materials: HashMap<String, ObjMaterial>,
-    color_maps: HashMap<String, std::sync::Arc<dyn ColorMap>>,
+    color_maps: HashMap<String, std::sync::Arc<ColorMap>>,
 }
 
 impl ObjMeshBuilder {
@@ -28,8 +26,8 @@ impl ObjMeshBuilder {
         }
     }
 
-    pub fn add_color_map(&mut self, name: &str, color_map: impl IntoArc<dyn ColorMap>) {
-        self.color_maps.insert(name.to_string(), color_map.into_arc());
+    pub fn add_color_map(&mut self, name: &str, color_map: ColorMap) {
+        self.color_maps.insert(name.to_string(), std::sync::Arc::new(color_map));
     }
 
     pub fn build_mesh_and_texture(&self, object_name: &str) -> (Mesh, MeshTextureSet) {
