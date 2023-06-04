@@ -1,6 +1,5 @@
-use std::sync::Arc;
-use crate::types::{ V2, V3, Ray, IntoArc };
-use crate::implementation::{ Material, Hitable, HitRecord, AABB, Texture };
+use crate::types::{ V2, V3, Ray };
+use crate::implementation::{ Hitable, HitRecord, AABB, MatId, TexId };
 
 pub fn intersect_plane(ray: &Ray, origin: V3, normal: V3) -> Option<f32> {
     // intersection of ray with a plane at point `t`
@@ -22,19 +21,19 @@ pub struct Plane {
     origin: V3,
     normal: V3,
     radius: Option<f32>,
-    material: Arc<dyn Material>,
-    texture: Arc<dyn Texture>,
+    material: MatId,
+    texture: TexId,
 }
 
 impl Plane {
-    pub fn new(normal: V3, material: impl IntoArc<dyn Material>, texture: impl IntoArc<dyn Texture>) -> Self {
+    pub fn new(normal: V3, material: MatId, texture: TexId) -> Self {
         Plane {
             object_id: None,
             origin: V3::ZERO,
             normal: normal.unit(),
             radius: None,
-            material: material.into_arc(), 
-            texture: texture.into_arc(), 
+            material, 
+            texture, 
         }
     }
 
@@ -59,7 +58,7 @@ impl Plane {
 
 // Ref: https://www.scratchapixel.com/lessons/3d-basic-rendering/minimal-ray-tracer-rendering-simple-shapes/ray-plane-and-ray-disk-intersection
 impl Hitable for Plane {
-    fn hit<'a>(&'a self, ray: &Ray, t_min: f32, t_max: f32) -> Option<HitRecord<'a>> {
+    fn hit(&self, ray: &Ray, t_min: f32, t_max: f32) -> Option<HitRecord> {
         let t = intersect_plane(ray, self.origin, self.normal)?;
         if t < t_min || t > t_max {
             return None;
@@ -83,8 +82,8 @@ impl Hitable for Plane {
             // TODO(benf): UV mapping for plane
             uv: V2::zero(),
             material_id: None,
-            material: self.material.as_ref(),
-            texture: self.texture.as_ref(),
+            material: self.material,
+            texture: self.texture,
         });
     }
 

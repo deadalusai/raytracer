@@ -170,19 +170,19 @@ super::types::derive_into_arc!(ColorMap);
 
 // Hitables
 
-pub struct HitRecord<'a> {
+pub struct HitRecord {
     pub object_id: Option<u32>,
     pub t: f32,
     pub p: V3,
     pub normal: V3,
     pub uv: V2,
     pub material_id: Option<usize>,
-    pub material: &'a dyn Material,
-    pub texture: &'a dyn Texture,
+    pub material: MatId,
+    pub texture: TexId,
 }
 
 pub trait Hitable: Send + Sync {
-    fn hit<'a>(&'a self, ray: &Ray, t_min: f32, t_max: f32) -> Option<HitRecord<'a>>;
+    fn hit(&self, ray: &Ray, t_min: f32, t_max: f32) -> Option<HitRecord>;
     /// Returns the origin of this hitable in worldspace coordinates
     fn origin(&self) -> V3;
     /// Returns the AABB bounding box of this hitable in worldspace coordinates
@@ -219,7 +219,15 @@ pub struct Scene {
     sky: SceneSky,
     lights: Vec<Arc<dyn LightSource>>,
     hitables: Vec<Arc<dyn Hitable>>,
+    materials: Vec<Arc<dyn Material>>,
+    textures: Vec<Arc<dyn Texture>>,
 }
+
+#[derive(Clone, Copy)]
+pub struct MatId(usize);
+
+#[derive(Clone, Copy)]
+pub struct TexId(usize);
 
 pub struct RenderSettings {
     pub max_reflections: u32,
@@ -233,11 +241,25 @@ impl Scene {
             sky: sky,
             lights: vec!(),
             hitables: vec!(),
+            materials: vec!(),
+            textures: vec!(),
         }
     }
 
     pub fn add_obj(&mut self, hitable: impl IntoArc<dyn Hitable>) {
         self.hitables.push(hitable.into_arc());
+    }
+
+    pub fn add_material(&mut self, material: impl IntoArc<dyn Material>) -> MatId {
+        let id = self.materials.len();
+        self.materials.push(material.into_arc());
+        MatId(id)
+    }
+
+    pub fn add_texture(&mut self, texture: impl IntoArc<dyn Texture>) -> TexId {
+        let id = self.textures.len();
+        self.textures.push(texture.into_arc());
+        TexId(id)
     }
 
     pub fn add_light(&mut self, light: impl IntoArc<dyn LightSource>) {
@@ -277,6 +299,14 @@ impl Scene {
         }
 
         self.hitables = hitables;
+    }
+
+    fn get_mat(&self, mat_id: MatId) -> &dyn Material {
+        self.materials.get(mat_id.0).unwrap().as_ref()
+    }
+
+    fn get_tex(&self, tex_id: TexId) -> &dyn Texture {
+        self.textures.get(tex_id.0).unwrap().as_ref()
     }
 }
 
@@ -376,11 +406,11 @@ fn cast_light_ray_to_lamp(hit_point: V3, light_record: &LightRecord, scene: &Sce
     // Perform hit tests until we escape
     while let Some(shadow_hit) = scene.hit_closest(&light_ray, closest_so_far, t_max) {
 
-        let shadow_mat = shadow_hit.material.scatter(&light_ray, &shadow_hit, rng);
+        let shadow_mat = scene.get_mat(shadow_hit.material).scatter(&light_ray, &shadow_hit, rng);
         if let Some(shadow_refraction) = shadow_mat.refraction {
             // Hit transparent object
             // Hack: simulate colored shadows by taking the albedo of transparent materials.
-            let albedo = shadow_hit.texture.value(&shadow_hit);
+            let albedo = scene.get_tex(shadow_hit.texture).value(&shadow_hit);
             light_color = light_color * (albedo * shadow_refraction.intensity);
             closest_so_far = shadow_hit.t;
             continue;
@@ -412,10 +442,7 @@ fn cast_ray(ray: &Ray, scene: &Scene, rng: &mut dyn RngCore, max_reflections: u3
             // Hit an object
             Some(hit_record) => {
 
-                let mat_record = hit_record.material.scatter(ray, &hit_record, rng);
-
-                // NOTE: Move hit point slightly above p along surface normal to avoid "shadow acne"
-                let hit_point = hit_record.p + (hit_record.normal * BIAS);
+                let mat_record = scene.get_mat(hit_record.material).scatter(ray, &hit_record, rng);
 
                 // We may need to recurse more than once, depending on the material we hit.
                 // In this case, split the recursion limit to avoid doubling our work.
@@ -449,6 +476,9 @@ fn cast_ray(ray: &Ray, scene: &Scene, rng: &mut dyn RngCore, max_reflections: u3
                     _ => Default::default(),
                 };
 
+                // NOTE: Move hit point slightly above p along surface normal to avoid "shadow acne"
+                let hit_point = hit_record.p + (hit_record.normal * BIAS);
+
                 // Determine color from lights in the scene.
                 let mut color_from_lights = V3::ZERO;
                 for light in scene.lights.iter() {
@@ -465,7 +495,7 @@ fn cast_ray(ray: &Ray, scene: &Scene, rng: &mut dyn RngCore, max_reflections: u3
                 // HACK: Scale the light intensity further for highly reflective or refractive objects
                 // This makes sure that color from lights doesn't overwhelm reflective or refractive materials
                 let lights_intensity = f32::max(0.0, 1.0 - (reflection_intensity + refraction_intensity));
-                let albedo = hit_record.texture.value(&hit_record);
+                let albedo = scene.get_tex(hit_record.texture).value(&hit_record);
 
                 ((color_from_reflection * reflection_intensity) +
                  (color_from_refraction * refraction_intensity) +

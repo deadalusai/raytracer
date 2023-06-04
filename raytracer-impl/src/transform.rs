@@ -20,7 +20,7 @@ impl<T: Hitable + Sized> Translatable for T {
 }
 
 impl<T: Hitable + Sized> Hitable for Translated<T> {
-    fn hit<'a>(&'a self, ray: &Ray, t_min: f32, t_max: f32) -> Option<crate::implementation::HitRecord<'a>> {
+    fn hit(&self, ray: &Ray, t_min: f32, t_max: f32) -> Option<crate::implementation::HitRecord> {
         let translated_ray = Ray::new(ray.origin - self.translation, ray.direction.clone());
         self.inner
             .hit(&translated_ray, t_min, t_max)
@@ -57,7 +57,7 @@ impl<T: Hitable + Sized> Rotatable for T {
 }
 
 impl<T: Hitable + Sized> Hitable for Rotated<T> {
-    fn hit<'a>(&'a self, ray: &Ray, t_min: f32, t_max: f32) -> Option<HitRecord<'a>> {
+    fn hit(&self, ray: &Ray, t_min: f32, t_max: f32) -> Option<HitRecord> {
         // Shift ray into local frame of reference
         let origin = self.origin();
         let ray_origin = origin + (ray.origin - origin).rotate_about_axis(self.axis, self.theta);

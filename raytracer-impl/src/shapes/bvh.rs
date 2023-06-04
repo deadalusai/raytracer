@@ -22,7 +22,7 @@ impl BvhNode {
 }
 
 impl Hitable for BvhNode {
-    fn hit<'a>(&'a self, ray: &Ray, t_min: f32, t_max: f32) -> Option<HitRecord<'a>> {
+    fn hit(&self, ray: &Ray, t_min: f32, t_max: f32) -> Option<HitRecord> {
         if !self.aabb.hit_aabb(ray, t_min, t_max) {
             return None;
         }

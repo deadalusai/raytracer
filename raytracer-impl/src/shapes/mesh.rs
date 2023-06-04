@@ -1,7 +1,5 @@
-use std::sync::Arc;
-
-use crate::types::{ V3, V2, Ray, IntoArc };
-use crate::implementation::{ Material, Hitable, HitRecord, AABB, Texture };
+use crate::types::{ V3, V2, Ray };
+use crate::implementation::{ Hitable, HitRecord, AABB, MatId, TexId };
 
 // Triangle Mesh BVH
 
@@ -198,18 +196,18 @@ pub struct Mesh {
     object_id: Option<u32>,
     origin: V3,
     root_node: MeshBvhNode,
-    material: Arc<dyn Material>,
-    texture: Arc<dyn Texture>,
+    material: MatId,
+    texture: TexId,
 }
 
 impl Mesh {
-    pub fn new(faces: Vec<MeshFace>, material: impl IntoArc<dyn Material>, texture: impl IntoArc<dyn Texture>) -> Self {
+    pub fn new(faces: Vec<MeshFace>, material: MatId, texture: TexId) -> Self {
         Mesh {
             object_id: None,
             origin: V3::ZERO,
             root_node: build_face_bvh_hierachy(&faces).expect("Expected at least one triangle for mesh"),
-            material: material.into_arc(),
-            texture: texture.into_arc(),
+            material,
+            texture,
         }
     }
 
@@ -227,7 +225,7 @@ impl Mesh {
 }
 
 impl Hitable for Mesh {
-    fn hit<'a> (&'a self, ray: &Ray, t_min: f32, t_max: f32) -> Option<HitRecord<'a>> {
+    fn hit(&self, ray: &Ray, t_min: f32, t_max: f32) -> Option<HitRecord> {
         // Shift the ray into mesh space
         let mesh_ray = Ray::new(ray.origin - self.origin, ray.direction);
         let mesh_hit = self.root_node.hit_node(&mesh_ray, t_min, t_max)?;
@@ -239,8 +237,8 @@ impl Hitable for Mesh {
             normal: mesh_hit.normal,
             uv: mesh_hit.uv,
             material_id: mesh_hit.material_id,
-            material: self.material.as_ref(),
-            texture: self.texture.as_ref(),
+            material: self.material,
+            texture: self.texture,
         })
     }
 

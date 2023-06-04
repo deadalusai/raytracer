@@ -9,7 +9,7 @@ use raytracer_impl::shapes::{ Sphere, Plane, Mesh, MeshFace };
 use raytracer_impl::transform::{ Translatable, Rotatable };
 use raytracer_impl::viewport::{ Viewport };
 use raytracer_impl::lights::{ PointLight, DirectionalLight, LampLight };
-use raytracer_impl::implementation::{ Scene, SceneSky, Camera, Material };
+use raytracer_impl::implementation::{ Scene, SceneSky, Camera, Material, MatId, TexId };
 use raytracer_impl::obj_data::{ ObjMeshBuilder };
 
 use crate::texture_loader::{ load_bitmap_from_bytes };
@@ -158,6 +158,47 @@ fn rgb(r: u8, g: u8, b: u8) -> V3 {
 // Scenes
 //
 
+
+// Random texture factories
+
+fn make_matte<R: Rng>(scene: &mut Scene, rng: &mut R) -> (MatId, TexId) {
+    let albedo = V3(
+        /* r */ rng.gen::<f32>() * rng.gen::<f32>(),
+        /* g */ rng.gen::<f32>() * rng.gen::<f32>(),
+        /* b */ rng.gen::<f32>() * rng.gen::<f32>()
+    );
+    (
+        scene.add_material(MatLambertian::default()),
+        scene.add_texture(ColorTexture(albedo))
+    )
+}
+
+fn make_metal<R: Rng>(scene: &mut Scene, rng: &mut R) -> (MatId, TexId) {
+    let color = V3(
+        /* r */ 0.5 * (1.0 + rng.gen::<f32>()),
+        /* g */ 0.5 * (1.0 + rng.gen::<f32>()),
+        /* b */ 0.5 * (1.0 + rng.gen::<f32>())
+    );
+    let fuzz = 0.5 * rng.gen::<f32>();
+    (
+        scene.add_material(MatSpecular::default().with_fuzz(fuzz)),
+        scene.add_texture(ColorTexture(color))
+    )
+}
+
+fn make_glass<R: Rng>(scene: &mut Scene, rng: &mut R) -> (MatId, TexId) {
+    let refractive_index = 1.5;
+    let color = V3(
+        /* r */ 0.5 * (1.0 + rng.gen::<f32>()),
+        /* g */ 0.5 * (1.0 + rng.gen::<f32>()),
+        /* b */ 0.5 * (1.0 + rng.gen::<f32>())
+    );
+    (
+        scene.add_material(MatDielectric::default().with_ref_index(refractive_index)),
+        scene.add_texture(ColorTexture(color))
+    )
+}
+
 pub fn random_sphere_scene(config: &CameraConfiguration) -> Scene {
     // Camera
     let look_from = V3(13.0, 2.0, 3.0);
@@ -173,65 +214,34 @@ pub fn random_sphere_scene(config: &CameraConfiguration) -> Scene {
     scene.add_light(DirectionalLight::with_direction(lamp_direction).with_intensity(0.5));
 
     // World sphere
-    let world_tex = CheckerTexture::new(
+    let world_tex = scene.add_texture(CheckerTexture::new(
         10.0,
         ColorTexture(V3(0.4, 0.5, 0.4)),
         ColorTexture(V3(0.9, 0.8, 0.9))
-    );
-    let world_mat = MatLambertian::default();
+    ));
+    let world_mat = scene.add_material(MatLambertian::default());
 
     scene.add_obj(Sphere::new(1000.0, world_mat, world_tex).with_origin(V3(0.0, -1000.0, 0.0)));
 
     // Large metal sphere
     let lam_sphere_center = V3(-4.0, 1.0, 0.0);
-    let lam_sphere_tex = ColorTexture(V3(0.8, 0.2, 0.1));
-    let lam_sphere_mat = MatLambertian::default();
+    let lam_sphere_tex = scene.add_texture(ColorTexture(V3(0.8, 0.2, 0.1)));
+    let lam_sphere_mat = scene.add_material(MatLambertian::default());
     scene.add_obj(Sphere::new(1.0, lam_sphere_mat, lam_sphere_tex).with_origin(lam_sphere_center.clone()));
     
     // Large hollow glass sphere
     let hollow_sphere_center = V3(0.0, 1.0, 0.0);
-    let hollow_sphere_tex = ColorTexture(V3(0.95, 0.95, 0.95));
-    let hollow_sphere_mat = MatDielectric::default().with_ref_index(1.5);
-    scene.add_obj(Sphere::new(1.0, hollow_sphere_mat.clone(), hollow_sphere_tex.clone()).with_origin(hollow_sphere_center.clone()));
+    let hollow_sphere_tex = scene.add_texture(ColorTexture(V3(0.95, 0.95, 0.95)));
+    let hollow_sphere_mat = scene.add_material(MatDielectric::default().with_ref_index(1.5));
+    scene.add_obj(Sphere::new(1.0, hollow_sphere_mat, hollow_sphere_tex).with_origin(hollow_sphere_center.clone()));
 
     // Large mat sphere
     let metal_sphere_center = V3(4.0, 1.0, 0.0);
-    let metal_sphere_tex = ColorTexture(V3(0.8, 0.8, 0.8));
-    let metal_sphere_mat = MatSpecular::default().with_fuzz(0.0);
+    let metal_sphere_tex = scene.add_texture(ColorTexture(V3(0.8, 0.8, 0.8)));
+    let metal_sphere_mat = scene.add_material(MatSpecular::default().with_fuzz(0.0));
     scene.add_obj(Sphere::new(1.0, metal_sphere_mat, metal_sphere_tex).with_origin(metal_sphere_center.clone()));
 
     let sphere_centers = [lam_sphere_center, hollow_sphere_center, metal_sphere_center];
-
-    // Random texture factories
-
-    fn make_matte<R: Rng>(rng: &mut R) -> (MatLambertian, ColorTexture) {
-        let albedo = V3(
-            /* r */ rng.gen::<f32>() * rng.gen::<f32>(),
-            /* g */ rng.gen::<f32>() * rng.gen::<f32>(),
-            /* b */ rng.gen::<f32>() * rng.gen::<f32>()
-        );
-        (MatLambertian::default(), ColorTexture(albedo))
-    }
-
-    fn make_metal<R: Rng>(rng: &mut R) -> (MatSpecular, ColorTexture) {
-        let color = V3(
-            /* r */ 0.5 * (1.0 + rng.gen::<f32>()),
-            /* g */ 0.5 * (1.0 + rng.gen::<f32>()),
-            /* b */ 0.5 * (1.0 + rng.gen::<f32>())
-        );
-        let fuzz = 0.5 * rng.gen::<f32>();
-        (MatSpecular::default().with_fuzz(fuzz), ColorTexture(color))
-    }
-
-    fn make_glass<R: Rng>(rng: &mut R) -> (MatDielectric, ColorTexture) {
-        let refractive_index = 1.5;
-        let color = V3(
-            /* r */ 0.5 * (1.0 + rng.gen::<f32>()),
-            /* g */ 0.5 * (1.0 + rng.gen::<f32>()),
-            /* b */ 0.5 * (1.0 + rng.gen::<f32>())
-        );
-        (MatDielectric::default().with_ref_index(refractive_index), ColorTexture(color))
-    }
 
     // Small random spheres
     for a in -11..11 {
@@ -241,7 +251,6 @@ pub fn random_sphere_scene(config: &CameraConfiguration) -> Scene {
                 /* y */ 0.2,
                 /* z */ b as f32 + 0.9 * rng.gen::<f32>()
             );
-            let radius = 0.2;
 
             // Only include the sphere if it's not too close to the three large spheres..
             if sphere_centers.iter().any(|&pos| (center - pos).length() < 1.5) {
@@ -249,23 +258,14 @@ pub fn random_sphere_scene(config: &CameraConfiguration) -> Scene {
             }
 
             // Select a material
-            let sphere =
+            let (mat, tex) =
                 match rng.gen::<f32>() {
-                    v if v < 0.8  => {
-                        let (mat, tex) = make_matte(&mut rng);
-                        Sphere::new(radius, mat, tex).with_origin(center)
-                    },
-                    v if v < 0.95 => {
-                        let (mat, tex) = make_metal(&mut rng);
-                        Sphere::new(radius, mat, tex).with_origin(center)
-                    },
-                    _             => {
-                        let (mat, tex) = make_glass(&mut rng);
-                        Sphere::new(radius, mat, tex).with_origin(center)
-                    },
+                    v if v < 0.8  => make_matte(&mut scene, &mut rng),
+                    v if v < 0.95 => make_metal(&mut scene, &mut rng),
+                    _             => make_glass(&mut scene, &mut rng),
                 };
 
-            scene.add_obj(sphere);
+            scene.add_obj(Sphere::new(0.2, mat, tex).with_origin(center));
         }
     }
 
