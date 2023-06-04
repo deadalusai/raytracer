@@ -1,15 +1,29 @@
 use std::sync::Arc;
 
-use super::implementation::{ Texture, HitRecord };
+use super::implementation::{ HitRecord };
 use super::types::{ V2, V3 };
+
+pub enum Texture {
+    Color(ColorTexture),
+    Checker(CheckerTexture),
+    UvTest(UvTestTexture),
+    XyzTestTexture(XyzTestTexture),
+    MeshTextureSet(MeshTextureSet),
+}
+
+impl Texture {
+    pub fn value(&self, hit_record: &HitRecord) -> V3 {
+        todo!()
+    }
+}
 
 // Constant colors
 
 #[derive(Clone)]
 pub struct ColorTexture(pub V3);
 
-impl Texture for ColorTexture {
-    fn value(&self, _hit_record: &HitRecord) -> V3 {
+impl ColorTexture {
+    fn color_value(&self) -> V3 {
         self.0
     }
 }
@@ -17,20 +31,20 @@ impl Texture for ColorTexture {
 // Checker texture
 
 #[derive(Clone)]
-pub struct CheckerTexture<T1: Texture, T2: Texture> {
+pub struct CheckerTexture {
     size: f32,
-    odd: T1,
-    even: T2,
+    odd: Arc<Texture>,
+    even: Arc<Texture>,
 }
 
-impl<T1: Texture, T2: Texture> CheckerTexture<T1, T2> {
-    pub fn new(size: f32, odd: T1, even: T2) -> Self {
+impl CheckerTexture {
+    pub fn new(size: f32, odd: Arc<Texture>, even: Arc<Texture>) -> Self {
         Self { size, odd, even }
     }
 }
 
-impl<T1: Texture, T2: Texture> Texture for CheckerTexture<T1, T2> {
-    fn value(&self, hit_record: &HitRecord) -> V3 {
+impl CheckerTexture {
+    fn checker_value(&self, hit_record: &HitRecord) -> V3 {
         let sines =
             (self.size * hit_record.p.x()).sin() *
             (self.size * hit_record.p.y()).sin() *
@@ -49,8 +63,8 @@ impl<T1: Texture, T2: Texture> Texture for CheckerTexture<T1, T2> {
 
 pub struct UvTestTexture;
 
-impl Texture for UvTestTexture {
-    fn value(&self, hit_record: &HitRecord) -> V3 {
+impl UvTestTexture {
+    fn uv_test_value(&self, hit_record: &HitRecord) -> V3 {
         let V2(u, v) = hit_record.uv;
         V3(u, v, 1.0 - u - v)
     }
@@ -58,8 +72,8 @@ impl Texture for UvTestTexture {
 
 pub struct XyzTestTexture(pub f32);
 
-impl Texture for XyzTestTexture {
-    fn value(&self, hit_record: &HitRecord) -> V3 {
+impl XyzTestTexture {
+    fn xyz_test_value(&self, hit_record: &HitRecord) -> V3 {
         fn map_into_range(max: f32, v: f32) -> f32 {
             // Values on {-max..0..+max} range mapped to {0..1} range, so {0} always corresponds to {0.5}
             0.5 + (v / max / 2.0)
@@ -96,7 +110,7 @@ pub struct MeshTexture {
     pub diffuse_color_map: Option<Arc<ColorMap>>,
 }
 
-impl Texture for MeshTexture {
+impl MeshTexture {
     fn value(&self, hit_record: &HitRecord) -> V3 {
         match self.diffuse_color_map {
             Some(ref map) => map.uv_to_value(hit_record.uv.0, hit_record.uv.1),
@@ -111,11 +125,11 @@ pub struct MeshTextureSet {
     pub textures: Vec<MeshTexture>,
 }
 
-impl Texture for MeshTextureSet {
-    fn value(&self, hit_record: &HitRecord) -> V3 {
+impl MeshTextureSet {
+    fn mesh_texture_set_value(&self, hit_record: &HitRecord) -> V3 {
         hit_record.tex_key
             .and_then(|key| self.textures.get(key))
-            .map(|mat| mat.value(hit_record))
+            .map(|tex| tex.value(hit_record))
             .unwrap_or_default()
     }
 }

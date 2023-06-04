@@ -5,7 +5,7 @@ use std::mem::{ swap };
 use std::sync::Arc;
 
 use crate::types::{ V3, Ray, IntoArc };
-use crate::implementation::{ MatRecord, Reflect, Refract, HitRecord, Texture };
+use crate::implementation::{ MatRecord, Reflect, Refract, HitRecord };
 use crate::implementation::{ random_normal_reflection_angle, random_point_in_unit_sphere };
 
 use rand::{ RngCore };
