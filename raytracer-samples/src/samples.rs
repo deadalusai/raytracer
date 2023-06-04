@@ -9,7 +9,7 @@ use raytracer_impl::shapes::{ Sphere, Plane, MeshObject, MeshFace };
 use raytracer_impl::transform::{ Translatable, Rotatable };
 use raytracer_impl::viewport::{ Viewport };
 use raytracer_impl::lights::{ PointLight, DirectionalLight, LampLight };
-use raytracer_impl::implementation::{ Scene, SceneSky, Camera, Material, MatId, TexId };
+use raytracer_impl::implementation::{ Scene, SceneSky, Camera, MatId, TexId };
 use raytracer_impl::obj_data::{ ObjMeshBuilder };
 
 use crate::texture_loader::{ load_bitmap_from_bytes };
@@ -180,6 +180,7 @@ fn make_metal<R: Rng>(scene: &mut Scene, rng: &mut R) -> (MatId, TexId) {
         /* b */ 0.5 * (1.0 + rng.gen::<f32>())
     );
     let fuzz = 0.5 * rng.gen::<f32>();
+    let a: MatSpecular = Default::default();
     (
         scene.add_material(MatSpecular::default().with_fuzz(fuzz)),
         scene.add_texture(ColorTexture(color))

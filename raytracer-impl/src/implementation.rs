@@ -1,5 +1,6 @@
 use std::sync::Arc;
 
+use crate::materials::Material;
 use crate::types::{ V2, V3, Ray, IntoArc };
 use crate::viewport::{ Viewport };
 
@@ -145,12 +146,6 @@ pub struct MatRecord {
     pub refraction: Option<Refract>,
 }
 
-pub trait Material: Send + Sync {
-    fn scatter(&self, ray: &Ray, hit_record: &HitRecord, rng: &mut dyn RngCore) -> MatRecord;
-}
-
-super::types::derive_into_arc!(Material);
-
 // Textures
 
 // TODO
@@ -213,7 +208,7 @@ pub struct Scene {
     sky: SceneSky,
     lights: Vec<Arc<dyn LightSource>>,
     hitables: Vec<Arc<dyn Hitable>>,
-    materials: Vec<Arc<dyn Material>>,
+    materials: Vec<Arc<Material>>,
     textures: Vec<Arc<dyn Texture>>,
 }
 
@@ -244,9 +239,9 @@ impl Scene {
         self.hitables.push(hitable.into_arc());
     }
 
-    pub fn add_material(&mut self, material: impl IntoArc<dyn Material>) -> MatId {
+    pub fn add_material(&mut self, material: impl Into<Material>) -> MatId {
         let id = self.materials.len();
-        self.materials.push(material.into_arc());
+        self.materials.push(Arc::new(material.into()));
         MatId(id)
     }
 
@@ -295,7 +290,7 @@ impl Scene {
         self.hitables = hitables;
     }
 
-    fn get_mat(&self, mat_id: MatId) -> &dyn Material {
+    fn get_mat(&self, mat_id: MatId) -> &Material {
         self.materials.get(mat_id.0).unwrap().as_ref()
     }
 

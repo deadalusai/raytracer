@@ -5,7 +5,7 @@ use std::mem::{ swap };
 use std::sync::Arc;
 
 use crate::types::{ V3, Ray, IntoArc };
-use crate::implementation::{ Material, MatRecord, Reflect, Refract, HitRecord, Texture };
+use crate::implementation::{ MatRecord, Reflect, Refract, HitRecord, Texture };
 use crate::implementation::{ random_normal_reflection_angle, random_point_in_unit_sphere };
 
 use rand::{ RngCore };
@@ -23,8 +23,35 @@ macro_rules! assert_in_range {
 //
 
 #[derive(Clone)]
+pub enum Material {
+    Lambertian(MatLambertian),
+    Specular(MatSpecular),
+    Dielectric(MatDielectric),
+}
+
+impl Material {
+    pub fn scatter(&self, ray: &Ray, hit_record: &HitRecord, rng: &mut dyn RngCore) -> MatRecord {
+        match self {
+            Material::Lambertian(mat) => mat.scatter_lambertian(hit_record, rng),
+            Material::Specular(mat) => mat.scatter_specular(ray, hit_record, rng),
+            Material::Dielectric(mat) => mat.scatter_dielectric(ray, hit_record, rng),
+        }
+    }
+}
+
+//
+// Lambertian
+//
+
+#[derive(Clone)]
 pub struct MatLambertian {
     reflectivity: f32,
+}
+
+impl Into<Material> for MatLambertian {
+    fn into(self) -> Material {
+        Material::Lambertian(self)
+    }
 }
 
 impl Default for MatLambertian {
@@ -39,10 +66,8 @@ impl MatLambertian {
         self.reflectivity = reflectivity;
         self
     }
-}
 
-impl Material for MatLambertian {
-    fn scatter(&self, _r: &Ray, hit_record: &HitRecord, rng: &mut dyn RngCore) -> MatRecord {
+    fn scatter_lambertian(&self, hit_record: &HitRecord, rng: &mut dyn RngCore) -> MatRecord {
         let direction = random_normal_reflection_angle(hit_record.normal, rng);
         let ray = Ray::new(hit_record.p.clone(), direction);
         MatRecord {
@@ -52,10 +77,25 @@ impl Material for MatLambertian {
     }
 }
 
+fn reflect(incident_direction: V3, surface_normal: V3) -> V3 {
+    let dir = incident_direction.unit();
+    dir - (surface_normal * V3::dot(dir, surface_normal) * 2.0)
+}
+
+//
+// Specular
+//
+
 #[derive(Clone)]
 pub struct MatSpecular {
     reflectiveness: f32,
     fuzz: f32,
+}
+
+impl Into<Material> for MatSpecular {
+    fn into(self) -> Material {
+        Material::Specular(self)
+    }
 }
 
 impl Default for MatSpecular {
@@ -79,15 +119,8 @@ impl MatSpecular {
         self.fuzz = fuzz;
         self
     }
-}
 
-fn reflect(incident_direction: V3, surface_normal: V3) -> V3 {
-    let dir = incident_direction.unit();
-    dir - (surface_normal * V3::dot(dir, surface_normal) * 2.0)
-}
-
-impl Material for MatSpecular {
-    fn scatter(&self, ray: &Ray, hit_record: &HitRecord, rng: &mut dyn RngCore) -> MatRecord {
+    fn scatter_specular(&self, ray: &Ray, hit_record: &HitRecord, rng: &mut dyn RngCore) -> MatRecord {
         let reflected = reflect(ray.direction, hit_record.normal);
         let scattered =
             if self.fuzz == 0.0 {
@@ -111,11 +144,21 @@ impl Material for MatSpecular {
     }
 }
 
+//
+// Dielectric
+//
+
 #[derive(Clone)]
 pub struct MatDielectric {
     reflectivity: f32,
     opacity: f32,
     ref_index: f32,
+}
+
+impl Into<Material> for MatDielectric {
+    fn into(self) -> Material {
+        Material::Dielectric(self)
+    }
 }
 
 impl Default for MatDielectric {
@@ -145,27 +188,8 @@ impl MatDielectric {
         self.ref_index = ref_index;
         self
     }
-}
-
-fn refract (v: V3, n: V3, ni_over_nt: f32) -> V3 {
-    let uv = v.unit();
-    let dt = V3::dot(uv, n);
-    let discriminant = 1.0 - ni_over_nt * ni_over_nt * (1.0 - dt * dt);
-    if discriminant <= 0.0 {
-        V3::ZERO
-    } else {
-        (uv - (n * dt)) * ni_over_nt - (n * discriminant.sqrt())
-    }
-}
-
-fn schlick_reflect_prob (cosine: f32, ref_idx: f32) -> f32 {
-    let r0 = (1.0 - ref_idx) / (1.0 + ref_idx);
-    let r0 = r0 * r0;
-    r0 + (1.0 - r0) * (1.0 - cosine).powf(5.0)
-}
-
-impl Material for MatDielectric {
-    fn scatter (&self, ray: &Ray, hit_record: &HitRecord, rng: &mut dyn RngCore) -> MatRecord {
+    
+    fn scatter_dielectric(&self, ray: &Ray, hit_record: &HitRecord, rng: &mut dyn RngCore) -> MatRecord {
         let dot = V3::dot(ray.direction, hit_record.normal);
         let (outward_normal, ni_over_nt, cosine) =
             if dot > 0.0 {
@@ -201,4 +225,21 @@ impl Material for MatDielectric {
             reflection: reflection,
         }
     }
+}
+
+fn refract(v: V3, n: V3, ni_over_nt: f32) -> V3 {
+    let uv = v.unit();
+    let dt = V3::dot(uv, n);
+    let discriminant = 1.0 - ni_over_nt * ni_over_nt * (1.0 - dt * dt);
+    if discriminant <= 0.0 {
+        V3::ZERO
+    } else {
+        (uv - (n * dt)) * ni_over_nt - (n * discriminant.sqrt())
+    }
+}
+
+fn schlick_reflect_prob(cosine: f32, ref_idx: f32) -> f32 {
+    let r0 = (1.0 - ref_idx) / (1.0 + ref_idx);
+    let r0 = r0 * r0;
+    r0 + (1.0 - r0) * (1.0 - cosine).powf(5.0)
 }
