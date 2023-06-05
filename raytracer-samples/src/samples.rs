@@ -5,7 +5,7 @@ use std::f32::consts::PI;
 use raytracer_impl::texture::{ ColorTexture, CheckerTexture, UvTestTexture, XyzTestTexture, MeshTextureSet };
 use raytracer_impl::types::{ V3, Ray };
 use raytracer_impl::materials::{ MatLambertian, MatDielectric, MatSpecular };
-use raytracer_impl::shapes::{ Sphere, Plane, MeshObject, MeshFace };
+use raytracer_impl::shapes::{ Sphere, Plane, MeshObject, MeshFace, Mesh };
 use raytracer_impl::transform::{ Translatable, Rotatable };
 use raytracer_impl::viewport::{ Viewport };
 use raytracer_impl::lights::{ PointLight, DirectionalLight, LampLight };
@@ -272,292 +272,331 @@ pub fn random_sphere_scene(config: &CameraConfiguration) -> Scene {
     scene
 }
 
-// fn add_cardinal_markers(scene: &mut Scene) {
-//     // Direction makers
-//     scene.add_obj(Sphere::new(0.25, MatLambertian::with_texture(ColorTexture(rgb(128, 0,   0)))).with_origin(position!(North(2.0))));
-//     scene.add_obj(Sphere::new(0.25, MatLambertian::with_texture(ColorTexture(rgb(0,   128, 0)))).with_origin(position!(East(2.0))));
-//     scene.add_obj(Sphere::new(0.25, MatLambertian::with_texture(ColorTexture(rgb(0,   0,   128)))).with_origin(position!(West(2.0))));
-//     scene.add_obj(Sphere::new(0.25, MatLambertian::with_texture(ColorTexture(rgb(255, 255, 255)))).with_origin(position!(South(2.0))));
-// }
+fn add_cardinal_markers(scene: &mut Scene) {
+    // Direction makers
+    let mat   = scene.add_material(MatLambertian::default());
+    let red   = scene.add_texture(ColorTexture(rgb(128, 0,   0)));
+    let green = scene.add_texture(ColorTexture(rgb(0,   128, 0)));
+    let blue  = scene.add_texture(ColorTexture(rgb(0,   0,   128)));
+    let white = scene.add_texture(ColorTexture(rgb(255, 255, 255)));
+    scene.add_obj(Sphere::new(0.25, mat, red).with_origin(position!(North(2.0))));
+    scene.add_obj(Sphere::new(0.25, mat, green).with_origin(position!(East(2.0))));
+    scene.add_obj(Sphere::new(0.25, mat, blue).with_origin(position!(West(2.0))));
+    scene.add_obj(Sphere::new(0.25, mat, white).with_origin(position!(South(2.0))));
+}
 
-// fn add_coordinates_marker(scene: &mut Scene) {
-//     // Direction makers
-//     scene.add_obj(Sphere::new(0.05, MatLambertian::with_texture(ColorTexture(rgb(128, 0,   0)))).with_origin(V3(1.0, 0.0, 0.0)));
-//     scene.add_obj(Sphere::new(0.05, MatLambertian::with_texture(ColorTexture(rgb(0,   128, 0)))).with_origin(V3(0.0, 1.0, 0.0)));
-//     scene.add_obj(Sphere::new(0.05, MatLambertian::with_texture(ColorTexture(rgb(0,   0,   128)))).with_origin(V3(0.0, 0.0, 1.0)));
-// }
+fn add_coordinates_marker(scene: &mut Scene) {
+    // Direction makers
+    let mat   = scene.add_material(MatLambertian::default());
+    let red   = scene.add_texture(ColorTexture(rgb(128, 0,   0)));
+    let green = scene.add_texture(ColorTexture(rgb(0,   128, 0)));
+    let blue  = scene.add_texture(ColorTexture(rgb(0,   0,   128)));
+    scene.add_obj(Sphere::new(0.05, mat, red).with_origin(V3(1.0, 0.0, 0.0)));
+    scene.add_obj(Sphere::new(0.05, mat, green).with_origin(V3(0.0, 1.0, 0.0)));
+    scene.add_obj(Sphere::new(0.05, mat, blue).with_origin(V3(0.0, 0.0, 1.0)));
+}
 
-// pub fn simple_scene(config: &CameraConfiguration) -> Scene {
+pub fn simple_scene(config: &CameraConfiguration) -> Scene {
 
-//     // Camera
-//     let look_from = position!(South(6.0), East(1.5), Up(3.0));
-//     let look_to =   position!(Up(1.0));
-//     let camera = config.make_camera(look_to, look_from);
+    // Camera
+    let look_from = position!(South(6.0), East(1.5), Up(3.0));
+    let look_to =   position!(Up(1.0));
+    let camera = config.make_camera(look_to, look_from);
 
-//     // Scene
-//     let mut scene = Scene::new(camera, SceneSky::Black);
+    // Scene
+    let mut scene = Scene::new(camera, SceneSky::Black);
 
-//     // Lights
-//     let lamp_pos = position!(Up(20.0), North(4.0));
-//     let lamp_direction = position!(Origin) - lamp_pos;
-//     scene.add_light(LampLight::with_origin_and_direction(lamp_pos, lamp_direction).with_intensity(80.0).with_angle(12.0));
+    // Lights
+    let lamp_pos = position!(Up(20.0), North(4.0));
+    let lamp_direction = position!(Origin) - lamp_pos;
+    scene.add_light(LampLight::with_origin_and_direction(lamp_pos, lamp_direction).with_intensity(80.0).with_angle(12.0));
 
-//     let lamp_pos = position!(Up(10.0), East(4.0));
-//     let lamp_direction = position!(Origin) - lamp_pos;
-//     scene.add_light(LampLight::with_origin_and_direction(lamp_pos, lamp_direction).with_intensity(80.0).with_angle(20.0));
+    let lamp_pos = position!(Up(10.0), East(4.0));
+    let lamp_direction = position!(Origin) - lamp_pos;
+    scene.add_light(LampLight::with_origin_and_direction(lamp_pos, lamp_direction).with_intensity(80.0).with_angle(20.0));
 
-//     add_cardinal_markers(&mut scene);
+    add_cardinal_markers(&mut scene);
 
-//     // World sphere
-//     let world_mat = MatLambertian::with_texture(ColorTexture(rgb(200, 200, 200)));
-//     let world_pos = position!(Down(1000.0));
-//     scene.add_obj(Sphere::new(1000.0, world_mat).with_origin(world_pos));
+    // World sphere
+    let world_mat = scene.add_material(MatLambertian::default());
+    let world_tex = scene.add_texture(ColorTexture(rgb(200, 200, 200)));
+    let world_pos = position!(Down(1000.0));
+    scene.add_obj(Sphere::new(1000.0, world_mat, world_tex).with_origin(world_pos));
 
-//     // Wall
-//     let wall_mat = MatLambertian::with_texture(ColorTexture(rgb(200, 200, 200))).with_reflectivity(1.0);
-//     let wall_pos = position!(North(4.5));
-//     let wall_facing = wall_pos - position!(Origin);
-//     scene.add_obj(Plane::new(wall_facing, wall_mat).with_origin(wall_pos));
+    // Wall
+    let wall_mat = scene.add_material(MatLambertian::default().with_reflectivity(1.0));
+    let wall_tex = scene.add_texture(ColorTexture(rgb(200, 200, 200)));
+    let wall_pos = position!(North(4.5));
+    let wall_facing = wall_pos - position!(Origin);
+    scene.add_obj(Plane::new(wall_facing, wall_mat, wall_tex).with_origin(wall_pos));
 
-//     // Plastic sphere
-//     let plastic_mat = MatLambertian::with_texture(ColorTexture(rgb(226, 226, 226)));
-//     let plastic_pos = position!(Up(1.0));
-//     scene.add_obj(Sphere::new(1.0, plastic_mat).with_origin(plastic_pos));
+    // Plastic sphere
+    let plastic_mat = scene.add_material(MatLambertian::default());
+    let plastic_tex = scene.add_texture(ColorTexture(rgb(226, 226, 226)));
+    let plastic_pos = position!(Up(1.0));
+    scene.add_obj(Sphere::new(1.0, plastic_mat, plastic_tex).with_origin(plastic_pos));
 
-//     // Glass sphere (large)
-//     let glass_mat = MatDielectric::with_texture(ColorTexture(rgb(130, 255, 140)));
-//     let glass_pos = position!(Up(1.0), South(2.0), East(2.0));
-//     scene.add_obj(Sphere::new(1.0, glass_mat).with_origin(glass_pos.clone()));
+    // Glass sphere (large)
+    let glass_mat = scene.add_material(MatDielectric::default());
+    let glass_tex = scene.add_texture(ColorTexture(rgb(130, 255, 140)));
+    let glass_pos = position!(Up(1.0), South(2.0), East(2.0));
+    scene.add_obj(Sphere::new(1.0, glass_mat, glass_tex).with_origin(glass_pos.clone()));
     
-//     // Glass sphere (small)
-//     let small_glass_mat = MatDielectric::with_texture(ColorTexture(rgb(66, 206, 245))).with_opacity(0.01).with_reflectivity(0.98);
-//     let small_glass_pos = lerp_v3(plastic_pos, lamp_pos, 0.2); // Find a point between the lamp and the plastic sphere
-//     scene.add_obj(Sphere::new(0.5, small_glass_mat).with_origin(small_glass_pos));
+    // Glass sphere (small)
+    let small_glass_mat = scene.add_material(MatDielectric::default().with_opacity(0.01).with_reflectivity(0.98));
+    let small_glass_tex = scene.add_texture(ColorTexture(rgb(66, 206, 245)));
+    let small_glass_pos = lerp_v3(plastic_pos, lamp_pos, 0.2); // Find a point between the lamp and the plastic sphere
+    scene.add_obj(Sphere::new(0.5, small_glass_mat, small_glass_tex).with_origin(small_glass_pos));
 
-//     // Metal sphere
-//     let metal_mat = MatSpecular::with_texture(ColorTexture(rgb(147, 154, 186))).with_fuzz(0.001).with_reflectivity(0.91);
-//     let metal_pos = position!(Up(1.0), North(2.0), West(2.0));
-//     scene.add_obj(Sphere::new(1.0, metal_mat).with_origin(metal_pos).with_id(1));
+    // Metal sphere
+    let metal_mat = scene.add_material(MatSpecular::default().with_fuzz(0.001).with_reflectivity(0.91));
+    let metal_tex = scene.add_texture(ColorTexture(rgb(147, 154, 186)));
+    let metal_pos = position!(Up(1.0), North(2.0), West(2.0));
+    scene.add_obj(Sphere::new(1.0, metal_mat, metal_tex).with_origin(metal_pos).with_id(1));
 
 
-//     // Small metal spheres (buried) drawn between these points
-//     let small_metal_mat = MatSpecular::with_texture(ColorTexture(V3(0.8, 0.1, 0.1))).with_fuzz(0.01).with_reflectivity(0.4);
-//     let small_metal_sphere_count = 6;
-//     let small_metal_start_pos = position!(West(3.5), North(1.0));
-//     let small_metal_end_pos = position!(West(2.5), South(3.5));
-//     for i in 0..small_metal_sphere_count {
-//         let t = i as f32 / small_metal_sphere_count as f32;
-//         let small_metal_pos = lerp_v3(small_metal_start_pos, small_metal_end_pos, ease_out(t, 2.0));
-//         let small_metal_radius = lerp_f32(0.5, 0.05, ease_out(t, 2.0));
-//         scene.add_obj(Sphere::new(small_metal_radius, small_metal_mat.clone()).with_origin(small_metal_pos));
-//     }
+    // Small metal spheres (buried) drawn between these points
+    let small_metal_mat = scene.add_material(MatSpecular::default().with_fuzz(0.01).with_reflectivity(0.4));
+    let small_metal_tex = scene.add_texture(ColorTexture(V3(0.8, 0.1, 0.1)));
+    let small_metal_sphere_count = 6;
+    let small_metal_start_pos = position!(West(3.5), North(1.0));
+    let small_metal_end_pos = position!(West(2.5), South(3.5));
+    for i in 0..small_metal_sphere_count {
+        let t = i as f32 / small_metal_sphere_count as f32;
+        let small_metal_pos = lerp_v3(small_metal_start_pos, small_metal_end_pos, ease_out(t, 2.0));
+        let small_metal_radius = lerp_f32(0.5, 0.05, ease_out(t, 2.0));
+        scene.add_obj(Sphere::new(small_metal_radius, small_metal_mat, small_metal_tex).with_origin(small_metal_pos));
+    }
 
-//     // Small plastic spheres (buried) drawn between these points
-//     let small_plastic_mat = MatDielectric::with_texture(ColorTexture(V3(0.1, 0.9, 0.1)));
-//     let small_plastic_sphere_count = 12;
-//     let small_plastic_start_pos = position!(West(2.5), South(0.5));
-//     let small_plastic_end_pos = position!(West(0.5), South(2.5));
-//     for i in 0..small_plastic_sphere_count {
-//         let t = i as f32 / small_plastic_sphere_count as f32;
-//         // Ease towards the target around a curve
-//         let small_plastic_pos = V3(
-//             lerp_f32(small_plastic_start_pos.x(), small_plastic_end_pos.x(), ease_out(t, 2.0)),
-//             0.0,
-//             lerp_f32(small_plastic_start_pos.z(), small_plastic_end_pos.z(), ease_in(t, 2.0))
-//         );
-//         let small_plastic_radius = lerp_f32(0.10, 0.02, ease_in_out(t, 2.0));
-//         scene.add_obj(Sphere::new(small_plastic_radius, small_plastic_mat.clone()).with_origin(small_plastic_pos));
-//     }
+    // Small plastic spheres (buried) drawn between these points
+    let small_plastic_mat = scene.add_material(MatDielectric::default());
+    let small_plastic_tex = scene.add_texture(ColorTexture(V3(0.1, 0.9, 0.1)));
+    let small_plastic_sphere_count = 12;
+    let small_plastic_start_pos = position!(West(2.5), South(0.5));
+    let small_plastic_end_pos = position!(West(0.5), South(2.5));
+    for i in 0..small_plastic_sphere_count {
+        let t = i as f32 / small_plastic_sphere_count as f32;
+        // Ease towards the target around a curve
+        let small_plastic_pos = V3(
+            lerp_f32(small_plastic_start_pos.x(), small_plastic_end_pos.x(), ease_out(t, 2.0)),
+            0.0,
+            lerp_f32(small_plastic_start_pos.z(), small_plastic_end_pos.z(), ease_in(t, 2.0))
+        );
+        let small_plastic_radius = lerp_f32(0.10, 0.02, ease_in_out(t, 2.0));
+        scene.add_obj(Sphere::new(small_plastic_radius, small_plastic_mat, small_plastic_tex).with_origin(small_plastic_pos));
+    }
 
-//     scene
-// }
+    scene
+}
 
-// pub fn planes_scene(config: &CameraConfiguration) -> Scene {
+pub fn planes_scene(config: &CameraConfiguration) -> Scene {
 
-//     // Camera
-//     let look_from = position!(South(6.0), East(1.5), Up(3.0));
-//     let look_to =   position!(Up(1.0));
-//     let camera = config.make_camera(look_to, look_from);
+    // Camera
+    let look_from = position!(South(6.0), East(1.5), Up(3.0));
+    let look_to =   position!(Up(1.0));
+    let camera = config.make_camera(look_to, look_from);
 
-//     // Scene
-//     let mut scene = Scene::new(camera, SceneSky::Day);
+    // Scene
+    let mut scene = Scene::new(camera, SceneSky::Day);
 
-//     // Lights
-//     let lamp_pos = position!(Up(6.0), East(5.0));
-//     let lamp_normal = position!(Up(3.0)) - lamp_pos;
-//     scene.add_light(LampLight::with_origin_and_direction(lamp_pos, lamp_normal).with_intensity(80.0).with_angle(20.0));
+    // Lights
+    let lamp_pos = position!(Up(6.0), East(5.0));
+    let lamp_normal = position!(Up(3.0)) - lamp_pos;
+    scene.add_light(LampLight::with_origin_and_direction(lamp_pos, lamp_normal).with_intensity(80.0).with_angle(20.0));
 
-//     add_cardinal_markers(&mut scene);
+    add_cardinal_markers(&mut scene);
 
-//     // World sphere
-//     let world_mat = MatLambertian::with_texture(ColorTexture(rgb(255, 255, 255))).with_reflectivity(0.01);
-//     let world_pos = position!(Down(1000.0));
-//     scene.add_obj(Sphere::new(1000.0, world_mat).with_origin(world_pos));
+    // World sphere
+    let world_mat = scene.add_material(MatLambertian::default().with_reflectivity(0.01));
+    let world_tex = scene.add_texture(ColorTexture(rgb(255, 255, 255)));
+    let world_pos = position!(Down(1000.0));
+    scene.add_obj(Sphere::new(1000.0, world_mat, world_tex).with_origin(world_pos));
 
-//     let plane_mat = MatSpecular::with_texture(ColorTexture(rgb(240, 240, 240))).with_reflectivity(0.8).with_fuzz(0.02);
-//     let plane_pos = position!(West(1.0));
-//     let plane_normal = position!(Origin) - plane_pos; // normal facing world origin
-//     scene.add_obj(Plane::new(plane_normal, plane_mat).with_origin(plane_pos));
+    let plane_mat = scene.add_material(MatSpecular::default().with_reflectivity(0.8).with_fuzz(0.02));
+    let plane_tex = scene.add_texture(ColorTexture(rgb(240, 240, 240)));
+    let plane_pos = position!(West(1.0));
+    let plane_normal = position!(Origin) - plane_pos; // normal facing world origin
+    scene.add_obj(Plane::new(plane_normal, plane_mat, plane_tex).with_origin(plane_pos));
 
-//     scene
-// }
+    scene
+}
 
-// pub fn hall_of_mirrors(config: &CameraConfiguration) -> Scene {
+pub fn hall_of_mirrors(config: &CameraConfiguration) -> Scene {
 
-//     // Camera
-//     let look_from = position!(Up(1.0), South(2.0), East(1.5));
-//     let look_to =   position!(Up(0.5));
-//     let camera = config.make_camera(look_to, look_from);
+    // Camera
+    let look_from = position!(Up(1.0), South(2.0), East(1.5));
+    let look_to =   position!(Up(0.5));
+    let camera = config.make_camera(look_to, look_from);
 
-//     // Scene
-//     let mut scene = Scene::new(camera, SceneSky::Day);
+    // Scene
+    let mut scene = Scene::new(camera, SceneSky::Day);
 
-//     // Lights
-//     let lamp_pos = position!(Up(10.0));
-//     let lamp_normal = position!(Origin) - lamp_pos;
-//     scene.add_light(LampLight::with_origin_and_direction(lamp_pos, lamp_normal).with_intensity(80.0).with_angle(20.0));
+    // Lights
+    let lamp_pos = position!(Up(10.0));
+    let lamp_normal = position!(Origin) - lamp_pos;
+    scene.add_light(LampLight::with_origin_and_direction(lamp_pos, lamp_normal).with_intensity(80.0).with_angle(20.0));
 
-//     add_cardinal_markers(&mut scene);
+    add_cardinal_markers(&mut scene);
 
-//     add_coordinates_marker(&mut scene);
+    add_coordinates_marker(&mut scene);
 
-//     // World sphere
-//     let world_mat = MatLambertian::with_texture(ColorTexture(rgb(255, 255, 255))).with_reflectivity(0.01);
-//     let world_pos = position!(Down(1000.0));
-//     scene.add_obj(Sphere::new(1000.0, world_mat).with_origin(world_pos));
+    // World sphere
+    let world_mat = scene.add_material(MatLambertian::default().with_reflectivity(0.01));
+    let world_tex = scene.add_texture(ColorTexture(rgb(255, 255, 255)));
+    let world_pos = position!(Down(1000.0));
+    scene.add_obj(Sphere::new(1000.0, world_mat, world_tex).with_origin(world_pos));
 
-//     let cardinals = [
-//         position!(North(3.0)),
-//         position!(South(3.0)),
-//         position!(East(3.0)),
-//         position!(West(3.0))
-//     ];
-//     for plane_origin in cardinals {
-//         let plane_mat = MatSpecular::with_texture(ColorTexture(V3::ONE)).with_reflectivity(0.98).with_fuzz(0.01);
-//         let plane_normal = position!(Origin) - plane_origin; // normal facing world origin
-//         scene.add_obj(
-//             Plane::new(plane_normal, plane_mat)
-//                 .with_origin(plane_origin)
-//                 .with_radius(30.0)
-//         );
-//     }
+    let plane_mat = scene.add_material(MatSpecular::default().with_reflectivity(0.98).with_fuzz(0.01));
+    let plane_tex = scene.add_texture(ColorTexture(V3::ONE));
+    let cardinals = [
+        position!(North(3.0)),
+        position!(South(3.0)),
+        position!(East(3.0)),
+        position!(West(3.0))
+    ];
+    for plane_origin in cardinals {
+        let plane_normal = position!(Origin) - plane_origin; // normal facing world origin
+        scene.add_obj(
+            Plane::new(plane_normal, plane_mat, plane_tex)
+                .with_origin(plane_origin)
+                .with_radius(30.0)
+        );
+    }
 
-//     scene
-// }
+    scene
+}
 
-// pub fn triangle_world(config: &CameraConfiguration) -> Scene {
+pub fn triangle_world(config: &CameraConfiguration) -> Scene {
 
-//     // Camera
-//     let look_from = position!(Up(5.0), South(6.0), East(1.5));
-//     let look_to =   position!(Up(0.0));
-//     let camera = config.make_camera(look_to, look_from);
+    // Camera
+    let look_from = position!(Up(5.0), South(6.0), East(1.5));
+    let look_to =   position!(Up(0.0));
+    let camera = config.make_camera(look_to, look_from);
 
-//     // Scene
-//     let mut scene = Scene::new(camera, SceneSky::Black);
+    // Scene
+    let mut scene = Scene::new(camera, SceneSky::Black);
 
-//     // Lights
+    // Lights
 
-//     let lamp_pos = position!(Up(20.0), North(4.0));
-//     let lamp_direction = position!(Origin) - lamp_pos;
-//     scene.add_light(LampLight::with_origin_and_direction(lamp_pos, lamp_direction).with_intensity(80.0).with_angle(12.0));
+    let lamp_pos = position!(Up(20.0), North(4.0));
+    let lamp_direction = position!(Origin) - lamp_pos;
+    scene.add_light(LampLight::with_origin_and_direction(lamp_pos, lamp_direction).with_intensity(80.0).with_angle(12.0));
 
-//     let lamp_pos = position!(Up(10.0), East(4.0));
-//     let lamp_direction = position!(Origin) - lamp_pos;
-//     scene.add_light(LampLight::with_origin_and_direction(lamp_pos, lamp_direction).with_intensity(80.0).with_angle(20.0));
+    let lamp_pos = position!(Up(10.0), East(4.0));
+    let lamp_direction = position!(Origin) - lamp_pos;
+    scene.add_light(LampLight::with_origin_and_direction(lamp_pos, lamp_direction).with_intensity(80.0).with_angle(20.0));
 
-//     add_cardinal_markers(&mut scene);
+    add_cardinal_markers(&mut scene);
 
-//     // World sphere
-//     let world_mat = MatLambertian::with_texture(ColorTexture(rgb(200, 200, 200)));
-//     let world_pos = position!(Down(1000.0));
-//     scene.add_obj(Sphere::new(1000.0, world_mat).with_origin(world_pos));
+    // World sphere
+    let world_mat = scene.add_material(MatLambertian::default());
+    let world_tex = scene.add_texture(ColorTexture(rgb(200, 200, 200)));
+    let world_pos = position!(Down(1000.0));
+    scene.add_obj(Sphere::new(1000.0, world_mat, world_tex).with_origin(world_pos));
 
-//     // Triangle
-//     let tri_pos = position!(Origin);
-//     let tri_mat = MatLambertian::with_texture(ColorTexture(rgb(200, 100, 80))).with_reflectivity(0.0);
-//     let tri_vertices = MeshFace::from_abc(
-//         position!(Up(0.3), South(1.0)),
-//         position!(Up(0.6), East(1.0)),
-//         position!(Up(0.8), West(1.0))
-//     );
-//     scene.add_obj(Mesh::new(vec![tri_vertices], tri_mat).with_origin(tri_pos));
+    // Triangle
+    let tri_pos = position!(Origin);
+    let tri_mat = scene.add_material(MatLambertian::default().with_reflectivity(0.0));
+    let tri_tex = scene.add_texture(ColorTexture(rgb(200, 100, 80)));
+    let tri_mesh = Mesh {
+        faces: vec![
+            MeshFace::from_abc(
+                position!(Up(0.3), South(1.0)),
+                position!(Up(0.6), East(1.0)),
+                position!(Up(0.8), West(1.0))
+            )
+        ],
+    };
+    scene.add_obj(MeshObject::new(&tri_mesh, tri_mat, tri_tex).with_origin(tri_pos));
 
-//     let tri_pos = position!(Up(1.0));
-//     let tri_mat = MatLambertian::with_texture(ColorTexture(rgb(100, 100, 200))).with_reflectivity(0.0);
-//     let tri_vertices = MeshFace::from_abc(
-//         position!(Up(0.4), North(1.0)),
-//         position!(Up(0.8), South(1.0)),
-//         position!(Up(0.6), East(1.0))
-//     );
-//     scene.add_obj(Mesh::new(vec![tri_vertices], tri_mat).with_origin(tri_pos));
+    let tri_pos = position!(Up(1.0));
+    let tri_mat = scene.add_material(MatLambertian::default().with_reflectivity(0.0));
+    let tri_tex = scene.add_texture(ColorTexture(rgb(100, 100, 200)));
+    let tri_mesh = Mesh {
+        faces: vec![
+            MeshFace::from_abc(
+                position!(Up(0.4), North(1.0)),
+                position!(Up(0.8), South(1.0)),
+                position!(Up(0.6), East(1.0))
+            )
+        ],
+    };
+    scene.add_obj(MeshObject::new(&tri_mesh, tri_mat, tri_tex).with_origin(tri_pos));
 
-//     scene
-// }
+    scene
+}
 
-// pub fn mesh_demo(config: &CameraConfiguration) -> Scene {
+pub fn mesh_demo(config: &CameraConfiguration) -> Scene {
     
-//     // Camera
-//     let look_from = position!(Up(1.5), South(4.0), East(4.0));
-//     let look_to =   position!(Up(1.0));
-//     let camera = config.make_camera(look_to, look_from);
+    // Camera
+    let look_from = position!(Up(1.5), South(4.0), East(4.0));
+    let look_to =   position!(Up(1.0));
+    let camera = config.make_camera(look_to, look_from);
 
-//     // Scene
-//     let mut scene = Scene::new(camera, SceneSky::Black);
+    // Scene
+    let mut scene = Scene::new(camera, SceneSky::Black);
 
-//     // Lights
-//     let lamp_pos = position!(Up(5.0), East(4.0));
-//     let lamp_direction = position!(Origin) - lamp_pos;
-//     scene.add_light(LampLight::with_origin_and_direction(lamp_pos, lamp_direction).with_intensity(80.0).with_angle(20.0));
+    // Lights
+    let lamp_pos = position!(Up(5.0), East(4.0));
+    let lamp_direction = position!(Origin) - lamp_pos;
+    scene.add_light(LampLight::with_origin_and_direction(lamp_pos, lamp_direction).with_intensity(80.0).with_angle(20.0));
     
-//     let lamp_pos = position!(Up(3.0), West(6.0), North(1.5));
-//     let lamp_direction = position!(Origin) - lamp_pos;
-//     scene.add_light(LampLight::with_origin_and_direction(lamp_pos, lamp_direction).with_intensity(80.0).with_angle(20.0));
+    let lamp_pos = position!(Up(3.0), West(6.0), North(1.5));
+    let lamp_direction = position!(Origin) - lamp_pos;
+    scene.add_light(LampLight::with_origin_and_direction(lamp_pos, lamp_direction).with_intensity(80.0).with_angle(20.0));
 
-//     // add_cardinal_markers(&mut scene);
+    // add_cardinal_markers(&mut scene);
 
-//     // World sphere
-//     let world_mat = MatLambertian::with_texture(ColorTexture(rgb(200, 200, 200)));
-//     let world_pos = position!(Down(1000.0));
-//     scene.add_obj(
-//         Sphere::new(1000.0, world_mat)
-//             .with_origin(world_pos)
-//             .with_id(0));
+    // World sphere
+    let world_mat = scene.add_material(MatLambertian::default());
+    let world_tex = scene.add_texture(ColorTexture(rgb(200, 200, 200)));
+    let world_pos = position!(Down(1000.0));
+    scene.add_obj(
+        Sphere::new(1000.0, world_mat, world_tex)
+            .with_origin(world_pos)
+            .with_id(0));
 
-//     let mut mesh_builder = ObjMeshBuilder::default();
-//     mesh_builder.load_objects_from_string(include_str!("../meshes/cube.obj"));
-//     mesh_builder.load_objects_from_string(include_str!("../meshes/thing.obj"));
-//     mesh_builder.load_objects_from_string(include_str!("../meshes/suzanne.obj"));
+    let mut mesh_builder = ObjMeshBuilder::default();
+    mesh_builder.load_obj_from_string(include_str!("../meshes/cube.obj"));
+    mesh_builder.load_obj_from_string(include_str!("../meshes/thing.obj"));
+    mesh_builder.load_obj_from_string(include_str!("../meshes/suzanne.obj"));
 
-//     // Cube
-//     let cube_mat = MatLambertian::with_texture(ColorTexture(rgb(36, 193, 89))).with_reflectivity(0.0);
-//     let cube_origin = position!(South(1.5), West(1.5));
-//     let (cube_faces, _) = mesh_builder.build_mesh_and_materials("Cube");
-//     scene.add_obj(
-//         Mesh::new(cube_faces, cube_mat)
-//             .with_origin(cube_origin)
-//             .with_id(1)
-//             .rotated(V3::POS_Y, PI / 4.0));
+    // Cube
+    let cube_mat = scene.add_material(MatLambertian::default().with_reflectivity(0.0));
+    let cube_tex = scene.add_texture(ColorTexture(rgb(36, 193, 89)));
+    let cube_origin = position!(South(1.5), West(1.5));
+    let (cube_mesh, _) = mesh_builder.build_mesh_and_texture("Cube");
+    scene.add_obj(
+        MeshObject::new(&cube_mesh, cube_mat, cube_tex)
+            .with_origin(cube_origin)
+            .with_id(1)
+            .rotated(V3::POS_Y, PI / 4.0)
+    );
 
-//     // Thing
-//     let thing_mat = MatSpecular::with_texture(ColorTexture(rgb(89, 172, 255))).with_reflectivity(0.8).with_fuzz(0.02);
-//     let thing_origin = position!(North(1.5), East(1.5));
-//     let (thing_faces, _) = mesh_builder.build_mesh_and_materials("Thing");
-//     scene.add_obj(
-//         Mesh::new(thing_faces, thing_mat)
-//             .with_origin(thing_origin)
-//             .with_id(2));
+    // Thing
+    let thing_mat = scene.add_material(MatSpecular::default().with_reflectivity(0.8).with_fuzz(0.02));
+    let thing_tex = scene.add_texture(ColorTexture(rgb(89, 172, 255)));
+    let thing_origin = position!(North(1.5), East(1.5));
+    let (thing_mesh, _) = mesh_builder.build_mesh_and_texture("Thing");
+    scene.add_obj(
+        MeshObject::new(&thing_mesh, thing_mat, thing_tex)
+            .with_origin(thing_origin)
+            .with_id(2)
+    );
 
-//     // Suzanne
-//     let suz_mat = MatDielectric::with_texture(ColorTexture(rgb(255, 137, 58))).with_opacity(0.2).with_ref_index(0.8).with_reflectivity(0.0);
-//     let suz_origin = position!(Origin);
-//     let (suz_faces, _) = mesh_builder.build_mesh_and_materials("Suzanne");
-//     scene.add_obj(
-//         Mesh::new(suz_faces, suz_mat)
-//             .with_origin(suz_origin)
-//             .with_id(3));
+    // Suzanne
+    let suz_mat = scene.add_material(MatDielectric::default().with_opacity(0.2).with_ref_index(0.8).with_reflectivity(0.0));
+    let suz_tex = scene.add_texture(ColorTexture(rgb(255, 137, 58)));
+    let suz_origin = position!(Origin);
+    let (suz_mesh, _) = mesh_builder.build_mesh_and_texture("Suzanne");
+    scene.add_obj(
+        MeshObject::new(&suz_mesh, suz_mat, suz_tex)
+            .with_origin(suz_origin)
+            .with_id(3)
+    );
 
-//     scene
-// }
+    scene
+}
 
 pub fn interceptor(config: &CameraConfiguration) -> Scene {
     
@@ -617,75 +656,81 @@ pub fn interceptor(config: &CameraConfiguration) -> Scene {
     scene
 }
 
-// pub fn capsule(config: &CameraConfiguration) -> Scene {
+pub fn capsule(config: &CameraConfiguration) -> Scene {
 
-//     // Example object and texture taken from http://paulbourke.net/dataformats/obj/minobj.html
+    // Example object and texture taken from http://paulbourke.net/dataformats/obj/minobj.html
     
-//     // Camera
-//     let look_from = position!(Up(10.0), South(10.0));
-//     let look_to =   position!(Up(4.0));
-//     let camera = config.make_camera(look_to, look_from);
+    // Camera
+    let look_from = position!(Up(10.0), South(10.0));
+    let look_to =   position!(Up(4.0));
+    let camera = config.make_camera(look_to, look_from);
 
-//     // Scene
-//     let mut scene = Scene::new(camera, SceneSky::Black);
+    // Scene
+    let mut scene = Scene::new(camera, SceneSky::Black);
 
-//     // Lights
-//     let lamp_pos = position!(Up(20.0), East(20.0));
-//     let lamp_direction = position!(Origin) - lamp_pos;
-//     scene.add_light(DirectionalLight::with_direction(lamp_direction).with_intensity(0.5));
+    // Lights
+    let lamp_pos = position!(Up(20.0), East(20.0));
+    let lamp_direction = position!(Origin) - lamp_pos;
+    scene.add_light(DirectionalLight::with_direction(lamp_direction).with_intensity(0.5));
 
-//     // World sphere
-//     let world_radius = 1000.0;
-//     let world_mat = MatLambertian::with_texture(ColorTexture(rgb(200, 200, 200)));
-//     let world_pos = position!(Down(world_radius));
-//     scene.add_obj(
-//         Sphere::new(world_radius, world_mat)
-//             .with_origin(world_pos)
-//             .with_id(0));
+    // World sphere
+    let world_radius = 1000.0;
+    let world_mat = scene.add_material(MatLambertian::default());
+    let world_tex = scene.add_texture(ColorTexture(rgb(200, 200, 200)));
+    let world_pos = position!(Down(world_radius));
+    scene.add_obj(
+        Sphere::new(world_radius, world_mat, world_tex)
+            .with_origin(world_pos)
+            .with_id(0)
+    );
     
-//     // Capsule
-//     let mut mesh_builder = ObjMeshBuilder::default();
-//     mesh_builder.load_objects_from_string(include_str!("../meshes/capsule.obj"));
-//     mesh_builder.load_materials_from_string(include_str!("../meshes/capsule.mtl"));
-//     mesh_builder.add_color_map("capsule.bmp", load_bitmap_from_bytes(include_bytes!("../textures/capsule.bmp")));
+    // Capsule
+    let mut mesh_builder = ObjMeshBuilder::default();
+    mesh_builder.load_obj_from_string(include_str!("../meshes/capsule.obj"));
+    mesh_builder.load_mtl_from_string(include_str!("../meshes/capsule.mtl"));
+    mesh_builder.add_color_map("capsule.bmp", load_bitmap_from_bytes(include_bytes!("../textures/capsule.bmp")));
 
-//     let (capsule_faces, capsule_materials) = mesh_builder.build_mesh_and_materials("default");
-//     let capsule_mat = MatLambertian::with_texture(capsule_materials);
-//     let capsule_origin = position!(Up(4.0));
-//     scene.add_obj(
-//         Mesh::new(capsule_faces, capsule_mat)
-//             .with_origin(capsule_origin));
+    let (capsule_mesh, capsule_tex) = mesh_builder.build_mesh_and_texture("default");
+    let capsule_mat = scene.add_material(MatLambertian::default());
+    let capsule_tex = scene.add_texture(capsule_tex);
+    let capsule_origin = position!(Up(4.0));
+    scene.add_obj(
+        MeshObject::new(&capsule_mesh, capsule_mat, capsule_tex)
+            .with_origin(capsule_origin)
+    );
 
-//     scene
-// }
+    scene
+}
 
-// pub fn mesh_plane(config: &CameraConfiguration) -> Scene {
-//     // Camera
-//     let look_from = position!(East(2.0));
-//     let look_to =   position!(Origin);
-//     let camera = config.make_camera(look_to, look_from);
+pub fn mesh_plane(config: &CameraConfiguration) -> Scene {
+    // Camera
+    let look_from = position!(East(2.0));
+    let look_to =   position!(Origin);
+    let camera = config.make_camera(look_to, look_from);
 
-//     // Scene
-//     let mut scene = Scene::new(camera, SceneSky::Black);
+    // Scene
+    let mut scene = Scene::new(camera, SceneSky::Black);
 
-//     // Lights
-//     let lamp_pos = look_from;
-//     let lamp_direction = look_to - lamp_pos;
-//     scene.add_light(DirectionalLight::with_direction(lamp_direction).with_intensity(1.0));
+    // Lights
+    let lamp_pos = look_from;
+    let lamp_direction = look_to - lamp_pos;
+    scene.add_light(DirectionalLight::with_direction(lamp_direction).with_intensity(1.0));
 
-//     let mut mesh_builder = ObjMeshBuilder::default();
-//     mesh_builder.load_objects_from_string(include_str!("../meshes/plane.obj"));
+    let mut mesh_builder = ObjMeshBuilder::default();
+    mesh_builder.load_obj_from_string(include_str!("../meshes/plane.obj"));
 
-//     let plane_color_map = load_bitmap_from_bytes(include_bytes!("../textures/test.bmp"));
+    let plane_color_map = load_bitmap_from_bytes(include_bytes!("../textures/test.bmp"));
 
-//     // Plane
-//     let plane_mat = MatLambertian::with_texture(plane_color_map);
-//     let plane_origin = look_to;
-//     let (plane_faces, _) = mesh_builder.build_mesh_and_materials("plane");
-//     scene.add_obj(
-//         Mesh::new(plane_faces, plane_mat)
-//             .with_origin(plane_origin)
-//             .with_id(1));
+    // Plane
+    let plane_mat = scene.add_material(MatLambertian::default());
+    let plane_tex = scene.add_texture(plane_color_map);
+    let plane_origin = look_to;
+    let (plane_mesh, _) = mesh_builder.build_mesh_and_texture("plane");
+    scene.add_obj(
+        MeshObject::new(&plane_mesh, plane_mat, plane_tex)
+            .with_origin(plane_origin)
+            .with_id(1)
+    );
 
-//     scene
-// }
+    scene
+}

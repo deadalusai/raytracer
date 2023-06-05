@@ -3,25 +3,25 @@ use eframe::{ egui };
 #[derive(Debug, Eq, PartialEq, Copy, Clone, serde::Deserialize, serde::Serialize)]
 pub enum TestScene {
     RandomSpheres,
-    // Simple,
-    // Planes,
-    // Mirrors,
-    // Triangles,
-    // Mesh,
+    Simple,
+    Planes,
+    Mirrors,
+    Triangles,
+    Mesh,
     Interceptor,
-    // Capsule,
-    // MeshPlane,
+    Capsule,
+    MeshPlane,
 }
-const TEST_SCENES: [TestScene; 2] = [
+const TEST_SCENES: [TestScene; 9] = [
     TestScene::RandomSpheres,
-    // TestScene::Simple,
-    // TestScene::Planes,
-    // TestScene::Mirrors,
-    // TestScene::Triangles,
-    // TestScene::Mesh,
+    TestScene::Simple,
+    TestScene::Planes,
+    TestScene::Mirrors,
+    TestScene::Triangles,
+    TestScene::Mesh,
     TestScene::Interceptor,
-    // TestScene::Capsule,
-    // TestScene::MeshPlane,
+    TestScene::Capsule,
+    TestScene::MeshPlane,
 ];
 
 #[derive(Debug, serde::Deserialize, serde::Serialize)]

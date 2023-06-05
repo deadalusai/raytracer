@@ -80,10 +80,10 @@ pub struct ColorMap {
     pub pixels: Vec<V3>,
 }
 
-impl ColorMap {
-    fn uv_to_value(&self, u: f32, v: f32) -> V3 {
-        let x = (u * self.width as f32) as usize;
-        let y = (v * self.height as f32) as usize;
+impl Texture for ColorMap {
+    fn value(&self, hit_record: &HitRecord) -> V3 {
+        let x = (hit_record.uv.0 * self.width as f32) as usize;
+        let y = (hit_record.uv.1 *  self.height as f32) as usize;
         let offset = y * self.width + x;
         self.pixels.get(offset).cloned().unwrap_or_default()
     }
@@ -99,7 +99,7 @@ pub struct MeshTexture {
 impl Texture for MeshTexture {
     fn value(&self, hit_record: &HitRecord) -> V3 {
         match self.diffuse_color_map {
-            Some(ref map) => map.uv_to_value(hit_record.uv.0, hit_record.uv.1),
+            Some(ref map) => map.value(hit_record),
             None => self.diffuse_color.clone()
         }
     }

@@ -94,17 +94,17 @@ impl App {
         };
         let mut scene = match st.scene {
             TestScene::RandomSpheres => raytracer_samples::samples::random_sphere_scene(&camera_config),
-            // TestScene::Simple        => raytracer_samples::samples::simple_scene(&camera_config),
-            // TestScene::Planes        => raytracer_samples::samples::planes_scene(&camera_config),
-            // TestScene::Mirrors       => raytracer_samples::samples::hall_of_mirrors(&camera_config),
-            // TestScene::Triangles     => raytracer_samples::samples::triangle_world(&camera_config),
-            // TestScene::Mesh          => raytracer_samples::samples::mesh_demo(&camera_config),
+            TestScene::Simple        => raytracer_samples::samples::simple_scene(&camera_config),
+            TestScene::Planes        => raytracer_samples::samples::planes_scene(&camera_config),
+            TestScene::Mirrors       => raytracer_samples::samples::hall_of_mirrors(&camera_config),
+            TestScene::Triangles     => raytracer_samples::samples::triangle_world(&camera_config),
+            TestScene::Mesh          => raytracer_samples::samples::mesh_demo(&camera_config),
             TestScene::Interceptor   => raytracer_samples::samples::interceptor(&camera_config),
-            // TestScene::Capsule       => raytracer_samples::samples::capsule(&camera_config),
-            // TestScene::MeshPlane     => raytracer_samples::samples::mesh_plane(&camera_config),
+            TestScene::Capsule       => raytracer_samples::samples::capsule(&camera_config),
+            TestScene::MeshPlane     => raytracer_samples::samples::mesh_plane(&camera_config),
         };
 
-        // scene.reorganize_objects_into_bvh();
+        scene.reorganize_objects_into_bvh();
         
         let settings = RenderSettings {
             max_reflections: st.max_reflections,
