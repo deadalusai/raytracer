@@ -76,6 +76,7 @@ impl App {
             SceneConfig { name: "Interceptor",    factory: raytracer_samples::samples::interceptor },
             SceneConfig { name: "Capsule",        factory: raytracer_samples::samples::capsule },
             SceneConfig { name: "Mesh Plane",     factory: raytracer_samples::samples::mesh_plane },
+            SceneConfig { name: "Point Cloud",    factory: raytracer_samples::samples::point_cloud },
         ];
 
         App {

@@ -14,9 +14,11 @@ use raytracer_impl::obj_data::{ ObjMeshBuilder };
 
 use crate::texture_loader::{ load_bitmap_from_bytes };
 
-use rand::{ Rng, SeedableRng, rngs::StdRng };
+use rand::{ Rng };
+use rand_xorshift::{ XorShiftRng };
 
-fn create_rng_from_seed(a: u128, b: u128) -> StdRng {
+fn create_rng_from_seed(a: u128) -> XorShiftRng {
+    use rand::SeedableRng;
     
     fn set_bytes(bytes: &mut [u8], val: u128) {
         for offset in 0..16 {
@@ -25,12 +27,11 @@ fn create_rng_from_seed(a: u128, b: u128) -> StdRng {
         }
     }
 
-    let mut seed = <StdRng as SeedableRng>::Seed::default();
+    let mut seed = <XorShiftRng as SeedableRng>::Seed::default();
 
     set_bytes(&mut seed[0..16], a);
-    set_bytes(&mut seed[16..32], b);
     
-    StdRng::from_seed(seed)
+    XorShiftRng::from_seed(seed)
 }
 
 //
@@ -63,11 +64,11 @@ impl CameraConfiguration {
             let p = default_look_from - look_to;
 
             // The vertical axis (to rotate about horizontally)
-            let v_axis = V3(0.0, 1.0, 0.0);
+            let v_axis = V3::POS_Y;
             let p = p.rotate_about_axis(v_axis, deg_to_rad(self.angle_adjust_h));
             
             // The horizontal axis (to rotate about vertically)
-            let w = (V3::ZERO - p).unit();            // Vector to origin 
+            let w = (V3::ZERO - p).unit();             // Vector to origin 
             let h_axis = V3::cross(v_axis, w).unit();  // Vector to camera right
             let p = p.rotate_about_axis(h_axis, deg_to_rad(self.angle_adjust_v));
 
@@ -206,7 +207,7 @@ pub fn random_sphere_scene(config: &CameraConfiguration) -> Scene {
     let camera = config.make_camera(look_to, look_from);
 
     // Scene
-    let mut rng = create_rng_from_seed(1, 1);
+    let mut rng = create_rng_from_seed(3178901564);
     let mut scene = Scene::new(camera, SceneSky::Day);
 
     // Lights
@@ -731,6 +732,56 @@ pub fn mesh_plane(config: &CameraConfiguration) -> Scene {
             .with_origin(plane_origin)
             .with_id(1)
     );
+
+    scene
+}
+
+pub fn point_cloud(config: &CameraConfiguration) -> Scene {
+    const LENGTH: f32 = 100.0;
+
+    // Camera
+    let look_from = position!(East(LENGTH), South(LENGTH), Up(LENGTH));
+    let look_to =   position!(Origin);
+    let camera = config.make_camera(look_to, look_from);
+
+    // Scene
+    let mut scene = Scene::new(camera, SceneSky::Black);
+    
+    // Lights
+    let lamp_pos = look_from;
+    let lamp_direction = look_to - lamp_pos;
+    scene.add_light(DirectionalLight::with_direction(lamp_direction).with_intensity(1.0));
+
+    let point_mat = scene.add_material(MatLambertian::default());
+    let point_radius = 0.05;
+
+    let mut rng = create_rng_from_seed(432789012409);
+
+    for _ in 0..1_000_000 {
+        
+        let a = rng.gen::<f32>();
+        let b = rng.gen::<f32>();
+        let c = rng.gen::<f32>();
+
+        let x = (a * LENGTH) - (LENGTH / 2.0);
+        let y = (b * LENGTH) - (LENGTH / 2.0);
+        let z = (c * LENGTH) - (LENGTH / 2.0);
+
+        let point_tex = scene.add_texture(ColorTexture(V3(a, b, c)));
+        scene.add_obj(Sphere::new(point_radius, point_mat, point_tex).with_origin(V3(x, y, z)))
+    }
+
+    // let point_tex = scene.add_texture(ColorTexture(V3::ONE));
+    // for origin in &[
+    //     V3::ZERO,
+    //     V3::POS_X * 50.0,
+    //     V3::POS_Y * 50.0,
+    //     V3::POS_Z * 50.0,
+    //     V3::NEG_X * 50.0,
+    //     V3::NEG_Y * 50.0,
+    //     V3::NEG_Z * 50.0] {
+    //     scene.add_object(Sphere::new(5.0, point_mat, point_tex).with_origin(origin.clone()));
+    // }
 
     scene
 }
