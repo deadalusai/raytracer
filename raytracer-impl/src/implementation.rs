@@ -240,7 +240,7 @@ impl Scene {
         }
     }
 
-    pub fn add_obj(&mut self, hitable: impl IntoArc<dyn Hitable>) {
+    pub fn add_object(&mut self, hitable: impl IntoArc<dyn Hitable>) {
         self.hitables.push(hitable.into_arc());
     }
 

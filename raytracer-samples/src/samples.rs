@@ -222,25 +222,25 @@ pub fn random_sphere_scene(config: &CameraConfiguration) -> Scene {
     ));
     let world_mat = scene.add_material(MatLambertian::default());
 
-    scene.add_obj(Sphere::new(1000.0, world_mat, world_tex).with_origin(V3(0.0, -1000.0, 0.0)));
+    scene.add_object(Sphere::new(1000.0, world_mat, world_tex).with_origin(V3(0.0, -1000.0, 0.0)));
 
     // Large metal sphere
     let lam_sphere_center = V3(-4.0, 1.0, 0.0);
     let lam_sphere_tex = scene.add_texture(ColorTexture(V3(0.8, 0.2, 0.1)));
     let lam_sphere_mat = scene.add_material(MatLambertian::default());
-    scene.add_obj(Sphere::new(1.0, lam_sphere_mat, lam_sphere_tex).with_origin(lam_sphere_center.clone()));
+    scene.add_object(Sphere::new(1.0, lam_sphere_mat, lam_sphere_tex).with_origin(lam_sphere_center.clone()));
     
     // Large hollow glass sphere
     let hollow_sphere_center = V3(0.0, 1.0, 0.0);
     let hollow_sphere_tex = scene.add_texture(ColorTexture(V3(0.95, 0.95, 0.95)));
     let hollow_sphere_mat = scene.add_material(MatDielectric::default().with_ref_index(1.5));
-    scene.add_obj(Sphere::new(1.0, hollow_sphere_mat, hollow_sphere_tex).with_origin(hollow_sphere_center.clone()));
+    scene.add_object(Sphere::new(1.0, hollow_sphere_mat, hollow_sphere_tex).with_origin(hollow_sphere_center.clone()));
 
     // Large mat sphere
     let metal_sphere_center = V3(4.0, 1.0, 0.0);
     let metal_sphere_tex = scene.add_texture(ColorTexture(V3(0.8, 0.8, 0.8)));
     let metal_sphere_mat = scene.add_material(MatSpecular::default().with_fuzz(0.0));
-    scene.add_obj(Sphere::new(1.0, metal_sphere_mat, metal_sphere_tex).with_origin(metal_sphere_center.clone()));
+    scene.add_object(Sphere::new(1.0, metal_sphere_mat, metal_sphere_tex).with_origin(metal_sphere_center.clone()));
 
     let sphere_centers = [lam_sphere_center, hollow_sphere_center, metal_sphere_center];
 
@@ -266,7 +266,7 @@ pub fn random_sphere_scene(config: &CameraConfiguration) -> Scene {
                     _             => make_glass(&mut scene, &mut rng),
                 };
 
-            scene.add_obj(Sphere::new(0.2, mat, tex).with_origin(center));
+            scene.add_object(Sphere::new(0.2, mat, tex).with_origin(center));
         }
     }
 
@@ -280,10 +280,10 @@ fn add_cardinal_markers(scene: &mut Scene) {
     let green = scene.add_texture(ColorTexture(rgb(0,   128, 0)));
     let blue  = scene.add_texture(ColorTexture(rgb(0,   0,   128)));
     let white = scene.add_texture(ColorTexture(rgb(255, 255, 255)));
-    scene.add_obj(Sphere::new(0.25, mat, red).with_origin(position!(North(2.0))));
-    scene.add_obj(Sphere::new(0.25, mat, green).with_origin(position!(East(2.0))));
-    scene.add_obj(Sphere::new(0.25, mat, blue).with_origin(position!(West(2.0))));
-    scene.add_obj(Sphere::new(0.25, mat, white).with_origin(position!(South(2.0))));
+    scene.add_object(Sphere::new(0.25, mat, red).with_origin(position!(North(2.0))));
+    scene.add_object(Sphere::new(0.25, mat, green).with_origin(position!(East(2.0))));
+    scene.add_object(Sphere::new(0.25, mat, blue).with_origin(position!(West(2.0))));
+    scene.add_object(Sphere::new(0.25, mat, white).with_origin(position!(South(2.0))));
 }
 
 fn add_coordinates_marker(scene: &mut Scene) {
@@ -292,9 +292,9 @@ fn add_coordinates_marker(scene: &mut Scene) {
     let red   = scene.add_texture(ColorTexture(rgb(128, 0,   0)));
     let green = scene.add_texture(ColorTexture(rgb(0,   128, 0)));
     let blue  = scene.add_texture(ColorTexture(rgb(0,   0,   128)));
-    scene.add_obj(Sphere::new(0.05, mat, red).with_origin(V3(1.0, 0.0, 0.0)));
-    scene.add_obj(Sphere::new(0.05, mat, green).with_origin(V3(0.0, 1.0, 0.0)));
-    scene.add_obj(Sphere::new(0.05, mat, blue).with_origin(V3(0.0, 0.0, 1.0)));
+    scene.add_object(Sphere::new(0.05, mat, red).with_origin(V3(1.0, 0.0, 0.0)));
+    scene.add_object(Sphere::new(0.05, mat, green).with_origin(V3(0.0, 1.0, 0.0)));
+    scene.add_object(Sphere::new(0.05, mat, blue).with_origin(V3(0.0, 0.0, 1.0)));
 }
 
 pub fn simple_scene(config: &CameraConfiguration) -> Scene {
@@ -322,38 +322,38 @@ pub fn simple_scene(config: &CameraConfiguration) -> Scene {
     let world_mat = scene.add_material(MatLambertian::default());
     let world_tex = scene.add_texture(ColorTexture(rgb(200, 200, 200)));
     let world_pos = position!(Down(1000.0));
-    scene.add_obj(Sphere::new(1000.0, world_mat, world_tex).with_origin(world_pos));
+    scene.add_object(Sphere::new(1000.0, world_mat, world_tex).with_origin(world_pos));
 
     // Wall
     let wall_mat = scene.add_material(MatLambertian::default().with_reflectivity(1.0));
     let wall_tex = scene.add_texture(ColorTexture(rgb(200, 200, 200)));
     let wall_pos = position!(North(4.5));
     let wall_facing = wall_pos - position!(Origin);
-    scene.add_obj(Plane::new(wall_facing, wall_mat, wall_tex).with_origin(wall_pos));
+    scene.add_object(Plane::new(wall_facing, wall_mat, wall_tex).with_origin(wall_pos));
 
     // Plastic sphere
     let plastic_mat = scene.add_material(MatLambertian::default());
     let plastic_tex = scene.add_texture(ColorTexture(rgb(226, 226, 226)));
     let plastic_pos = position!(Up(1.0));
-    scene.add_obj(Sphere::new(1.0, plastic_mat, plastic_tex).with_origin(plastic_pos));
+    scene.add_object(Sphere::new(1.0, plastic_mat, plastic_tex).with_origin(plastic_pos));
 
     // Glass sphere (large)
     let glass_mat = scene.add_material(MatDielectric::default());
     let glass_tex = scene.add_texture(ColorTexture(rgb(130, 255, 140)));
     let glass_pos = position!(Up(1.0), South(2.0), East(2.0));
-    scene.add_obj(Sphere::new(1.0, glass_mat, glass_tex).with_origin(glass_pos.clone()));
+    scene.add_object(Sphere::new(1.0, glass_mat, glass_tex).with_origin(glass_pos.clone()));
     
     // Glass sphere (small)
     let small_glass_mat = scene.add_material(MatDielectric::default().with_opacity(0.01).with_reflectivity(0.98));
     let small_glass_tex = scene.add_texture(ColorTexture(rgb(66, 206, 245)));
     let small_glass_pos = lerp_v3(plastic_pos, lamp_pos, 0.2); // Find a point between the lamp and the plastic sphere
-    scene.add_obj(Sphere::new(0.5, small_glass_mat, small_glass_tex).with_origin(small_glass_pos));
+    scene.add_object(Sphere::new(0.5, small_glass_mat, small_glass_tex).with_origin(small_glass_pos));
 
     // Metal sphere
     let metal_mat = scene.add_material(MatSpecular::default().with_fuzz(0.001).with_reflectivity(0.91));
     let metal_tex = scene.add_texture(ColorTexture(rgb(147, 154, 186)));
     let metal_pos = position!(Up(1.0), North(2.0), West(2.0));
-    scene.add_obj(Sphere::new(1.0, metal_mat, metal_tex).with_origin(metal_pos).with_id(1));
+    scene.add_object(Sphere::new(1.0, metal_mat, metal_tex).with_origin(metal_pos).with_id(1));
 
 
     // Small metal spheres (buried) drawn between these points
@@ -366,7 +366,7 @@ pub fn simple_scene(config: &CameraConfiguration) -> Scene {
         let t = i as f32 / small_metal_sphere_count as f32;
         let small_metal_pos = lerp_v3(small_metal_start_pos, small_metal_end_pos, ease_out(t, 2.0));
         let small_metal_radius = lerp_f32(0.5, 0.05, ease_out(t, 2.0));
-        scene.add_obj(Sphere::new(small_metal_radius, small_metal_mat, small_metal_tex).with_origin(small_metal_pos));
+        scene.add_object(Sphere::new(small_metal_radius, small_metal_mat, small_metal_tex).with_origin(small_metal_pos));
     }
 
     // Small plastic spheres (buried) drawn between these points
@@ -384,7 +384,7 @@ pub fn simple_scene(config: &CameraConfiguration) -> Scene {
             lerp_f32(small_plastic_start_pos.z(), small_plastic_end_pos.z(), ease_in(t, 2.0))
         );
         let small_plastic_radius = lerp_f32(0.10, 0.02, ease_in_out(t, 2.0));
-        scene.add_obj(Sphere::new(small_plastic_radius, small_plastic_mat, small_plastic_tex).with_origin(small_plastic_pos));
+        scene.add_object(Sphere::new(small_plastic_radius, small_plastic_mat, small_plastic_tex).with_origin(small_plastic_pos));
     }
 
     scene
@@ -411,13 +411,13 @@ pub fn planes_scene(config: &CameraConfiguration) -> Scene {
     let world_mat = scene.add_material(MatLambertian::default().with_reflectivity(0.01));
     let world_tex = scene.add_texture(ColorTexture(rgb(255, 255, 255)));
     let world_pos = position!(Down(1000.0));
-    scene.add_obj(Sphere::new(1000.0, world_mat, world_tex).with_origin(world_pos));
+    scene.add_object(Sphere::new(1000.0, world_mat, world_tex).with_origin(world_pos));
 
     let plane_mat = scene.add_material(MatSpecular::default().with_reflectivity(0.8).with_fuzz(0.02));
     let plane_tex = scene.add_texture(ColorTexture(rgb(240, 240, 240)));
     let plane_pos = position!(West(1.0));
     let plane_normal = position!(Origin) - plane_pos; // normal facing world origin
-    scene.add_obj(Plane::new(plane_normal, plane_mat, plane_tex).with_origin(plane_pos));
+    scene.add_object(Plane::new(plane_normal, plane_mat, plane_tex).with_origin(plane_pos));
 
     scene
 }
@@ -445,7 +445,7 @@ pub fn hall_of_mirrors(config: &CameraConfiguration) -> Scene {
     let world_mat = scene.add_material(MatLambertian::default().with_reflectivity(0.01));
     let world_tex = scene.add_texture(ColorTexture(rgb(255, 255, 255)));
     let world_pos = position!(Down(1000.0));
-    scene.add_obj(Sphere::new(1000.0, world_mat, world_tex).with_origin(world_pos));
+    scene.add_object(Sphere::new(1000.0, world_mat, world_tex).with_origin(world_pos));
 
     let plane_mat = scene.add_material(MatSpecular::default().with_reflectivity(0.98).with_fuzz(0.01));
     let plane_tex = scene.add_texture(ColorTexture(V3::ONE));
@@ -457,7 +457,7 @@ pub fn hall_of_mirrors(config: &CameraConfiguration) -> Scene {
     ];
     for plane_origin in cardinals {
         let plane_normal = position!(Origin) - plane_origin; // normal facing world origin
-        scene.add_obj(
+        scene.add_object(
             Plane::new(plane_normal, plane_mat, plane_tex)
                 .with_origin(plane_origin)
                 .with_radius(30.0)
@@ -493,7 +493,7 @@ pub fn triangle_world(config: &CameraConfiguration) -> Scene {
     let world_mat = scene.add_material(MatLambertian::default());
     let world_tex = scene.add_texture(ColorTexture(rgb(200, 200, 200)));
     let world_pos = position!(Down(1000.0));
-    scene.add_obj(Sphere::new(1000.0, world_mat, world_tex).with_origin(world_pos));
+    scene.add_object(Sphere::new(1000.0, world_mat, world_tex).with_origin(world_pos));
 
     // Triangle
     let tri_pos = position!(Origin);
@@ -508,7 +508,7 @@ pub fn triangle_world(config: &CameraConfiguration) -> Scene {
             )
         ],
     };
-    scene.add_obj(MeshObject::new(&tri_mesh, tri_mat, tri_tex).with_origin(tri_pos));
+    scene.add_object(MeshObject::new(&tri_mesh, tri_mat, tri_tex).with_origin(tri_pos));
 
     let tri_pos = position!(Up(1.0));
     let tri_mat = scene.add_material(MatLambertian::default().with_reflectivity(0.0));
@@ -522,7 +522,7 @@ pub fn triangle_world(config: &CameraConfiguration) -> Scene {
             )
         ],
     };
-    scene.add_obj(MeshObject::new(&tri_mesh, tri_mat, tri_tex).with_origin(tri_pos));
+    scene.add_object(MeshObject::new(&tri_mesh, tri_mat, tri_tex).with_origin(tri_pos));
 
     scene
 }
@@ -552,7 +552,7 @@ pub fn mesh_demo(config: &CameraConfiguration) -> Scene {
     let world_mat = scene.add_material(MatLambertian::default());
     let world_tex = scene.add_texture(ColorTexture(rgb(200, 200, 200)));
     let world_pos = position!(Down(1000.0));
-    scene.add_obj(
+    scene.add_object(
         Sphere::new(1000.0, world_mat, world_tex)
             .with_origin(world_pos)
             .with_id(0));
@@ -567,7 +567,7 @@ pub fn mesh_demo(config: &CameraConfiguration) -> Scene {
     let cube_tex = scene.add_texture(ColorTexture(rgb(36, 193, 89)));
     let cube_origin = position!(South(1.5), West(1.5));
     let (cube_mesh, _) = mesh_builder.build_mesh_and_texture("Cube");
-    scene.add_obj(
+    scene.add_object(
         MeshObject::new(&cube_mesh, cube_mat, cube_tex)
             .with_origin(cube_origin)
             .with_id(1)
@@ -579,7 +579,7 @@ pub fn mesh_demo(config: &CameraConfiguration) -> Scene {
     let thing_tex = scene.add_texture(ColorTexture(rgb(89, 172, 255)));
     let thing_origin = position!(North(1.5), East(1.5));
     let (thing_mesh, _) = mesh_builder.build_mesh_and_texture("Thing");
-    scene.add_obj(
+    scene.add_object(
         MeshObject::new(&thing_mesh, thing_mat, thing_tex)
             .with_origin(thing_origin)
             .with_id(2)
@@ -590,7 +590,7 @@ pub fn mesh_demo(config: &CameraConfiguration) -> Scene {
     let suz_tex = scene.add_texture(ColorTexture(rgb(255, 137, 58)));
     let suz_origin = position!(Origin);
     let (suz_mesh, _) = mesh_builder.build_mesh_and_texture("Suzanne");
-    scene.add_obj(
+    scene.add_object(
         MeshObject::new(&suz_mesh, suz_mat, suz_tex)
             .with_origin(suz_origin)
             .with_id(3)
@@ -619,7 +619,7 @@ pub fn interceptor(config: &CameraConfiguration) -> Scene {
     let world_mat = scene.add_material(MatLambertian::default());
     let world_tex = scene.add_texture(ColorTexture(rgb(200, 200, 200)));
     let world_pos = position!(Down(world_radius), Down(20.0));
-    scene.add_obj(
+    scene.add_object(
         Sphere::new(world_radius, world_mat, world_tex)
             .with_origin(world_pos)
             .with_id(0)
@@ -652,8 +652,8 @@ pub fn interceptor(config: &CameraConfiguration) -> Scene {
         .rotated(V3::POS_Z, -deg_to_rad(25.0))
         .rotated(V3::POS_X, deg_to_rad(25.0));
 
-    scene.add_obj(int_mesh);
-    scene.add_obj(int2_mesh);
+    scene.add_object(int_mesh);
+    scene.add_object(int2_mesh);
     scene
 }
 
@@ -679,7 +679,7 @@ pub fn capsule(config: &CameraConfiguration) -> Scene {
     let world_mat = scene.add_material(MatLambertian::default());
     let world_tex = scene.add_texture(ColorTexture(rgb(200, 200, 200)));
     let world_pos = position!(Down(world_radius));
-    scene.add_obj(
+    scene.add_object(
         Sphere::new(world_radius, world_mat, world_tex)
             .with_origin(world_pos)
             .with_id(0)
@@ -695,7 +695,7 @@ pub fn capsule(config: &CameraConfiguration) -> Scene {
     let capsule_mat = scene.add_material(MatLambertian::default());
     let capsule_tex = scene.add_texture(capsule_tex);
     let capsule_origin = position!(Up(4.0));
-    scene.add_obj(
+    scene.add_object(
         MeshObject::new(&capsule_mesh, capsule_mat, capsule_tex)
             .with_origin(capsule_origin)
     );
@@ -727,7 +727,7 @@ pub fn mesh_plane(config: &CameraConfiguration) -> Scene {
     let plane_tex = scene.add_texture(plane_color_map);
     let plane_origin = look_to;
     let (plane_mesh, _) = mesh_builder.build_mesh_and_texture("plane");
-    scene.add_obj(
+    scene.add_object(
         MeshObject::new(&plane_mesh, plane_mat, plane_tex)
             .with_origin(plane_origin)
             .with_id(1)
@@ -768,7 +768,7 @@ pub fn point_cloud(config: &CameraConfiguration) -> Scene {
         let z = (c * LENGTH) - (LENGTH / 2.0);
 
         let point_tex = scene.add_texture(ColorTexture(V3(a, b, c)));
-        scene.add_obj(Sphere::new(point_radius, point_mat, point_tex).with_origin(V3(x, y, z)))
+        scene.add_object(Sphere::new(point_radius, point_mat, point_tex).with_origin(V3(x, y, z)))
     }
 
     // let point_tex = scene.add_texture(ColorTexture(V3::ONE));
