@@ -1,32 +1,9 @@
 use eframe::{ egui };
-
-#[derive(Debug, Eq, PartialEq, Copy, Clone, serde::Deserialize, serde::Serialize)]
-pub enum TestScene {
-    RandomSpheres,
-    Simple,
-    Planes,
-    Mirrors,
-    Triangles,
-    Mesh,
-    Interceptor,
-    Capsule,
-    MeshPlane,
-}
-const TEST_SCENES: [TestScene; 9] = [
-    TestScene::RandomSpheres,
-    TestScene::Simple,
-    TestScene::Planes,
-    TestScene::Mirrors,
-    TestScene::Triangles,
-    TestScene::Mesh,
-    TestScene::Interceptor,
-    TestScene::Capsule,
-    TestScene::MeshPlane,
-];
+use raytracer_samples::CameraConfiguration;
 
 #[derive(Debug, serde::Deserialize, serde::Serialize)]
 pub struct Settings {
-    pub scene: TestScene,
+    pub scene: usize,
     pub width: usize,
     pub height: usize,
     pub chunk_count: u32,
@@ -44,7 +21,7 @@ pub struct Settings {
 impl Default for Settings {
     fn default() -> Self {
         Settings {
-            scene: TestScene::RandomSpheres,
+            scene: Default::default(),
             width: 1024,
             height: 768,
             chunk_count: 128,
@@ -61,13 +38,19 @@ impl Default for Settings {
     }
 }
 
+pub struct SceneConfig {
+    pub name: &'static str,
+    pub factory: fn(&CameraConfiguration) -> raytracer_impl::implementation::Scene,
+}
+
 pub struct SettingsWidget<'a> {
     settings: &'a mut Settings,
+    scene_configs: &'a [SceneConfig],
 }
 
 impl<'a> SettingsWidget<'a> {
-    pub fn new(settings: &'a mut Settings) -> SettingsWidget<'a> {
-        SettingsWidget { settings }
+    pub fn new(settings: &'a mut Settings, scene_configs: &'a [SceneConfig]) -> SettingsWidget<'a> {
+        SettingsWidget { settings, scene_configs }
     }
 }
 
@@ -80,15 +63,16 @@ impl<'a> egui::Widget for SettingsWidget<'a> {
             .show(ui, |ui| {
                 
                 let st = self.settings;
+                let configs = self.scene_configs;
                 
                 // Scene
                 ui.label("Scene");
                 egui::ComboBox::from_id_source("scene_combo")
-                    .selected_text(format!("{:?}", st.scene))
+                    .selected_text(configs[st.scene].name.to_string())
                     .width(120.0)
                     .show_ui(ui, |ui| {
-                        for v in TEST_SCENES {
-                            ui.selectable_value(&mut st.scene, v, format!("{:?}", v));
+                        for (i, c) in configs.iter().enumerate() {
+                            ui.selectable_value(&mut st.scene, i, c.name.to_string());
                         }
                     });
                 ui.end_row();

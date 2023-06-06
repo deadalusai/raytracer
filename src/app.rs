@@ -1,4 +1,5 @@
-use std::sync::{ Arc, atomic::{ AtomicBool, Ordering } };
+use std::sync::{ Arc };
+use std::sync::atomic::{ AtomicBool, Ordering };
 use std::thread::{ spawn, JoinHandle };
 use std::time::{ Instant, Duration };
 
@@ -9,7 +10,8 @@ use raytracer_impl::implementation::{ Scene, RenderSettings };
 use raytracer_impl::viewport::{ RenderChunk, Viewport, create_render_chunks };
 use raytracer_samples::{ CameraConfiguration };
 
-use crate::{rgba::{ RgbaBuffer, v3_to_rgba }, settings::TestScene};
+use crate::rgba::{ RgbaBuffer, v3_to_rgba };
+use crate::settings::{ SceneConfig };
 use crate::frame_history::{ FrameHistory };
 use crate::thread_stats::{ ThreadStats };
 use crate::settings::{ SettingsWidget, Settings };
@@ -47,6 +49,8 @@ enum RenderThreadMessage {
 pub struct App {
     // Persistent state
     settings: Settings,
+    // Configuration
+    scene_configs: Vec<SceneConfig>,
     // Temporal state
     output_texture: Option<(egui::TextureHandle, [usize; 2])>,
     render_job: Option<RenderJob>,
@@ -62,8 +66,21 @@ impl App {
             Some(s) => eframe::get_value(s, eframe::APP_KEY).unwrap_or_default(),
         };
 
+        let scene_configs = vec![
+            SceneConfig { name: "Random Spheres", factory: raytracer_samples::samples::random_sphere_scene },
+            SceneConfig { name: "Simple",         factory: raytracer_samples::samples::simple_scene },
+            SceneConfig { name: "Planes",         factory: raytracer_samples::samples::planes_scene },
+            SceneConfig { name: "Mirrors",        factory: raytracer_samples::samples::hall_of_mirrors },
+            SceneConfig { name: "Triangles",      factory: raytracer_samples::samples::triangle_world },
+            SceneConfig { name: "Mesh",           factory: raytracer_samples::samples::mesh_demo },
+            SceneConfig { name: "Interceptor",    factory: raytracer_samples::samples::interceptor },
+            SceneConfig { name: "Capsule",        factory: raytracer_samples::samples::capsule },
+            SceneConfig { name: "Mesh Plane",     factory: raytracer_samples::samples::mesh_plane },
+        ];
+
         App {
             settings,
+            scene_configs,
             // Temporal state
             output_texture: None,
             render_job: None,
@@ -92,17 +109,9 @@ impl App {
             angle_adjust_h: st.camera_angle_adjust_h,
             focus_dist_adjust: st.camera_focus_dist_adjust,
         };
-        let mut scene = match st.scene {
-            TestScene::RandomSpheres => raytracer_samples::samples::random_sphere_scene(&camera_config),
-            TestScene::Simple        => raytracer_samples::samples::simple_scene(&camera_config),
-            TestScene::Planes        => raytracer_samples::samples::planes_scene(&camera_config),
-            TestScene::Mirrors       => raytracer_samples::samples::hall_of_mirrors(&camera_config),
-            TestScene::Triangles     => raytracer_samples::samples::triangle_world(&camera_config),
-            TestScene::Mesh          => raytracer_samples::samples::mesh_demo(&camera_config),
-            TestScene::Interceptor   => raytracer_samples::samples::interceptor(&camera_config),
-            TestScene::Capsule       => raytracer_samples::samples::capsule(&camera_config),
-            TestScene::MeshPlane     => raytracer_samples::samples::mesh_plane(&camera_config),
-        };
+
+        let factory = self.scene_configs[st.scene].factory;
+        let mut scene = factory(&camera_config);
 
         scene.reorganize_objects_into_bvh();
         
@@ -334,7 +343,7 @@ impl eframe::App for App {
             .default_width(200.0)
             .default_height(500.0)
             .show(ctx, |ui| {
-                ui.add(SettingsWidget::new(&mut self.settings));
+                ui.add(SettingsWidget::new(&mut self.settings, &self.scene_configs));
                 ui.separator();
 
                 ui.with_layout(egui::Layout::top_down_justified(egui::Align::Center), |ui| {
