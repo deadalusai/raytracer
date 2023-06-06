@@ -161,7 +161,7 @@ fn rgb(r: u8, g: u8, b: u8) -> V3 {
 
 // Random texture factories
 
-fn make_matte<R: Rng>(scene: &mut Scene, rng: &mut R) -> (MatId, TexId) {
+fn make_matte(scene: &mut Scene, rng: &mut impl Rng) -> (MatId, TexId) {
     let albedo = V3(
         /* r */ rng.gen::<f32>() * rng.gen::<f32>(),
         /* g */ rng.gen::<f32>() * rng.gen::<f32>(),
@@ -173,7 +173,7 @@ fn make_matte<R: Rng>(scene: &mut Scene, rng: &mut R) -> (MatId, TexId) {
     )
 }
 
-fn make_metal<R: Rng>(scene: &mut Scene, rng: &mut R) -> (MatId, TexId) {
+fn make_metal(scene: &mut Scene, rng: &mut impl Rng) -> (MatId, TexId) {
     let color = V3(
         /* r */ 0.5 * (1.0 + rng.gen::<f32>()),
         /* g */ 0.5 * (1.0 + rng.gen::<f32>()),
@@ -186,7 +186,7 @@ fn make_metal<R: Rng>(scene: &mut Scene, rng: &mut R) -> (MatId, TexId) {
     )
 }
 
-fn make_glass<R: Rng>(scene: &mut Scene, rng: &mut R) -> (MatId, TexId) {
+fn make_glass(scene: &mut Scene, rng: &mut impl Rng) -> (MatId, TexId) {
     let refractive_index = 1.5;
     let color = V3(
         /* r */ 0.5 * (1.0 + rng.gen::<f32>()),

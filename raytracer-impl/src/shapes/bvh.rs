@@ -67,23 +67,20 @@ pub fn compare_aabb(l: &AABB, r: &AABB, axis: SortAxis) -> std::cmp::Ordering {
     ordering.unwrap_or(std::cmp::Ordering::Equal)
 }
 
-pub fn build_bvh_hierachy(hitables: &mut [(AABB, Arc<dyn Hitable>)]) -> Option<Arc<dyn Hitable>> {
+pub fn build_bounding_volume_hierachy(hitables: &mut [(AABB, Arc<dyn Hitable>)]) -> Arc<dyn Hitable> {
 
-    fn inner(hitables: &mut [(AABB, Arc<dyn Hitable>)], axis: SortAxis) -> Option<Arc<dyn Hitable>> {
-
-        let node = match hitables {
-            [] => return None,
+    fn inner(hitables: &mut [(AABB, Arc<dyn Hitable>)], axis: SortAxis) -> Arc<dyn Hitable> {
+        match hitables {
+            [] => panic!("Expected at least one object for Bounding Volume Hierachy"),
             [a] => a.1.clone(),
             _ => {
                 hitables.sort_by(|l, r| compare_aabb(&l.0, &r.0, axis));
                 let mid = hitables.len() / 2;
-                let left = inner(&mut hitables[0..mid], axis.next()).unwrap();
-                let right = inner(&mut hitables[mid..], axis.next()).unwrap();
+                let left = inner(&mut hitables[0..mid], axis.next());
+                let right = inner(&mut hitables[mid..], axis.next());
                 Arc::new(BvhNode::new(left, right))
             }
-        };
-
-        Some(node)
+        }
     }
 
     inner(hitables, SortAxis::X)

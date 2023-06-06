@@ -140,28 +140,25 @@ impl MeshBvhNode {
     }
 }
 
-pub fn build_face_bvh_hierachy(faces: &[MeshFace]) -> Option<MeshBvhNode> {
+pub fn build_face_bounding_volume_hierachy(faces: &[MeshFace]) -> MeshBvhNode {
     use super::bvh::{ SortAxis, compare_aabb };
 
-    fn inner(faces: &mut [(AABB, &MeshFace)], axis: SortAxis) -> Option<MeshBvhNode> {
-
-        let node = match faces {
-            [] => return None,
+    fn inner(faces: &mut [(AABB, &MeshFace)], axis: SortAxis) -> MeshBvhNode {
+        match faces {
+            [] => panic!("Expected at least one face for mesh"),
             [a] => MeshBvhNode::Leaf(MeshBvhLeaf(a.1.clone())),
             _ => {
                 faces.sort_by(|l, r| compare_aabb(&l.0, &r.0, axis));
                 let mid = faces.len() / 2;
-                let left = inner(&mut faces[0..mid], axis.next()).unwrap();
-                let right = inner(&mut faces[mid..], axis.next()).unwrap();
+                let left = inner(&mut faces[0..mid], axis.next());
+                let right = inner(&mut faces[mid..], axis.next());
                 MeshBvhNode::Branch(MeshBvhBranch {
                     aabb: AABB::surrounding(left.aabb(), right.aabb()),
                     left: Box::new(left),
                     right: Box::new(right),
                 })
             }
-        };
-
-        Some(node)
+        }
     }
 
     // Pre-caculate triangle bounding boxes
@@ -209,7 +206,7 @@ impl MeshObject {
         MeshObject {
             object_id: None,
             origin: V3::ZERO,
-            root_node: build_face_bvh_hierachy(&mesh.faces).expect("Expected at least one triangle for mesh"),
+            root_node: build_face_bounding_volume_hierachy(&mesh.faces),
             mat_id,
             tex_id,
         }

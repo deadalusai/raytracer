@@ -288,9 +288,7 @@ impl Scene {
         }
 
         // Re-organize the bounded objects into a hierachy of BvhNodes
-        if let Some(hitable) = crate::shapes::bvh::build_bvh_hierachy(&mut bounded) {
-            hitables.push(hitable);
-        }
+        hitables.push(crate::shapes::bvh::build_bounding_volume_hierachy(&mut bounded));
 
         self.hitables = hitables;
     }
