@@ -626,16 +626,8 @@ pub fn interceptor(config: &CameraConfiguration) -> Scene {
     );
 
     let mut mesh_builder = ObjMeshBuilder::default();
-    mesh_builder.load_obj_from_string(include_str!("../meshes/Interceptor-T/Heavyinterceptor.obj"));
-    mesh_builder.load_mtl_from_string(include_str!("../meshes/Interceptor-T/Heavyinterceptor.mtl"));
-    mesh_builder.add_color_map("engine_back.bmp", load_bitmap_from_bytes(include_bytes!("../meshes/Interceptor-T/engine_back.bmp")));
-    mesh_builder.add_color_map("intake_front.bmp", load_bitmap_from_bytes(include_bytes!("../meshes/Interceptor-T/intake_front.bmp")));
-    mesh_builder.add_color_map("page0.bmp", load_bitmap_from_bytes(include_bytes!("../meshes/Interceptor-T/page0.bmp")));
-    mesh_builder.add_color_map("page1.bmp", load_bitmap_from_bytes(include_bytes!("../meshes/Interceptor-T/page1.bmp")));
-    mesh_builder.add_color_map("page2.bmp", load_bitmap_from_bytes(include_bytes!("../meshes/Interceptor-T/page2.bmp")));
-    mesh_builder.add_color_map("Rwingbottem.bmp", load_bitmap_from_bytes(include_bytes!("../meshes/Interceptor-T/Rwingbottem.bmp")));
-    mesh_builder.add_color_map("rwinginside.bmp", load_bitmap_from_bytes(include_bytes!("../meshes/Interceptor-T/rwinginside.bmp")));
-    mesh_builder.add_color_map("topfin_sides.bmp", load_bitmap_from_bytes(include_bytes!("../meshes/Interceptor-T/topfin_sides.bmp")));
+    
+    load_interceptor(&mut mesh_builder);
 
     // Interceptor
     let int_origin = look_to;
@@ -655,6 +647,19 @@ pub fn interceptor(config: &CameraConfiguration) -> Scene {
     scene.add_object(int_mesh);
     scene.add_object(int2_mesh);
     scene
+}
+
+fn load_interceptor(mesh_builder: &mut ObjMeshBuilder) {
+    mesh_builder.load_obj_from_string(include_str!("../meshes/Interceptor-T/Heavyinterceptor.obj"));
+    mesh_builder.load_mtl_from_string(include_str!("../meshes/Interceptor-T/Heavyinterceptor.mtl"));
+    mesh_builder.add_color_map("engine_back.bmp", load_bitmap_from_bytes(include_bytes!("../meshes/Interceptor-T/engine_back.bmp")));
+    mesh_builder.add_color_map("intake_front.bmp", load_bitmap_from_bytes(include_bytes!("../meshes/Interceptor-T/intake_front.bmp")));
+    mesh_builder.add_color_map("page0.bmp", load_bitmap_from_bytes(include_bytes!("../meshes/Interceptor-T/page0.bmp")));
+    mesh_builder.add_color_map("page1.bmp", load_bitmap_from_bytes(include_bytes!("../meshes/Interceptor-T/page1.bmp")));
+    mesh_builder.add_color_map("page2.bmp", load_bitmap_from_bytes(include_bytes!("../meshes/Interceptor-T/page2.bmp")));
+    mesh_builder.add_color_map("Rwingbottem.bmp", load_bitmap_from_bytes(include_bytes!("../meshes/Interceptor-T/Rwingbottem.bmp")));
+    mesh_builder.add_color_map("rwinginside.bmp", load_bitmap_from_bytes(include_bytes!("../meshes/Interceptor-T/rwinginside.bmp")));
+    mesh_builder.add_color_map("topfin_sides.bmp", load_bitmap_from_bytes(include_bytes!("../meshes/Interceptor-T/topfin_sides.bmp")));
 }
 
 pub fn capsule(config: &CameraConfiguration) -> Scene {
@@ -771,17 +776,46 @@ pub fn point_cloud(config: &CameraConfiguration) -> Scene {
         scene.add_object(Sphere::new(point_radius, point_mat, point_tex).with_origin(V3(x, y, z)))
     }
 
-    // let point_tex = scene.add_texture(ColorTexture(V3::ONE));
-    // for origin in &[
-    //     V3::ZERO,
-    //     V3::POS_X * 50.0,
-    //     V3::POS_Y * 50.0,
-    //     V3::POS_Z * 50.0,
-    //     V3::NEG_X * 50.0,
-    //     V3::NEG_Y * 50.0,
-    //     V3::NEG_Z * 50.0] {
-    //     scene.add_object(Sphere::new(5.0, point_mat, point_tex).with_origin(origin.clone()));
-    // }
+    scene
+}
+
+pub fn fleet(config: &CameraConfiguration) -> Scene {
+    
+    let dist = 100.0;
+
+    // Camera
+    let look_from = position!(Up(dist), North(dist), East(dist));
+    let look_to =   position!(Origin);
+    let camera = config.make_camera(look_to, look_from);
+
+    // Scene
+    let mut scene = Scene::new(camera, SceneSky::Black);
+
+    // Lights
+    scene.add_light(PointLight::with_origin(look_from).with_intensity(2000.0));
+    
+    let mut mesh_builder = ObjMeshBuilder::default();
+
+    load_interceptor(&mut mesh_builder);
+
+    let int_origin = look_to;
+    let (int_mesh, int_tex) = mesh_builder.build_mesh_and_texture("default");
+    let int_mat = scene.add_material(MatLambertian::default());
+    let int_tex = scene.add_texture(int_tex);
+    let int_mesh = MeshObject::new(&int_mesh, int_mat, int_tex)
+        // Interceptor model is facing +Z rotated on its side (X UP?)
+        .rotated(V3::POS_Z, -deg_to_rad(90.0));
+    
+    let range = (-600..=0).step_by(60);
+
+    for x in range.clone() {
+        for y in range.clone() {
+            for z in range.clone() {
+                let origin = V3(x as f32, y as f32, z as f32);
+                scene.add_object(int_mesh.clone().translated(origin));
+            }
+        }
+    }
 
     scene
 }
