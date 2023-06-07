@@ -1,10 +1,9 @@
 use std::sync::{ Arc };
-use std::sync::atomic::{ AtomicBool, Ordering };
-use std::thread::{ spawn, JoinHandle };
+use std::thread::{ JoinHandle, spawn };
 use std::time::{ Instant, Duration };
 
-use eframe::egui;
-use rand::{ thread_rng };
+use cancellation::{ CancellationToken, CancellationTokenSource };
+use eframe::egui::{self, Spinner};
 use flume::{ Receiver, Sender };
 use raytracer_impl::implementation::{ Scene, RenderSettings };
 use raytracer_impl::viewport::{ RenderChunk, Viewport, create_render_chunks };
@@ -53,6 +52,7 @@ pub struct App {
     scene_configs: Vec<SceneConfig>,
     // Temporal state
     output_texture: Option<(egui::TextureHandle, [usize; 2])>,
+    render_job_creating: Option<ConstructRenderJob>,
     render_job: Option<RenderJob>,
     frame_history: FrameHistory,
 }
@@ -84,6 +84,7 @@ impl App {
             scene_configs,
             // Temporal state
             output_texture: None,
+            render_job_creating: None,
             render_job: None,
             frame_history: FrameHistory::default(),
         }
@@ -94,51 +95,37 @@ impl App {
         // Stop running worker threads if an existing job is in progress
         if let Some(render_job) = self.render_job.take() {
             // Start shutdown of all threads
-            render_job.worker_handle.halt_flag.store(true, Ordering::Relaxed);
+            render_job.worker_handle.cts.cancel();
         }
 
-        let st = &self.settings;
+        let scene_factory = self.scene_configs[self.settings.scene].factory;
 
-        // Create render work arguments
-        let viewport = Viewport::new(st.width, st.height);
-        let camera_config = CameraConfiguration {
-            width: st.width as f32,
-            height: st.height as f32,
-            fov: st.camera_fov,
-            aperture: st.camera_aperture,
-            angle_adjust_v: st.camera_angle_adjust_v,
-            angle_adjust_h: st.camera_angle_adjust_h,
-            focus_dist_adjust: st.camera_focus_dist_adjust,
-        };
-
-        let factory = self.scene_configs[st.scene].factory;
-        let mut scene = factory(&camera_config);
-
-        scene.reorganize_objects_into_bvh();
-        
-        let settings = RenderSettings {
-            max_reflections: st.max_reflections,
-            samples_per_pixel: st.samples_per_pixel,
-        };
-
-        // Chunks are popped from this list as they are rendered.
-        // Reverse the list so the top of the image is rendered first.
-        let mut chunks = create_render_chunks(&viewport, st.chunk_count);
-        chunks.reverse();
-
-        self.render_job = Some(RenderJob {
-            render_args: Arc::new((scene, settings)),
-            total_chunk_count: chunks.len() as u32,
-            completed_chunk_count: 0,
-            pending_chunks: chunks,
-            start_time: Instant::now(),
-            render_time_secs: 0_f64,
-            buffer: RgbaBuffer::new(st.width, st.height),
-            worker_handle: start_background_render_threads(st.thread_count),
-        });
+        let render_job_creating = start_background_construct_render_job(self.settings.clone(), scene_factory);
+        self.render_job_creating = Some(render_job_creating);
     }
 
-    fn update(&mut self) -> bool {
+    fn update_pending_job(&mut self) -> bool {
+
+        let is_creating_job = self.render_job_creating.is_some();
+        if !is_creating_job {
+            return false;
+        }
+
+        let is_job_finished = self.render_job_creating.as_ref().unwrap().handle.is_finished();
+        if !is_job_finished {
+            // Trigger immediate repaint to ensure we keep checking
+            return true;
+        }
+            
+        let job_creating = self.render_job_creating.take().unwrap();
+        if let Ok(job) = job_creating.handle.join() {
+            self.render_job = Some(job);
+        }
+
+        return false;
+    }
+
+    fn update_job(&mut self) -> bool {
         use RenderThreadMessage::*;
 
         let mut buffer_updated = false;
@@ -193,20 +180,23 @@ impl App {
     }
 }
 
+const RNG_SEED: u64 = 12345;
+
 fn start_render_thread(
     id: ThreadId,
-    should_halt: impl Fn() -> bool,
+    cancellation_token: &CancellationToken,
     work_receiver: &Receiver<RenderWork>,
     result_sender: &Sender<RenderThreadMessage>
 ) -> Result<(), BoxError> {
     use RenderThreadMessage::*;
+    use rand::{ SeedableRng };
+    use rand_xorshift::{ XorShiftRng };
 
-    let mut rng = thread_rng();
     result_sender.send(Ready(id))?;
 
     // Receive messages
     for RenderWork(chunk, args) in work_receiver.into_iter() {
-        if should_halt() {
+        if cancellation_token.is_canceled() {
             return Ok(());
         }
         // Paint in-progress chunks green
@@ -216,12 +206,14 @@ fn start_render_thread(
             buffer.put_pixel(p.chunk_x, p.chunk_y, green);
         }
         result_sender.send(FrameUpdated(id, chunk.clone(), buffer.clone()))?;
+        // Using the same seeded RNG for every frame makes every run repeatable
+        let mut rng = XorShiftRng::seed_from_u64(RNG_SEED);
         // Render the scene chunk
         let (scene, render_settings) = args.as_ref();
         let time = Instant::now();
         // For each x, y coordinate in this view chunk, cast a ray.
         for p in chunk.iter_pixels() {
-            if should_halt() {
+            if cancellation_token.is_canceled() {
                 return Ok(());
             }
             // Convert to view-relative coordinates
@@ -248,25 +240,24 @@ struct RenderThread {
 }
 
 struct RenderWorkerHandle {
-    halt_flag: Arc<AtomicBool>,
+    cts: CancellationTokenSource,
     work_sender: Sender<RenderWork>,
     result_receiver: Receiver<RenderThreadMessage>,
     thread_handles: Vec<RenderThread>,
 }
 
 fn start_background_render_threads(render_thread_count: u32) -> RenderWorkerHandle {
-    let halt_flag = Arc::new(AtomicBool::new(false));
+    let cts = CancellationTokenSource::new();
     let (work_sender, work_receiver) = flume::bounded(render_thread_count as usize);
     let (result_sender, result_receiver) = flume::unbounded();
 
     let thread_handles = (0..render_thread_count)
         .map(|id| {
-            let halt_flag = halt_flag.clone();
-            let should_halt = move || halt_flag.load(Ordering::Relaxed);
+            let cancellation_token = cts.token().clone();
             let work_receiver = work_receiver.clone();
             let result_sender = result_sender.clone();
             let handle = spawn(move || {
-                if let Err(err) = start_render_thread(id, should_halt, &work_receiver, &result_sender) {
+                if let Err(err) = start_render_thread(id, &cancellation_token, &work_receiver, &result_sender) {
                     println!("Thread {id} terminated due to error: {err}");
                 }
                 // Notify master thread that we've terminated.
@@ -283,11 +274,67 @@ fn start_background_render_threads(render_thread_count: u32) -> RenderWorkerHand
         .collect::<Vec<_>>();
 
     RenderWorkerHandle {
-        halt_flag,
+        cts,
         work_sender,
         result_receiver,
         thread_handles,
     }
+}
+
+struct ConstructRenderJob {
+    handle: JoinHandle<RenderJob>,
+}
+
+fn start_background_construct_render_job(st: Settings, factory: fn(&CameraConfiguration) -> Scene) -> ConstructRenderJob {
+    let handle = std::thread::spawn(move || {
+    
+        // Create render work arguments
+        let viewport = Viewport::new(st.width, st.height);
+        let camera_config = CameraConfiguration {
+            width: st.width as f32,
+            height: st.height as f32,
+            fov: st.camera_fov,
+            aperture: st.camera_aperture,
+            angle_adjust_v: st.camera_angle_adjust_v,
+            angle_adjust_h: st.camera_angle_adjust_h,
+            focus_dist_adjust: st.camera_focus_dist_adjust,
+        };
+
+        let start = Instant::now();
+
+        let mut scene = factory(&camera_config);
+
+        println!("Constructed Scene in {}ms", start.elapsed().as_millis());
+
+        let start = Instant::now();
+
+        scene.reorganize_objects_into_bvh();
+
+        println!("Constructed Bounding Volume Hierachy in {}ms", start.elapsed().as_millis());
+        
+        let settings = RenderSettings {
+            max_reflections: st.max_reflections,
+            samples_per_pixel: st.samples_per_pixel,
+        };
+
+        // Chunks are popped from this list as they are rendered.
+        // Reverse the list so the top of the image is rendered first.
+        let mut chunks = create_render_chunks(&viewport, st.chunk_count);
+        chunks.reverse();
+
+        RenderJob {
+            render_args: Arc::new((scene, settings)),
+            total_chunk_count: chunks.len() as u32,
+            completed_chunk_count: 0,
+            pending_chunks: chunks,
+            start_time: Instant::now(),
+            render_time_secs: 0_f64,
+            buffer: RgbaBuffer::new(st.width, st.height),
+            worker_handle: start_background_render_threads(st.thread_count),
+        }
+    });
+
+    ConstructRenderJob { handle }
 }
 
 impl eframe::App for App {
@@ -303,7 +350,15 @@ impl eframe::App for App {
 
         self.frame_history.on_new_frame(ctx.input().time, frame.info().cpu_usage);
 
-        let buffer_updated = self.update();
+        // Ensure we keep updating the UI as long as there's a job being created,
+        // as we rely on the update loop to keep checking the factory thread.
+        
+        let job_pending = self.update_pending_job(); 
+        if job_pending {
+            ctx.request_repaint();
+        }
+
+        let buffer_updated = self.update_job();
         if buffer_updated {
             // Update the output texture
             if let Some(job) = self.render_job.as_ref() {
@@ -325,8 +380,13 @@ impl eframe::App for App {
         }
 
         egui::CentralPanel::default().show(ctx, |ui| {
+            if self.render_job_creating.is_some() {
+                ui.centered_and_justified(|ui| {
+                    ui.add(Spinner::new());
+                });
+            }
             // Output image
-            if let Some((id, dim)) = &self.output_texture {
+            else if let Some((id, dim)) = &self.output_texture {
                 ui.centered_and_justified(|ui| {
                     let (width, height) = match dim {
                         // Scale the output texture to fit in the container

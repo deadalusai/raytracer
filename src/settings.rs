@@ -1,7 +1,7 @@
 use eframe::{ egui };
 use raytracer_samples::CameraConfiguration;
 
-#[derive(Debug, serde::Deserialize, serde::Serialize)]
+#[derive(Debug, Clone, serde::Deserialize, serde::Serialize)]
 pub struct Settings {
     pub scene: usize,
     pub width: usize,

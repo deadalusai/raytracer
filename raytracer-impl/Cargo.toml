@@ -5,5 +5,5 @@ authors = ["Benjamin Fox <deadalus.ai@gmail.com>"]
 edition = "2018"
 
 [dependencies]
-rand = "0.6"
+rand = "0.8"
 thiserror = "1.0"
