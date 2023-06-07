@@ -1,4 +1,5 @@
 use std::collections::{HashMap, HashSet};
+use std::sync::{Arc};
 
 use crate::shapes::{Mesh, MeshFace};
 use crate::texture::{MeshTexture, MeshTextureSet, ColorMap};
@@ -8,7 +9,7 @@ use crate::obj_format::{ObjObject, ObjMaterial};
 pub struct ObjMeshBuilder {
     objects: HashMap<String, ObjObject>,
     materials: HashMap<String, ObjMaterial>,
-    color_maps: HashMap<String, std::sync::Arc<ColorMap>>,
+    color_maps: HashMap<String, Arc<ColorMap>>,
 }
 
 impl ObjMeshBuilder {
@@ -27,7 +28,7 @@ impl ObjMeshBuilder {
     }
 
     pub fn add_color_map(&mut self, name: &str, color_map: ColorMap) {
-        self.color_maps.insert(name.to_string(), std::sync::Arc::new(color_map));
+        self.color_maps.insert(name.to_string(), Arc::new(color_map));
     }
 
     pub fn build_mesh_and_texture(&self, object_name: &str) -> (Mesh, MeshTextureSet) {
@@ -72,7 +73,7 @@ impl ObjMeshBuilder {
         let mut faces = Vec::new();
         for face in obj.faces.iter() {
 
-            let texture_key = face.mtl.as_ref().and_then(|name| textures.iter().position(|m| &m.name == name));
+            let tex_key = face.mtl.as_ref().and_then(|name| textures.iter().position(|m| &m.name == name));
             
             faces.push(MeshFace {
                 a: get_vertex(face.a.vertex_index),
@@ -81,7 +82,7 @@ impl ObjMeshBuilder {
                 a_uv: get_uv_vertex(face.a.uv_index),
                 b_uv: get_uv_vertex(face.b.uv_index),
                 c_uv: get_uv_vertex(face.c.uv_index),
-                tex_key: texture_key,
+                tex_key,
             });
         }
 

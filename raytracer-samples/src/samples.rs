@@ -779,6 +779,40 @@ pub fn point_cloud(config: &CameraConfiguration) -> Scene {
     scene
 }
 
+pub fn mega_cube(config: &CameraConfiguration) -> Scene {
+    // Camera
+    let look_dist = 300.0;
+    let look_from = position!(Up(look_dist), South(look_dist), East(look_dist));
+    let look_to =   position!(Origin);
+    let camera = config.make_camera(look_to, look_from);
+
+    // Scene
+    let mut scene = Scene::new(camera, SceneSky::Black);
+
+    // Lights
+    let lamp_pos = look_from;
+    let lamp_direction = look_to - lamp_pos;
+    scene.add_light(DirectionalLight::with_direction(lamp_direction).with_intensity(0.9));
+
+    let int_mat = scene.add_material(MatLambertian::default());
+    let int_tex = scene.add_texture(ColorTexture(V3(1.0, 0.41, 0.70))); // #FF69B4;
+    
+    let range = (-100..=100).step_by(25);
+
+    for x in range.clone() {
+        for y in range.clone() {
+            for z in range.clone() {
+                scene.add_object(
+                    Sphere::new(10.0, int_mat, int_tex)
+                        .translated(V3(x as f32, y as f32, z as f32))
+                );
+            }
+        }
+    }
+
+    scene
+}
+
 pub fn fleet(config: &CameraConfiguration) -> Scene {
     
     let dist = 100.0;
@@ -798,7 +832,6 @@ pub fn fleet(config: &CameraConfiguration) -> Scene {
 
     load_interceptor(&mut mesh_builder);
 
-    let int_origin = look_to;
     let (int_mesh, int_tex) = mesh_builder.build_mesh_and_texture("default");
     let int_mat = scene.add_material(MatLambertian::default());
     let int_tex = scene.add_texture(int_tex);
