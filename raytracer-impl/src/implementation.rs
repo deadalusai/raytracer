@@ -359,7 +359,7 @@ impl Camera {
 // Core raytracing routine
 //
 
-const BIAS: f32 = 0.001;
+const BIAS: f32 = 0.004;
 
 // Sky
 
