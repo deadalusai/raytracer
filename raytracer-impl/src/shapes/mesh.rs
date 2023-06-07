@@ -1,3 +1,5 @@
+use std::sync::Arc;
+
 use crate::types::{ V3, V2, Ray };
 use crate::implementation::{ Hitable, HitRecord, AABB, MatId, TexId };
 
@@ -196,7 +198,9 @@ impl MeshFace {
 pub struct MeshObject {
     object_id: Option<u32>,
     origin: V3,
-    root_node: MeshBvhNode,
+    // NOTE: Store the root node in an Arc so that all
+    // clones of this MeshObject will share their internal mesh representation.
+    root_node: Arc<MeshBvhNode>,
     mat_id: MatId,
     tex_id: TexId,
 }
@@ -206,7 +210,7 @@ impl MeshObject {
         MeshObject {
             object_id: None,
             origin: V3::ZERO,
-            root_node: build_face_bounding_volume_hierachy(&mesh.faces),
+            root_node: Arc::new(build_face_bounding_volume_hierachy(&mesh.faces)),
             mat_id,
             tex_id,
         }
