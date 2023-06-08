@@ -296,7 +296,7 @@ fn start_background_construct_render_job(st: Settings, factory: fn(&CameraConfig
             width: st.width as f32,
             height: st.height as f32,
             fov: st.camera_fov,
-            aperture: st.camera_aperture,
+            lens_radius: st.camera_lens_radius,
             angle_adjust_v: st.camera_angle_adjust_v,
             angle_adjust_h: st.camera_angle_adjust_h,
             focus_dist_adjust: st.camera_focus_dist_adjust,

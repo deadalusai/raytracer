@@ -6,7 +6,7 @@ use std::sync::Arc;
 
 use crate::types::{ V3, Ray, IntoArc };
 use crate::implementation::{ Material, MatRecord, Reflect, Refract, HitRecord, Texture };
-use crate::implementation::{ random_normal_reflection_angle, random_point_in_unit_sphere };
+use crate::implementation::{ random_normal_reflection_angle };
 
 use rand::{ RngCore };
 
@@ -93,7 +93,7 @@ impl Material for MatSpecular {
             if self.fuzz == 0.0 {
                 reflected
             } else {
-                reflected + (random_point_in_unit_sphere(rng) * self.fuzz)
+                reflected + (random_normal_reflection_angle(hit_record.normal, rng).unit() * self.fuzz)
             };
 
         let reflection =

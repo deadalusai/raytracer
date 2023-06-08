@@ -45,7 +45,7 @@ fn deg_to_rad(deg: f32) -> f32 {
 pub struct CameraConfiguration {
     pub width: f32,
     pub height: f32,
-    pub aperture: f32,
+    pub lens_radius: f32,
     pub fov: f32,
     pub angle_adjust_v: f32,
     pub angle_adjust_h: f32,
@@ -77,7 +77,7 @@ impl CameraConfiguration {
         };
         let dist_to_focus = (look_from - look_to).length() + self.focus_dist_adjust;
         
-        Camera::new(look_from, look_to, self.fov, self.aspect_ratio(), self.aperture, dist_to_focus)
+        Camera::new(look_from, look_to, self.fov, self.aspect_ratio(), self.lens_radius, dist_to_focus)
     }
 }
 

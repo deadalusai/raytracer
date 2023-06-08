@@ -11,29 +11,11 @@ const PI: f32 = std::f32::consts::PI;
 const TWO_PI: f32 = 2.0 * PI;
 const HALF_PI: f32 = PI / 2.0;
 
-pub fn random_point_in_unit_sphere(rng: &mut dyn RngCore) -> V3 {
-    //  Select a random point in a unit sphere using spherical co-ordinates.
-    //  Pick
-    //      - theta with range [0, 2pi)
-    //      - phi with range [-pi/2, pi/2]
-    //      - radius with range [0, 1]
-
-    let theta = rng.gen::<f32>() * TWO_PI;
-    let phi = rng.gen::<f32>() * HALF_PI * 2.0 - HALF_PI;
-    let r = rng.gen::<f32>();
-    
-    let x = r * theta.cos() * phi.cos();
-    let y = r * phi.sin();
-    let z = r * theta.sin() * phi.cos();
-
-    V3(x, y, z)
-}
-
 /// Given a {normal}, pick a random deflection from that normal of
 /// between 0 and 90 degrees, at any angle around the normal
 pub fn random_normal_reflection_angle(normal: V3, rng: &mut dyn RngCore) -> V3 {
-    let theta1 = rng.gen::<f32>() * PI / 2.0; // First angle, deflection from normal 0-90 deg
-    let theta2 = rng.gen::<f32>() * PI * 2.0; // Second angle, rotation around normal 0-360 deg
+    let theta1 = rng.gen::<f32>() * HALF_PI; // First angle, deflection from normal 0-90 deg
+    let theta2 = rng.gen::<f32>() * TWO_PI; // Second angle, rotation around normal 0-360 deg
     
     fn arbitrary_perpendicular_vector(v: V3) -> V3 {
         // Pick another arbitrary vector {k} which is not parallel to the input vector {v}
@@ -325,7 +307,7 @@ pub struct Camera {
 }
 
 impl Camera {
-    pub fn new(look_from: V3, look_at: V3, v_fov: f32, aspect_ratio: f32, lens_aperture: f32, focus_dist: f32) -> Camera {
+    pub fn new(look_from: V3, look_at: V3, v_fov: f32, aspect_ratio: f32, lens_radius: f32, focus_dist: f32) -> Camera {
         // NOTE: Hard code v_up as vertical for now
         let v_up = V3(0.0, 1.0, 0.0);
         let theta = v_fov * PI / 180.0;
@@ -334,15 +316,14 @@ impl Camera {
         let w = (look_from - look_at).unit(); // Vector from target to camera origin 
         let u = V3::cross(v_up, w).unit();    // Vector from camera origin to camera right
         let v = V3::cross(w, u);              // Vector from camera origin to camera top
-        let lens_radius = lens_aperture / 2.0;
         Camera {
             lower_left_corner: look_from - (u * half_width * focus_dist) - (v * half_height * focus_dist) - (w * focus_dist),
             horizontal: u * (2.0 * half_width * focus_dist),
             vertical: v * (2.0 * half_height * focus_dist),
             origin: look_from,
-            u: u,
-            v: v,
-            lens_radius: lens_radius,
+            u,
+            v,
+            lens_radius,
         }
     }
 
@@ -502,7 +483,7 @@ fn cast_ray(ray: &Ray, scene: &Scene, rng: &mut dyn RngCore, max_reflections: u3
     cast_ray_recursive(ray, scene, rng, max_reflections).clamp()
 }
 
-pub fn cast_rays_into_scene(settings: &RenderSettings, scene: &Scene, viewport: &Viewport, x: usize, y: usize, rng: &mut impl RngCore) -> V3 {
+pub fn cast_rays_into_scene(settings: &RenderSettings, scene: &Scene, viewport: &Viewport, x: usize, y: usize, rng: &mut dyn RngCore) -> V3 {
     let mut col = V3(0.0, 0.0, 0.0);
     // Implement anti-aliasing by taking the average color of ofsett rays cast around these x, y coordinates.
     for _ in 0..settings.samples_per_pixel {
@@ -513,8 +494,8 @@ pub fn cast_rays_into_scene(settings: &RenderSettings, scene: &Scene, viewport: 
         let v = (viewport.height - y) as f32 / viewport.height as f32;
         // Apply lens deflection for focus blur
         let lens_deflection = if settings.samples_per_pixel > 1 {
-            let p = random_point_in_unit_sphere(rng);
-            (p.x(), p.y())
+            (rng.gen::<f32>() * 2.0 - 1.0,
+             rng.gen::<f32>() * 2.0 - 1.0)
         } else {
             (0.0, 0.0)
         };
