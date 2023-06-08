@@ -36,11 +36,14 @@ pub fn random_normal_reflection_angle(normal: V3, rng: &mut dyn RngCore) -> V3 {
     let theta2 = rng.gen::<f32>() * PI * 2.0; // Second angle, rotation around normal 0-360 deg
     
     fn arbitrary_perpendicular_vector(v: V3) -> V3 {
-        // Pick another arbitrary vector which is not parallel to the input vector
-        let v2 = v + if v.y() == -1.0 { V3::NEG_Y } else { V3::POS_Y };
-        // The cross product returns a vector which is perpendicular to the input vector {v}.
-        // The orientation of that vector depends on the vector {v2} and so is arbitrary
-        V3::cross(v, v2)
+        // Pick another arbitrary vector {k} which is not parallel to the input vector {v}
+        //
+        // The cross product produces a vector which is perpendicular to the input vector {v}
+        // unless {v} and {v2} are parallel in which case it produces (0,0,0).
+        //
+        // The orientation of the final vector depends on the relationship between {v} and {v2} and so is arbitrary
+        let p = V3::cross(v, V3::POS_X);
+        if p != V3::ZERO { p } else { V3::cross(v, V3::POS_Y) }
     }
 
     normal
