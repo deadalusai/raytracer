@@ -237,16 +237,15 @@ pub(crate) use derive_into_arc;
 pub struct V2(pub f32, pub f32); // x, y
 
 impl V2 {
+    pub const ZERO: V2 = V2(0.0, 0.0);
+    pub const ONE: V2  = V2(1.0, 1.0);
+    
     pub fn x(&self) -> f32 {
         self.0
     }
     
     pub fn y(&self) -> f32 {
         self.1
-    }
-
-    pub fn zero() -> Self {
-        V2(0.0, 0.0)
     }
 }
 
@@ -324,6 +323,6 @@ impl Neg for V2 {
 
 impl Default for V2 {
     fn default() -> V2 {
-        V2::zero()
+        V2::ZERO
     }
 }

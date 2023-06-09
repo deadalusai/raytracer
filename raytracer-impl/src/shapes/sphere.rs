@@ -62,7 +62,7 @@ impl Hitable for Sphere {
             p,
             normal,
             //  TODO: UV on a sphere
-            uv: V2::zero(),
+            uv: V2::ZERO,
             mat_id: self.mat_id,
             tex_id: self.tex_id,
             tex_key: None,

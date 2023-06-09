@@ -637,7 +637,8 @@ pub fn interceptor(config: &CameraConfiguration) -> Scene {
     let int_mesh = MeshObject::new(&int_mesh, int_mat, int_tex)
         .with_origin(int_origin)
         // Interceptor model is facing +Z rotated on its side (X UP?)
-        .rotated(V3::POS_Z, -deg_to_rad(90.0));
+        .rotated(V3::POS_Z, -deg_to_rad(90.0))
+        .rotated(V3::POS_Y, deg_to_rad(180.0));
 
     let int2_mesh = int_mesh.clone()
         .translated(position!(North(45.0), Down(10.0)))

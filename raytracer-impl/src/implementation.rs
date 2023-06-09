@@ -327,11 +327,11 @@ impl Camera {
         }
     }
 
-    pub fn get_ray(&self, x: f32, y: f32, lens_deflection: (f32, f32)) -> Ray {
-        // Deflect the origin point of the ray.
+    pub fn get_ray(&self, x: f32, y: f32, lens_deflection: V2) -> Ray {
+        // Deflect the origin point of the ray.x
         // By casting multiple rays for the same pixel in this way we can simulate camera focus.
-        let lens_deflection_x = lens_deflection.0 * self.lens_radius;
-        let lens_deflection_y = lens_deflection.1 * self.lens_radius;
+        let lens_deflection_x = lens_deflection.x() * self.lens_radius;
+        let lens_deflection_y = lens_deflection.y() * self.lens_radius;
         let offset = (self.u * lens_deflection_x) + (self.v * lens_deflection_y);
         let origin = self.origin + offset;
         let direction = self.lower_left_corner + (self.horizontal * x) + (self.vertical * y) - self.origin - offset;
@@ -494,10 +494,10 @@ pub fn cast_rays_into_scene(settings: &RenderSettings, scene: &Scene, viewport: 
         let v = (viewport.height - y) as f32 / viewport.height as f32;
         // Apply lens deflection for focus blur
         let lens_deflection = if settings.samples_per_pixel > 1 {
-            (rng.gen::<f32>() * 2.0 - 1.0,
-             rng.gen::<f32>() * 2.0 - 1.0)
+            V2(rng.gen::<f32>() * 2.0 - 1.0,
+               rng.gen::<f32>() * 2.0 - 1.0)
         } else {
-            (0.0, 0.0)
+            V2::ZERO
         };
         // Cast a ray, and determine the color
         let ray = scene.camera.get_ray(u, v, lens_deflection);

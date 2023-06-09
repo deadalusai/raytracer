@@ -92,15 +92,16 @@ impl Texture for ColorMap {
 /// A texture loaded from an OBJ mtl ile
 pub struct MeshTexture {
     pub name: String,
+    pub ambient_color: V3,
     pub diffuse_color: V3,
     pub diffuse_color_map: Option<Arc<ColorMap>>,
 }
 
 impl Texture for MeshTexture {
     fn value(&self, hit_record: &HitRecord) -> V3 {
-        match self.diffuse_color_map {
-            Some(ref map) => map.value(hit_record),
-            None => self.diffuse_color.clone()
+        self.ambient_color + match self.diffuse_color_map {
+            Some(ref map) => map.value(hit_record) * self.diffuse_color,
+            None => self.diffuse_color
         }
     }
 }

@@ -62,6 +62,7 @@ impl ObjMeshBuilder {
 
             textures.push(MeshTexture {
                 name: mtl.name.clone(),
+                ambient_color: mtl.ambient_color,
                 diffuse_color: mtl.diffuse_color,
                 diffuse_color_map,
             });

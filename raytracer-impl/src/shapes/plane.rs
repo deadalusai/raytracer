@@ -80,7 +80,7 @@ impl Hitable for Plane {
             p,
             normal,
             // TODO(benf): UV mapping for plane
-            uv: V2::zero(),
+            uv: V2::ZERO,
             mat_id: self.mat_id,
             tex_id: self.tex_id,
             tex_key: None,

@@ -104,7 +104,7 @@ impl<'a> egui::Widget for SettingsWidget<'a> {
                 ui.label("Camera FOV");
                 ui.horizontal(|ui| {
                     ui.add(egui::DragValue::new(&mut st.camera_fov)
-                        .clamp_range(1.0..=360.0)
+                        .clamp_range(1.0..=100.0)
                         .speed(0.05)
                         .max_decimals(2)
                         .suffix("°"));
