@@ -87,7 +87,7 @@ impl<'a> egui::Widget for SettingsWidget<'a> {
                 
                 // Render threads
                 ui.label("Render threads");
-                ui.add(egui::DragValue::new(&mut st.thread_count).clamp_range(1..=8));
+                ui.add(egui::DragValue::new(&mut st.thread_count).clamp_range(1..=16));
                 ui.end_row();
                 
                 // Render chunks

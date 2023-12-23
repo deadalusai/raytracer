@@ -1,7 +1,7 @@
 use std::sync::Arc;
 
 use crate::types::{ V2, V3, Ray, IntoArc };
-use crate::viewport::{ Viewport };
+use crate::viewport::Viewport;
 
 use rand::{ RngCore, Rng };
 

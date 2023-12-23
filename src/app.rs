@@ -1,4 +1,4 @@
-use std::sync::{ Arc };
+use std::sync::Arc;
 use std::thread::{ JoinHandle, spawn };
 use std::time::{ Instant, Duration };
 
@@ -7,12 +7,12 @@ use eframe::egui::{self, Spinner};
 use flume::{ Receiver, Sender };
 use raytracer_impl::implementation::{ Scene, RenderSettings };
 use raytracer_impl::viewport::{ RenderChunk, Viewport, create_render_chunks };
-use raytracer_samples::{ CameraConfiguration };
+use raytracer_samples::CameraConfiguration;
 
 use crate::rgba::{ RgbaBuffer, v3_to_rgba };
-use crate::settings::{ SceneConfig };
-use crate::frame_history::{ FrameHistory };
-use crate::thread_stats::{ ThreadStats };
+use crate::settings::SceneConfig;
+use crate::frame_history::FrameHistory;
+use crate::thread_stats::ThreadStats;
 use crate::settings::{ SettingsWidget, Settings };
 
 fn duration_total_secs(elapsed: Duration) -> f64 {
@@ -191,8 +191,8 @@ fn start_render_thread(
     result_sender: &Sender<RenderThreadMessage>
 ) -> Result<(), BoxError> {
     use RenderThreadMessage::*;
-    use rand::{ SeedableRng };
-    use rand_xorshift::{ XorShiftRng };
+    use rand::SeedableRng;
+    use rand_xorshift::XorShiftRng;
 
     result_sender.send(Ready(id))?;
 
@@ -404,7 +404,6 @@ impl eframe::App for App {
         egui::Window::new("Settings")
             .resizable(false)
             .default_width(200.0)
-            .default_height(500.0)
             .show(ctx, |ui| {
                 ui.add(SettingsWidget::new(&mut self.settings, &self.scene_configs));
                 ui.separator();
@@ -425,9 +424,7 @@ impl eframe::App for App {
                     }
                 }
 
-                ui.with_layout(egui::Layout::bottom_up(egui::Align::Min), |ui| {
-                    self.frame_history.ui(ui);
-                });
+                self.frame_history.ui(ui);
             });
     }
 }
