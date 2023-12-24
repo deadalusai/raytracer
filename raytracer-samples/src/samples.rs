@@ -557,7 +557,7 @@ pub fn mesh_demo(config: &CameraConfiguration) -> Scene {
             .with_id(0));
 
     let mut mesh_builder = ObjMeshBuilder::default();
-    let loader = FileObjLoader::with_root_path(Path::new("./raytracer-samples/meshes"));
+    let loader = FileObjLoader::new(Path::new("./raytracer-samples/meshes"));
     mesh_builder.load_obj_data("cube.obj", &loader).unwrap();
     mesh_builder.load_obj_data("thing.obj", &loader).unwrap();
     mesh_builder.load_obj_data("suzanne.obj", &loader).unwrap();
@@ -627,7 +627,8 @@ pub fn spaceships(config: &CameraConfiguration) -> Scene {
 
     // Destroyer (facing EAST)
     let mut mesh_builder = ObjMeshBuilder::default();
-    load_destroyer(&mut mesh_builder);
+    let loader = FileObjLoader::new(Path::new("./raytracer-samples/meshes/Destroyer-K"));
+    mesh_builder.load_obj_data("Standarddestroyer.obj", &loader).unwrap();
     let dest_mesh_data = mesh_builder.build_mesh_data("default");
     let dest_mat = scene.add_material(MatLambertian::default());
     let dest_tex = scene.add_texture(dest_mesh_data.texture_set);
@@ -636,7 +637,8 @@ pub fn spaceships(config: &CameraConfiguration) -> Scene {
 
     // Interceptor (facing EAST)
     let mut mesh_builder = ObjMeshBuilder::default();
-    load_interceptor(&mut mesh_builder);
+    let loader = FileObjLoader::new(Path::new("./raytracer-samples/meshes/Interceptor-T"));
+    mesh_builder.load_obj_data("Heavyinterceptor.obj", &loader).unwrap();
     let int_mesh_data = mesh_builder.build_mesh_data("default");
     let int_mat = scene.add_material(MatLambertian::default());
     let int_tex = scene.add_texture(int_mesh_data.texture_set);
@@ -651,17 +653,6 @@ pub fn spaceships(config: &CameraConfiguration) -> Scene {
 
     scene.add_object(dest_mesh.translated(look_to));
     scene
-}
-
-fn load_interceptor(mesh_builder: &mut ObjMeshBuilder) {
-    let loader = FileObjLoader::with_root_path(Path::new("./raytracer-samples/meshes/Interceptor-T"));
-    mesh_builder.load_obj_data("Heavyinterceptor.obj", &loader).unwrap();
-}
-
-
-fn load_destroyer(mesh_builder: &mut ObjMeshBuilder) {
-    let loader = FileObjLoader::with_root_path(Path::new("./raytracer-samples/meshes/Destroyer-K"));
-    mesh_builder.load_obj_data("Standarddestroyer.obj", &loader).unwrap();
 }
 
 pub fn capsule(config: &CameraConfiguration) -> Scene {
@@ -694,7 +685,7 @@ pub fn capsule(config: &CameraConfiguration) -> Scene {
     
     // Capsule
     let mut mesh_builder = ObjMeshBuilder::default();
-    let loader = FileObjLoader::with_root_path(Path::new("./raytracer-samples/meshes/capsule"));
+    let loader = FileObjLoader::new(Path::new("./raytracer-samples/meshes/capsule"));
     mesh_builder.load_obj_data("capsule.obj", &loader).unwrap();
 
     let capsule_mesh_data = mesh_builder.build_mesh_data("default");
@@ -724,7 +715,7 @@ pub fn mesh_plane(config: &CameraConfiguration) -> Scene {
     scene.add_light(DirectionalLight::with_direction(lamp_direction).with_intensity(1.0));
 
     let mut mesh_builder = ObjMeshBuilder::default();
-    let loader = FileObjLoader::with_root_path(Path::new("./raytracer-samples/meshes/simple"));
+    let loader = FileObjLoader::new(Path::new("./raytracer-samples/meshes/simple"));
     mesh_builder.load_obj_data("plane.obj", &loader).unwrap();
 
     // Manually load a texture for the "Plane" object to use...
@@ -831,9 +822,9 @@ pub fn fleet(config: &CameraConfiguration) -> Scene {
     // Lights
     scene.add_light(PointLight::with_origin(look_from).with_intensity(2000.0));
     
-    let mut mesh_builder = ObjMeshBuilder::default(); 
-
-    load_interceptor(&mut mesh_builder);
+    let mut mesh_builder = ObjMeshBuilder::default();
+    let loader = FileObjLoader::new(Path::new("./raytracer-samples/meshes/Interceptor-T"));
+    mesh_builder.load_obj_data("Heavyinterceptor.obj", &loader).unwrap();
 
     let int_mesh_data = mesh_builder.build_mesh_data("default");
     let int_mat = scene.add_material(MatLambertian::default());

@@ -122,7 +122,7 @@ pub struct FileObjLoader {
 }
 
 impl FileObjLoader {
-    pub fn with_root_path(root_path: &Path) -> FileObjLoader {
+    pub fn new(root_path: &Path) -> FileObjLoader {
         FileObjLoader {
             root_path: root_path.to_path_buf(),
         }

@@ -105,7 +105,7 @@ pub struct ObjFile {
     pub objects: Vec<ObjObject>,
 }
 
-pub fn parse_obj_file(source: impl Read) -> Result<ObjFile, ObjError> {
+pub fn parse_obj_file(source: &mut dyn Read) -> Result<ObjFile, ObjError> {
     
     let mut objects = Vec::new();
 
@@ -194,7 +194,7 @@ pub struct MtlFile {
     pub materials: Vec<ObjMaterial>,
 }
 
-pub fn parse_mtl_file(source: impl Read) -> Result<MtlFile, ObjError> {
+pub fn parse_mtl_file(source: &mut dyn Read) -> Result<MtlFile, ObjError> {
     
     let mut materials = Vec::new();
 
