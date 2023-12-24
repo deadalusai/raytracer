@@ -1,5 +1,7 @@
-use raytracer_impl::texture::{ ColorMap };
-use raytracer_impl::types::{ V3 };
+use raytracer_impl::texture::ColorMap;
+use raytracer_impl::types::V3;
+
+use crate::ObjError;
 
 fn rgb_to_v3(pixel: &bmp::Pixel) -> V3 {
     let r = pixel.r as f32 / 255.0;
@@ -8,8 +10,8 @@ fn rgb_to_v3(pixel: &bmp::Pixel) -> V3 {
     V3(r, g, b)
 }
 
-fn load_bitmap_color_map<R: std::io::Read>(mut reader: R) -> ColorMap {
-    let image = bmp::from_reader(&mut reader).unwrap();
+pub fn load_bitmap_color_map<R: std::io::Read>(mut reader: R) -> Result<ColorMap, ObjError> {
+    let image = bmp::from_reader(&mut reader)?;
     let width = image.get_width();
     let height = image.get_height();
     let mut pixels = Vec::with_capacity((width * height) as usize);
@@ -24,13 +26,9 @@ fn load_bitmap_color_map<R: std::io::Read>(mut reader: R) -> ColorMap {
         }
     }
 
-    ColorMap {
+    Ok(ColorMap {
         width: width as usize,
         height: height as usize,
         pixels,
-    }
-}
-
-pub fn load_bitmap_from_bytes(bytes: &[u8]) -> ColorMap {
-    load_bitmap_color_map(bytes)
+    })
 }

@@ -1511,6 +1511,14 @@ name = "raytracer-impl"
 version = "0.1.0"
 dependencies = [
  "rand",
+]
+
+[[package]]
+name = "raytracer-obj"
+version = "0.1.0"
+dependencies = [
+ "bmp",
+ "raytracer-impl",
  "thiserror",
 ]
 
@@ -1518,10 +1526,10 @@ dependencies = [
 name = "raytracer-samples"
 version = "0.1.0"
 dependencies = [
- "bmp",
  "rand",
  "rand_xorshift",
  "raytracer-impl",
+ "raytracer-obj",
 ]
 
 [[package]]

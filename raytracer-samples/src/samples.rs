@@ -1,18 +1,17 @@
 #![allow(unused)]
 
 use std::f32::consts::PI;
+use std::path::Path;
 
 use raytracer_impl::texture::{ ColorTexture, CheckerTexture, UvTestTexture, XyzTestTexture, MeshTextureSet };
 use raytracer_impl::types::{ V3, Ray };
 use raytracer_impl::materials::{ MatLambertian, MatDielectric, MatSpecular };
-use raytracer_impl::shapes::{ Sphere, Plane, MeshObject, MeshFace, Mesh };
+use raytracer_impl::shapes::{ Sphere, Plane, MeshObject, MeshFace, Mesh, mesh };
 use raytracer_impl::transform::{ Translatable, Rotatable };
 use raytracer_impl::viewport::{ Viewport };
 use raytracer_impl::lights::{ PointLight, DirectionalLight, LampLight };
 use raytracer_impl::implementation::{ Scene, SceneSky, Camera, Material, MatId, TexId };
-use raytracer_impl::obj_data::{ ObjMeshBuilder };
-
-use crate::texture_loader::{ load_bitmap_from_bytes };
+use raytracer_obj::{ FileObjLoader, ObjMeshBuilder, ObjLoader };
 
 use rand::{ Rng };
 use rand_xorshift::{ XorShiftRng };
@@ -558,17 +557,18 @@ pub fn mesh_demo(config: &CameraConfiguration) -> Scene {
             .with_id(0));
 
     let mut mesh_builder = ObjMeshBuilder::default();
-    mesh_builder.load_obj_from_string(include_str!("../meshes/cube.obj"));
-    mesh_builder.load_obj_from_string(include_str!("../meshes/thing.obj"));
-    mesh_builder.load_obj_from_string(include_str!("../meshes/suzanne.obj"));
+    let loader = FileObjLoader::with_root_path(Path::new("./raytracer-samples/meshes"));
+    mesh_builder.load_obj_data("cube.obj", &loader).unwrap();
+    mesh_builder.load_obj_data("thing.obj", &loader).unwrap();
+    mesh_builder.load_obj_data("suzanne.obj", &loader).unwrap();
 
     // Cube
     let cube_mat = scene.add_material(MatLambertian::default().with_reflectivity(0.0));
     let cube_tex = scene.add_texture(ColorTexture(rgb(36, 193, 89)));
     let cube_origin = position!(South(1.5), West(1.5));
-    let (cube_mesh, _) = mesh_builder.build_mesh_and_texture("Cube");
+    let cube_mesh_data = mesh_builder.build_mesh_data("Cube");
     scene.add_object(
-        MeshObject::new(&cube_mesh, cube_mat, cube_tex)
+        MeshObject::new(&cube_mesh_data.mesh, cube_mat, cube_tex)
             .with_origin(cube_origin)
             .with_id(1)
             .rotated(V3::POS_Y, PI / 4.0)
@@ -578,9 +578,9 @@ pub fn mesh_demo(config: &CameraConfiguration) -> Scene {
     let thing_mat = scene.add_material(MatSpecular::default().with_reflectivity(0.8).with_fuzz(0.02));
     let thing_tex = scene.add_texture(ColorTexture(rgb(89, 172, 255)));
     let thing_origin = position!(North(1.5), East(1.5));
-    let (thing_mesh, _) = mesh_builder.build_mesh_and_texture("Thing");
+    let thing_mesh_data = mesh_builder.build_mesh_data("Thing");
     scene.add_object(
-        MeshObject::new(&thing_mesh, thing_mat, thing_tex)
+        MeshObject::new(&thing_mesh_data.mesh, thing_mat, thing_tex)
             .with_origin(thing_origin)
             .with_id(2)
     );
@@ -589,9 +589,9 @@ pub fn mesh_demo(config: &CameraConfiguration) -> Scene {
     let suz_mat = scene.add_material(MatDielectric::default().with_opacity(0.2).with_ref_index(0.8).with_reflectivity(0.0));
     let suz_tex = scene.add_texture(ColorTexture(rgb(255, 137, 58)));
     let suz_origin = position!(Origin);
-    let (suz_mesh, _) = mesh_builder.build_mesh_and_texture("Suzanne");
+    let suz_mesh_data = mesh_builder.build_mesh_data("Suzanne");
     scene.add_object(
-        MeshObject::new(&suz_mesh, suz_mat, suz_tex)
+        MeshObject::new(&suz_mesh_data.mesh, suz_mat, suz_tex)
             .with_origin(suz_origin)
             .with_id(3)
     );
@@ -599,68 +599,69 @@ pub fn mesh_demo(config: &CameraConfiguration) -> Scene {
     scene
 }
 
-pub fn interceptor(config: &CameraConfiguration) -> Scene {
+pub fn spaceships(config: &CameraConfiguration) -> Scene {
     
     // Camera
-    let look_from = position!(Up(40.0), South(100.0), East(120.0));
-    let look_to =   position!(Up(20.0));
+    let look_from = position!(Up(350.0), South(400.0), East(700.0));
+    let look_to =   position!(Down(50.0), West(350.0));
     let camera = config.make_camera(look_to, look_from);
 
     // Scene
     let mut scene = Scene::new(camera, SceneSky::Black);
 
     // Lights
-    let lamp_pos = position!(Up(20.0), East(20.0));
+    let lamp_pos = position!(Up(1000.0), East(1000.0));
     let lamp_direction = position!(Origin) - lamp_pos;
     scene.add_light(DirectionalLight::with_direction(lamp_direction).with_intensity(0.9));
 
     // World sphere
-    let world_radius = 1000.0;
+    let world_radius = 10_000.0;
     let world_mat = scene.add_material(MatLambertian::default());
     let world_tex = scene.add_texture(ColorTexture(rgb(200, 200, 200)));
-    let world_pos = position!(Down(world_radius), Down(20.0));
+    let world_pos = position!(Down(world_radius), Down(1000.0));
     scene.add_object(
         Sphere::new(world_radius, world_mat, world_tex)
             .with_origin(world_pos)
             .with_id(0)
     );
 
+    // Destroyer (facing EAST)
     let mut mesh_builder = ObjMeshBuilder::default();
-    
+    load_destroyer(&mut mesh_builder);
+    let dest_mesh_data = mesh_builder.build_mesh_data("default");
+    let dest_mat = scene.add_material(MatLambertian::default());
+    let dest_tex = scene.add_texture(dest_mesh_data.texture_set);
+    // NOTE: Destroyer model is facing +Z rotated on its side (X UP)
+    let dest_mesh = MeshObject::new(&dest_mesh_data.mesh, dest_mat, dest_tex).rotated(V3::POS_Z, -deg_to_rad(90.0));
+
+    // Interceptor (facing EAST)
+    let mut mesh_builder = ObjMeshBuilder::default();
     load_interceptor(&mut mesh_builder);
-
-    // Interceptor
-    let int_origin = look_to;
-    let (int_mesh, int_tex) = mesh_builder.build_mesh_and_texture("default");
+    let int_mesh_data = mesh_builder.build_mesh_data("default");
     let int_mat = scene.add_material(MatLambertian::default());
-    let int_tex = scene.add_texture(int_tex);
-    let int_mesh = MeshObject::new(&int_mesh, int_mat, int_tex)
-        .with_origin(int_origin)
-        // Interceptor model is facing +Z rotated on its side (X UP?)
-        .rotated(V3::POS_Z, -deg_to_rad(90.0))
-        .rotated(V3::POS_Y, deg_to_rad(180.0));
+    let int_tex = scene.add_texture(int_mesh_data.texture_set);
+    // NOTE: Interceptor model is facing +Z rotated on its side (X UP)
+    let int_mesh = MeshObject::new(&int_mesh_data.mesh, int_mat, int_tex).rotated(V3::POS_Z, -deg_to_rad(90.0));
 
-    let int2_mesh = int_mesh.clone()
-        .translated(position!(North(45.0), Down(10.0)))
-        .rotated(V3::POS_Z, -deg_to_rad(25.0))
-        .rotated(V3::POS_X, deg_to_rad(25.0));
+    // Spawn a few interceptors across the bow of the Destroyer
+    let int_origin = look_to + position!(Up(200.0), East(300.0), South(30.0));
+    scene.add_object(int_mesh.clone().translated(int_origin + position!(East(15.0))));
+    scene.add_object(int_mesh.clone().translated(int_origin + position!(East(2.0), North(80.0), Down(30.0))));
+    scene.add_object(int_mesh.clone().translated(int_origin + position!(East(1.0), South(65.0), Down(15.0))));
 
-    scene.add_object(int_mesh);
-    scene.add_object(int2_mesh);
+    scene.add_object(dest_mesh.translated(look_to));
     scene
 }
 
 fn load_interceptor(mesh_builder: &mut ObjMeshBuilder) {
-    mesh_builder.load_obj_from_string(include_str!("../meshes/Interceptor-T/Heavyinterceptor.obj"));
-    mesh_builder.load_mtl_from_string(include_str!("../meshes/Interceptor-T/Heavyinterceptor.mtl"));
-    mesh_builder.add_color_map("engine_back.bmp", load_bitmap_from_bytes(include_bytes!("../meshes/Interceptor-T/engine_back.bmp")));
-    mesh_builder.add_color_map("intake_front.bmp", load_bitmap_from_bytes(include_bytes!("../meshes/Interceptor-T/intake_front.bmp")));
-    mesh_builder.add_color_map("page0.bmp", load_bitmap_from_bytes(include_bytes!("../meshes/Interceptor-T/page0.bmp")));
-    mesh_builder.add_color_map("page1.bmp", load_bitmap_from_bytes(include_bytes!("../meshes/Interceptor-T/page1.bmp")));
-    mesh_builder.add_color_map("page2.bmp", load_bitmap_from_bytes(include_bytes!("../meshes/Interceptor-T/page2.bmp")));
-    mesh_builder.add_color_map("Rwingbottem.bmp", load_bitmap_from_bytes(include_bytes!("../meshes/Interceptor-T/Rwingbottem.bmp")));
-    mesh_builder.add_color_map("rwinginside.bmp", load_bitmap_from_bytes(include_bytes!("../meshes/Interceptor-T/rwinginside.bmp")));
-    mesh_builder.add_color_map("topfin_sides.bmp", load_bitmap_from_bytes(include_bytes!("../meshes/Interceptor-T/topfin_sides.bmp")));
+    let loader = FileObjLoader::with_root_path(Path::new("./raytracer-samples/meshes/Interceptor-T"));
+    mesh_builder.load_obj_data("Heavyinterceptor.obj", &loader).unwrap();
+}
+
+
+fn load_destroyer(mesh_builder: &mut ObjMeshBuilder) {
+    let loader = FileObjLoader::with_root_path(Path::new("./raytracer-samples/meshes/Destroyer-K"));
+    mesh_builder.load_obj_data("Standarddestroyer.obj", &loader).unwrap();
 }
 
 pub fn capsule(config: &CameraConfiguration) -> Scene {
@@ -693,16 +694,15 @@ pub fn capsule(config: &CameraConfiguration) -> Scene {
     
     // Capsule
     let mut mesh_builder = ObjMeshBuilder::default();
-    mesh_builder.load_obj_from_string(include_str!("../meshes/capsule.obj"));
-    mesh_builder.load_mtl_from_string(include_str!("../meshes/capsule.mtl"));
-    mesh_builder.add_color_map("capsule.bmp", load_bitmap_from_bytes(include_bytes!("../textures/capsule.bmp")));
+    let loader = FileObjLoader::with_root_path(Path::new("./raytracer-samples/meshes/capsule"));
+    mesh_builder.load_obj_data("capsule.obj", &loader).unwrap();
 
-    let (capsule_mesh, capsule_tex) = mesh_builder.build_mesh_and_texture("default");
+    let capsule_mesh_data = mesh_builder.build_mesh_data("default");
     let capsule_mat = scene.add_material(MatLambertian::default());
-    let capsule_tex = scene.add_texture(capsule_tex);
+    let capsule_tex = scene.add_texture(capsule_mesh_data.texture_set);
     let capsule_origin = position!(Up(4.0));
     scene.add_object(
-        MeshObject::new(&capsule_mesh, capsule_mat, capsule_tex)
+        MeshObject::new(&capsule_mesh_data.mesh, capsule_mat, capsule_tex)
             .with_origin(capsule_origin)
     );
 
@@ -724,17 +724,19 @@ pub fn mesh_plane(config: &CameraConfiguration) -> Scene {
     scene.add_light(DirectionalLight::with_direction(lamp_direction).with_intensity(1.0));
 
     let mut mesh_builder = ObjMeshBuilder::default();
-    mesh_builder.load_obj_from_string(include_str!("../meshes/plane.obj"));
+    let loader = FileObjLoader::with_root_path(Path::new("./raytracer-samples/meshes/simple"));
+    mesh_builder.load_obj_data("plane.obj", &loader).unwrap();
 
-    let plane_color_map = load_bitmap_from_bytes(include_bytes!("../textures/test.bmp"));
+    // Manually load a texture for the "Plane" object to use...
+    let plane_color_map = loader.load_color_map("test.bmp").unwrap();
 
     // Plane
     let plane_mat = scene.add_material(MatLambertian::default());
     let plane_tex = scene.add_texture(plane_color_map);
     let plane_origin = look_to;
-    let (plane_mesh, _) = mesh_builder.build_mesh_and_texture("plane");
+    let plane_mesh_data = mesh_builder.build_mesh_data("plane");
     scene.add_object(
-        MeshObject::new(&plane_mesh, plane_mat, plane_tex)
+        MeshObject::new(&plane_mesh_data.mesh, plane_mat, plane_tex)
             .with_origin(plane_origin)
             .with_id(1)
     );
@@ -829,14 +831,14 @@ pub fn fleet(config: &CameraConfiguration) -> Scene {
     // Lights
     scene.add_light(PointLight::with_origin(look_from).with_intensity(2000.0));
     
-    let mut mesh_builder = ObjMeshBuilder::default();
+    let mut mesh_builder = ObjMeshBuilder::default(); 
 
     load_interceptor(&mut mesh_builder);
 
-    let (int_mesh, int_tex) = mesh_builder.build_mesh_and_texture("default");
+    let int_mesh_data = mesh_builder.build_mesh_data("default");
     let int_mat = scene.add_material(MatLambertian::default());
-    let int_tex = scene.add_texture(int_tex);
-    let int_mesh = MeshObject::new(&int_mesh, int_mat, int_tex)
+    let int_tex = scene.add_texture(int_mesh_data.texture_set);
+    let int_mesh = MeshObject::new(&int_mesh_data.mesh, int_mat, int_tex)
         // Interceptor model is facing +Z rotated on its side (X UP?)
         .rotated(V3::POS_Z, -deg_to_rad(90.0));
     

@@ -1,5 +1,5 @@
-use eframe::{ egui };
-use raytracer_samples::CameraConfiguration;
+use eframe::egui;
+use raytracer_samples::samples::CameraConfiguration;
 
 #[derive(Debug, Clone, serde::Deserialize, serde::Serialize)]
 pub struct Settings {

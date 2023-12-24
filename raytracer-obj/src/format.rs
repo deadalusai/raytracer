@@ -1,16 +1,7 @@
 use std::io::{BufRead, BufReader, Read};
 
-use crate::types::{ V2, V3 };
-
-#[derive(thiserror::Error, Debug)]
-pub enum ObjError {
-    #[error("Error parsing OBJ file: {0}")]
-    General(String),
-    #[error("IO Error")]
-    IoError(#[from] std::io::Error),
-    #[error("Int parse error")]
-    IntParseError(#[from] std::num::ParseIntError),
-}
+use raytracer_impl::types::{ V2, V3 };
+use crate::ObjError;
 
 // Obj parser
 //
@@ -109,11 +100,21 @@ pub fn try_parse_elements<T, const N: usize>(line: &str) -> Option<[T; N]>
     Some(values)
 }
 
-pub fn parse_obj_file(source: impl Read) -> Result<Vec<ObjObject>, ObjError> {
+pub struct ObjFile {
+    pub mtllib: Option<String>,
+    pub objects: Vec<ObjObject>,
+}
+
+pub fn parse_obj_file(source: impl Read) -> Result<ObjFile, ObjError> {
     
     let mut objects = Vec::new();
 
     // Braindead OBJ parser, supports o, v, vt & f directives only.
+
+    // File-level directives
+    let mut mtllib = None;
+
+    // Object-level directives
     let mut name = None;
     let mut vertices = Vec::new();
     let mut uv = Vec::new();
@@ -129,6 +130,14 @@ pub fn parse_obj_file(source: impl Read) -> Result<Vec<ObjObject>, ObjError> {
         }
         let directive = line.split(' ').next();
         match directive {
+            // mtllib directive
+            Some("mtllib") => {
+                mtllib = Some(line[6..].trim().to_string());
+            },
+            // usemtl directive
+            Some("usemtl") => {
+                mtl = Some(line[6..].trim().to_string());
+            },
             // Object
             Some("o") => {
                 // Starting a new object?
@@ -158,9 +167,6 @@ pub fn parse_obj_file(source: impl Read) -> Result<Vec<ObjObject>, ObjError> {
             Some("vn") => {
                 // TODO
             },
-            Some("usemtl") => {
-                mtl = Some(line[6..].trim().to_string());
-            },
             // Face
             Some("f") => {
                 let mtl = mtl.clone();
@@ -181,10 +187,14 @@ pub fn parse_obj_file(source: impl Read) -> Result<Vec<ObjObject>, ObjError> {
         uv,
     });
 
-    Ok(objects)
+    Ok(ObjFile { objects, mtllib })
 }
 
-pub fn parse_mtl_file(source: impl Read) -> Result<Vec<ObjMaterial>, ObjError> {
+pub struct MtlFile {
+    pub materials: Vec<ObjMaterial>,
+}
+
+pub fn parse_mtl_file(source: impl Read) -> Result<MtlFile, ObjError> {
     
     let mut materials = Vec::new();
 
@@ -255,5 +265,5 @@ pub fn parse_mtl_file(source: impl Read) -> Result<Vec<ObjMaterial>, ObjError> {
         });
     }
 
-    Ok(materials)
+    Ok(MtlFile { materials })
 }

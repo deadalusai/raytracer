@@ -7,7 +7,7 @@ use eframe::egui::{self, Spinner};
 use flume::{ Receiver, Sender };
 use raytracer_impl::implementation::{ Scene, RenderSettings };
 use raytracer_impl::viewport::{ RenderChunk, Viewport, create_render_chunks };
-use raytracer_samples::CameraConfiguration;
+use raytracer_samples::samples::CameraConfiguration;
 
 use crate::rgba::{ RgbaBuffer, v3_to_rgba };
 use crate::settings::SceneConfig;
@@ -73,11 +73,11 @@ impl App {
             SceneConfig { name: "Mirrors",        factory: raytracer_samples::samples::hall_of_mirrors },
             SceneConfig { name: "Triangles",      factory: raytracer_samples::samples::triangle_world },
             SceneConfig { name: "Mesh",           factory: raytracer_samples::samples::mesh_demo },
-            SceneConfig { name: "Interceptor",    factory: raytracer_samples::samples::interceptor },
             SceneConfig { name: "Capsule",        factory: raytracer_samples::samples::capsule },
             SceneConfig { name: "Mesh Plane",     factory: raytracer_samples::samples::mesh_plane },
             SceneConfig { name: "Point Cloud",    factory: raytracer_samples::samples::point_cloud },
             SceneConfig { name: "Mega Cube",      factory: raytracer_samples::samples::mega_cube },
+            SceneConfig { name: "Spaceships",     factory: raytracer_samples::samples::spaceships },
             SceneConfig { name: "Fleet",          factory: raytracer_samples::samples::fleet },
         ];
 
@@ -118,7 +118,7 @@ impl App {
             // Trigger immediate repaint to ensure we keep checking
             return true;
         }
-            
+
         let job_creating = self.render_job_creating.take().unwrap();
         if let Ok(job) = job_creating.handle.join() {
             self.render_job = Some(job);

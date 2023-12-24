@@ -1,8 +1,10 @@
 [package]
-name = "raytracer-impl"
+name = "raytracer-obj"
 version = "0.1.0"
 authors = ["Benjamin Fox <deadalus.ai@gmail.com>"]
 edition = "2018"
 
 [dependencies]
-rand = "0.8"
+raytracer-impl = { path = "../raytracer-impl" }
+thiserror = "1.0"
+bmp = "0.5.0"
