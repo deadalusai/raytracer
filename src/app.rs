@@ -1,5 +1,5 @@
 use std::sync::Arc;
-use std::thread::{ JoinHandle, spawn };
+use std::thread::JoinHandle;
 use std::time::{ Instant, Duration };
 
 use cancellation::{ CancellationToken, CancellationTokenSource };
@@ -54,6 +54,7 @@ pub struct App {
     output_texture: Option<(egui::TextureHandle, [usize; 2])>,
     render_job_creating: Option<ConstructRenderJob>,
     render_job: Option<RenderJob>,
+    error: Option<String>,
     frame_history: FrameHistory,
 }
 
@@ -88,6 +89,7 @@ impl App {
             output_texture: None,
             render_job_creating: None,
             render_job: None,
+            error: None,
             frame_history: FrameHistory::default(),
         }
     }
@@ -104,6 +106,7 @@ impl App {
 
         let render_job_creating = start_background_construct_render_job(self.settings.clone(), scene_factory);
         self.render_job_creating = Some(render_job_creating);
+        self.error = None;
     }
 
     fn update_pending_job(&mut self) -> bool {
@@ -120,8 +123,18 @@ impl App {
         }
 
         let job_creating = self.render_job_creating.take().unwrap();
-        if let Ok(job) = job_creating.handle.join() {
-            self.render_job = Some(job);
+        match job_creating.handle.join() {
+            Ok(job) => {
+                self.render_job = Some(job);
+            },
+            Err(panic) => {
+                self.error = Some(
+                    panic.downcast_ref::<String>()
+                        .map(|s| s.as_ref())
+                        .unwrap_or("Unknown error")
+                        .to_string()
+                );
+            },
         }
 
         return false;
@@ -258,17 +271,22 @@ fn start_background_render_threads(render_thread_count: u32) -> RenderWorkerHand
             let cancellation_token = cts.token().clone();
             let work_receiver = work_receiver.clone();
             let result_sender = result_sender.clone();
-            let handle = spawn(move || {
+            let work = move || {
                 if let Err(err) = start_render_thread(id, &cancellation_token, &work_receiver, &result_sender) {
                     println!("Thread {id} terminated due to error: {err}");
                 }
                 // Notify master thread that we've terminated.
                 // NOTE: There may be nobody listening...
                 result_sender.send(RenderThreadMessage::Terminated(id)).ok();
-            });
+            };
+            let handle = std::thread::Builder::new()
+                .name(format!("Render Thread {id}"))
+                .spawn(work)
+                .expect("failed to spawn render thread");
+
             RenderThread {
-                id: id,
-                handle: handle,
+                id,
+                handle,
                 total_time_secs: 0.0,
                 total_chunks_rendered: 0,
             }
@@ -288,7 +306,7 @@ struct ConstructRenderJob {
 }
 
 fn start_background_construct_render_job(st: Settings, factory: fn(&CameraConfiguration) -> Scene) -> ConstructRenderJob {
-    let handle = std::thread::spawn(move || {
+    let work = move || {
     
         // Create render work arguments
         let viewport = Viewport::new(st.width, st.height);
@@ -334,7 +352,12 @@ fn start_background_construct_render_job(st: Settings, factory: fn(&CameraConfig
             buffer: RgbaBuffer::new(st.width, st.height),
             worker_handle: start_background_render_threads(st.thread_count),
         }
-    });
+    };
+
+    let handle = std::thread::Builder::new()
+        .name("Construct Render Job".into())
+        .spawn(work)
+        .expect("failed to spawn background thread");
 
     ConstructRenderJob { handle }
 }
@@ -382,13 +405,20 @@ impl eframe::App for App {
         }
 
         egui::CentralPanel::default().show(ctx, |ui| {
+            // Output pending job status
             if self.render_job_creating.is_some() {
                 ui.centered_and_justified(|ui| {
                     ui.add(Spinner::new());
                 });
             }
-            // Output image
-            else if let Some((id, dim)) = &self.output_texture {
+            // Output error
+            else if let Some(error) = self.error.as_ref() {
+                ui.centered_and_justified(|ui| {
+                    ui.label(error);
+                });
+            }
+            // Output image in progress
+            else if let Some((id, dim)) = self.output_texture.as_ref() {
                 ui.centered_and_justified(|ui| {
                     let (width, height) = match dim {
                         // Scale the output texture to fit in the container
