@@ -29,7 +29,7 @@ pub struct ObjShared {
     pub uv: Vec<V2>,
 }
 
-pub struct ObjObject {
+pub struct ObjGroup {
     pub name: String,
     pub faces: Vec<ObjFace>,
     pub shared: Arc<ObjShared>,
@@ -106,31 +106,68 @@ pub fn try_parse_elements<T, const N: usize>(line: &str) -> Option<[T; N]>
     Some(values)
 }
 
+fn clean(line: &str) -> String {
+    line.trim().to_string()
+}
+
 pub struct ObjFile {
     pub mtllib: Option<String>,
-    pub objects: Vec<ObjObject>,
+    pub groups: Vec<ObjGroup>,
     pub shared: Arc<ObjShared>,
 }
 
-pub fn parse_obj_file(source: &mut dyn Read) -> Result<ObjFile, ObjError> {
-    
-    // A placeholder for shared vertex/uv data
-    // while we collect all vertices + uv coordinates as we process the file.
-    let shared = Arc::new(ObjShared::default());
-
-    let mut objects = Vec::new();
-
-    // Braindead OBJ parser, supports o, v, vt & f directives only.
-
+/// Braindead OBJ parser, supports o, v, vt & f directives only.
+#[derive(Default)]
+struct ObjFileParseState {
     // File-level directives
-    let mut mtllib = None;
+    mtllib: Option<String>,
+    vertices: Vec<V3>,
+    uv: Vec<V2>,
 
     // Object-level directives
-    let mut name = None;
-    let mut vertices = Vec::new();
-    let mut uv = Vec::new();
-    let mut faces = Vec::new();
-    let mut mtl = None;
+    group_name: Option<String>,
+    faces: Vec<ObjFace>,
+    mtl: Option<String>,
+
+    // A placeholder for shared vertex/uv data
+    // while we collect all vertices + uv coordinates as we process the input.
+    shared: Arc<ObjShared>,
+    
+    // Completed groups
+    groups: Vec<ObjGroup>,
+}
+
+impl ObjFileParseState {
+
+    fn try_push_group(&mut self) {
+        if self.faces.len() == 0 {
+            return;
+        }
+
+        self.groups.push(ObjGroup {
+            name: self.group_name.take().unwrap_or_else(|| "default".to_string()),
+            faces: std::mem::replace(&mut self.faces, Vec::new()),
+            shared: self.shared.clone(),
+        });
+    }
+
+    fn complete(self) -> ObjFile {
+        let mtllib = self.mtllib;
+        let mut groups = self.groups;
+        
+        // Fix shared data references
+        let shared = Arc::new(ObjShared { vertices: self.vertices, uv: self.uv });
+        for group in groups.iter_mut() {
+            group.shared = shared.clone();
+        }
+
+        ObjFile { mtllib, groups, shared }
+    }
+}
+
+pub fn parse_obj_file(source: &mut dyn Read) -> Result<ObjFile, ObjError> {
+
+    let mut state = ObjFileParseState::default();
 
     for (line_no, line) in BufReader::new(source).lines().enumerate() {
         let line = line?;
@@ -139,66 +176,49 @@ pub fn parse_obj_file(source: &mut dyn Read) -> Result<ObjFile, ObjError> {
         if line.starts_with("#") {
             continue;
         }
-        let directive = line.split(' ').next();
+        let directive = line.split_once(' ');
         match directive {
             // mtllib directive
-            Some("mtllib") => {
-                mtllib = Some(line[6..].trim().to_string());
+            Some(("mtllib", path)) => {
+                state.mtllib = Some(clean(path));
             },
             // usemtl directive
-            Some("usemtl") => {
-                mtl = Some(line[6..].trim().to_string());
+            Some(("usemtl", name)) => {
+                state.mtl = Some(clean(name));
             },
-            // Object
-            Some("o") => {
-                // Starting a new object?
-                if let Some(name) = name.take() {
-                    objects.push(ObjObject {
-                        name,
-                        shared: shared.clone(),
-                        faces: std::mem::replace(&mut faces, Vec::new()),
-                    });
-                }
-                name = Some(line[1..].trim().to_string());
+            // Face group
+            Some(("g", name)) => {
+                state.try_push_group();
+                state.group_name = Some(clean(name))
             },
             // Vertex
-            Some("v") => {
-                let [x, y, z] = try_parse_elements(&line[2..])
-                    .ok_or_else(|| ObjError::General(format!("Unable to parse vertex on line: {line_no}")))?;
-                vertices.push(V3(x, y, z));
+            Some(("v", data)) => {
+                let [x, y, z] = try_parse_elements(data).ok_or_else(|| ObjError::General(format!("Unable to parse vertex on line: {line_no}")))?;
+                state.vertices.push(V3(x, y, z));
             },
             // Texture vertex
-            Some("vt") => {
-                let [u, v] = try_parse_elements(&line[3..])
-                    .ok_or_else(|| ObjError::General(format!("Unable to parse texture vertex on line: {line_no}")))?;
-                uv.push(V2(u, v));
+            Some(("vt", data)) => {
+                let [u, v] = try_parse_elements(data).ok_or_else(|| ObjError::General(format!("Unable to parse texture vertex on line: {line_no}")))?;
+                state.uv.push(V2(u, v));
             },
             // Vertex normals
-            Some("vn") => {
+            Some(("vn", _)) => {
                 // TODO
             },
             // Face
-            Some("f") => {
-                let mtl = mtl.clone();
-                let [a, b, c] = try_parse_elements(&line[2..])
-                    .ok_or_else(|| ObjError::General(format!("Unable to parse face on line: {line_no}")))?;
-                faces.push(ObjFace { a, b, c, mtl });
+            Some(("f", data)) => {
+                let mtl = state.mtl.clone();
+                let [a, b, c] = try_parse_elements(data).ok_or_else(|| ObjError::General(format!("Unable to parse face on line: {line_no}")))?;
+                state.faces.push(ObjFace { a, b, c, mtl });
             },
             _ => {}
         }
     }
 
-    // Emit the last object
-    let name = name.unwrap_or_else(|| "default".to_string());
-    objects.push(ObjObject { name, faces, shared });
+    // Emit the last group
+    state.try_push_group();
 
-    // Fix shared data references
-    let shared = Arc::new(ObjShared { vertices, uv });
-    for obj in objects.iter_mut() {
-        obj.shared = shared.clone();
-    }
-
-    Ok(ObjFile { mtllib, objects, shared })
+    Ok(state.complete())
 }
 
 pub struct MtlFile {

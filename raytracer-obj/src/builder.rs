@@ -3,7 +3,7 @@ use std::sync::Arc;
 
 use raytracer_impl::shapes::{Mesh, MeshFace};
 use raytracer_impl::texture::{MeshTexture, MeshTextureSet, ColorMap};
-use super::format::{ObjObject, ObjMaterial, MtlFile, ObjFile};
+use super::format::{ObjGroup, ObjMaterial, MtlFile, ObjFile};
 use crate::ObjError;
 
 use std::path::Path;
@@ -15,23 +15,34 @@ pub struct MeshAndTextureData {
 
 #[derive(Default)]
 pub struct ObjMeshBuilder {
-    objects: HashMap<String, ObjObject>,
+    groups: Vec<ObjGroup>,
     materials: HashMap<String, ObjMaterial>,
     color_maps: HashMap<String, Arc<ColorMap>>,
 }
 
 impl ObjMeshBuilder {
 
-    pub fn object_names(&self) -> impl Iterator<Item=&str> {
-        self.objects.keys().map(|k| k.as_str())
+    pub fn group_names(&self) -> impl Iterator<Item=&str> {
+        self.groups.iter().map(|k| k.name.as_str())
     }
 
-    pub fn build_mesh_data(&self, object_name: &str) -> MeshAndTextureData {
+    pub fn build_mesh(&self) -> MeshAndTextureData {
+        self.inner_build_mesh(&|_| true)
+    }
 
-        let obj = self.objects.get(object_name).expect("Unable to find object");
+    pub fn build_mesh_group(&self, group_name: &str) -> MeshAndTextureData {
+        self.inner_build_mesh(&|g| g.name == group_name)
+    }
+
+    /// Build Mesh and Texture data.
+    /// If {group_name} is specified, filter mesh and texture data for that group only.
+    fn inner_build_mesh(&self, group_filter: &dyn Fn(&ObjGroup) -> bool) -> MeshAndTextureData {
+
+        let groups = self.groups.iter().filter(|g| group_filter(g));
         
         // Prepare materials as "texture" lookups
-        let material_names = obj.faces.iter()
+        let material_names = groups.clone()
+            .flat_map(|g| g.faces.iter())
             .filter_map(|o| o.mtl.as_ref())
             .collect::<HashSet<_>>();
 
@@ -40,7 +51,7 @@ impl ObjMeshBuilder {
             let mtl = match self.materials.get(name) {
                 Some(mtl) => mtl,
                 None => {
-                    println!("WARNING: Unable to find material {} while building object {}", name, obj.name);
+                    println!("WARNING: Unable to find material {}", name);
                     continue;
                 },
             };
@@ -49,7 +60,7 @@ impl ObjMeshBuilder {
                 Some(name) => match self.color_maps.get(name) {
                     Some(map) => Some(map.clone()),
                     None => {
-                        println!("WARNING: Unable to find color map {} while building material {}", name, mtl.name);
+                        println!("WARNING: Unable to find color map {}", name);
                         None
                     },
                 }
@@ -64,22 +75,22 @@ impl ObjMeshBuilder {
         }
 
         // Prepare mesh faces
-        let get_vertex = |i: usize| obj.shared.vertices.get(i - 1).cloned().unwrap();
-        let get_uv_vertex = |oi: Option<usize>| oi.and_then(|i| obj.shared.uv.get(i - 1).cloned()).unwrap_or_default();
         let mut faces = Vec::new();
-        for face in obj.faces.iter() {
-
-            let tex_key = face.mtl.as_ref().and_then(|name| textures.iter().position(|m| &m.name == name));
-            
-            faces.push(MeshFace {
-                a: get_vertex(face.a.vertex_index),
-                b: get_vertex(face.b.vertex_index),
-                c: get_vertex(face.c.vertex_index),
-                a_uv: get_uv_vertex(face.a.uv_index),
-                b_uv: get_uv_vertex(face.b.uv_index),
-                c_uv: get_uv_vertex(face.c.uv_index),
-                tex_key,
-            });
+        for group in groups {
+            for face in group.faces.iter() {
+                let tex_key = face.mtl.as_ref().and_then(|name| textures.iter().position(|m| &m.name == name));
+                let get_vertex = |i: usize| group.shared.vertices.get(i - 1).cloned().expect("vertex by index");
+                let get_uv_vertex = |oi: Option<usize>| oi.and_then(|i| group.shared.uv.get(i - 1).cloned()).unwrap_or_default();
+                faces.push(MeshFace {
+                    a: get_vertex(face.a.vertex_index),
+                    b: get_vertex(face.b.vertex_index),
+                    c: get_vertex(face.c.vertex_index),
+                    a_uv: get_uv_vertex(face.a.uv_index),
+                    b_uv: get_uv_vertex(face.b.uv_index),
+                    c_uv: get_uv_vertex(face.c.uv_index),
+                    tex_key,
+                });
+            }
         }
 
         MeshAndTextureData {
@@ -95,8 +106,8 @@ pub fn load_obj_builder(path: impl AsRef<Path>) -> Result<ObjMeshBuilder, ObjErr
     // Load objects
     let obj_path = path.as_ref();
     let obj_file = load_obj(&obj_path)?;
-    for obj in obj_file.objects.into_iter() {
-        builder.objects.insert(obj.name.clone(), obj);
+    for group in obj_file.groups.into_iter() {
+        builder.groups.push(group);
     }
 
     // Load associated materials
