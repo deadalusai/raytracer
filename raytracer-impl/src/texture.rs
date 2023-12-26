@@ -82,8 +82,16 @@ pub struct ColorMap {
 
 impl Texture for ColorMap {
     fn value(&self, hit_record: &HitRecord) -> V3 {
-        let x = (hit_record.uv.0 * self.width as f32) as usize;
-        let y = (hit_record.uv.1 * self.height as f32) as usize;
+        // Map a UV co-ordinate (0..1) into a rank of {0..length} scale.
+        // The UV value may be negative - in this case wrap to the end other of the rank.
+        fn map_to_rank(p: f32, length: usize) -> usize {
+            let p = if p < 0.0 { 1.0 + p } else { p };
+            assert!(p <= 1.0, "uv value expected to be in -1..1 range");
+            (p * length as f32) as usize
+        }
+
+        let x = map_to_rank(hit_record.uv.0, self.width);
+        let y = map_to_rank(hit_record.uv.1, self.height);
         // NOTE: Color maps encode (0,0) in the top left, but in texture lookups it is in the bottom left.
         let offset = (self.height - y) * self.width + x;
         self.pixels.get(offset).cloned().unwrap_or_default()
