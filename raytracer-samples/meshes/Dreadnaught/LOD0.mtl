@@ -1,0 +1,27 @@
+newmtl _justgobs_hw2Shader2
+illum 2
+Kd 204 204 204
+Ka 51 51 51
+Ks 0 0 0
+Ke 0 0 0
+Ns 0
+map_Kd Hgn_DreadnaughtA_EXPORT[1].png
+
+newmtl halfagain_haf_hw2Shader1
+illum 2
+Kd 204 204 204
+Ka 51 51 51
+Ks 0 0 0
+Ke 0 0 0
+Ns 0
+map_Kd Kpr_Dreadnaught_Engine_EXPORT[3].png
+
+newmtl _justgobs_hw2Shader3
+illum 2
+Kd 204 204 204
+Ka 51 51 51
+Ks 0 0 0
+Ke 0 0 0
+Ns 0
+map_Kd HGN_DreadnaughtB_EXPORT[1].png
+

@@ -80,6 +80,7 @@ impl App {
             SceneConfig { name: "Mega Cube",      factory: raytracer_samples::samples::mega_cube },
             SceneConfig { name: "Spaceships",     factory: raytracer_samples::samples::spaceships },
             SceneConfig { name: "Fleet",          factory: raytracer_samples::samples::fleet },
+            SceneConfig { name: "Dreadnaught",    factory: raytracer_samples::samples::dreadnaught },
         ];
 
         App {

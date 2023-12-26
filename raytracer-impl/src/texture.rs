@@ -84,7 +84,8 @@ impl Texture for ColorMap {
     fn value(&self, hit_record: &HitRecord) -> V3 {
         let x = (hit_record.uv.0 * self.width as f32) as usize;
         let y = (hit_record.uv.1 * self.height as f32) as usize;
-        let offset = y * self.width + x;
+        // NOTE: Color maps encode (0,0) in the top left, but in texture lookups it is in the bottom left.
+        let offset = (self.height - y) * self.width + x;
         self.pixels.get(offset).cloned().unwrap_or_default()
     }
 }

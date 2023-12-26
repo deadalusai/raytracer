@@ -2,7 +2,7 @@ mod builder;
 mod format;
 mod color_map;
 
-pub use builder::{ ObjMeshBuilder, MeshAndTextureData, load_obj_builder, load_obj, load_mtl, load_bmp };
+pub use builder::{ ObjMeshBuilder, MeshAndTextureData, load_obj_builder, load_obj, load_mtl, load_color_map };
 
 #[derive(thiserror::Error, Debug)]
 pub enum ObjError {
@@ -12,6 +12,6 @@ pub enum ObjError {
     IoError(#[from] std::io::Error),
     #[error("Int parse error")]
     IntParseError(#[from] std::num::ParseIntError),
-    #[error("Bitmap parse error")]
-    BmpParseError(#[from] bmp::BmpError),
+    #[error("Image read error")]
+    BmpParseError(#[from] image::ImageError),
 }

@@ -11,7 +11,7 @@ use raytracer_impl::transform::{ Translatable, Rotatable };
 use raytracer_impl::viewport::{ Viewport };
 use raytracer_impl::lights::{ PointLight, DirectionalLight, LampLight };
 use raytracer_impl::implementation::{ Scene, SceneSky, Camera, Material, MatId, TexId };
-use raytracer_obj::{ load_obj_builder, load_bmp };
+use raytracer_obj::{ load_obj_builder, load_color_map };
 
 use rand::{ Rng };
 use rand_xorshift::{ XorShiftRng };
@@ -560,7 +560,7 @@ pub fn mesh_demo(config: &CameraConfiguration) -> Scene {
     let cube_mat = scene.add_material(MatLambertian::default().with_reflectivity(0.0));
     let cube_tex = scene.add_texture(ColorTexture(rgb(36, 193, 89)));
     let cube_origin = position!(South(1.5), West(1.5));
-    let cube_mesh_builder = load_obj_builder("./raytracer-samples/meshes/cube.obj").unwrap();
+    let cube_mesh_builder = load_obj_builder("./raytracer-samples/meshes/simple/cube.obj").unwrap();
     let cube_mesh_data = cube_mesh_builder.build_mesh_data("Cube");
     scene.add_object(
         MeshObject::new(&cube_mesh_data.mesh, cube_mat, cube_tex)
@@ -573,7 +573,7 @@ pub fn mesh_demo(config: &CameraConfiguration) -> Scene {
     let thing_mat = scene.add_material(MatSpecular::default().with_reflectivity(0.8).with_fuzz(0.02));
     let thing_tex = scene.add_texture(ColorTexture(rgb(89, 172, 255)));
     let thing_origin = position!(North(1.5), East(1.5));
-    let thing_mesh_builder = load_obj_builder("./raytracer-samples/meshes/thing.obj").unwrap();
+    let thing_mesh_builder = load_obj_builder("./raytracer-samples/meshes/simple/thing.obj").unwrap();
     let thing_mesh_data = thing_mesh_builder.build_mesh_data("Thing");
     scene.add_object(
         MeshObject::new(&thing_mesh_data.mesh, thing_mat, thing_tex)
@@ -585,7 +585,7 @@ pub fn mesh_demo(config: &CameraConfiguration) -> Scene {
     let suz_mat = scene.add_material(MatDielectric::default().with_opacity(0.2).with_ref_index(0.8).with_reflectivity(0.0));
     let suz_tex = scene.add_texture(ColorTexture(rgb(255, 137, 58)));
     let suz_origin = position!(Origin);
-    let suz_mesh_builder = load_obj_builder("./raytracer-samples/meshes/suzanne.obj").unwrap();
+    let suz_mesh_builder = load_obj_builder("./raytracer-samples/meshes/simple/suzanne.obj").unwrap();
     let suz_mesh_data = suz_mesh_builder.build_mesh_data("Suzanne");
     scene.add_object(
         MeshObject::new(&suz_mesh_data.mesh, suz_mat, suz_tex)
@@ -705,7 +705,7 @@ pub fn mesh_plane(config: &CameraConfiguration) -> Scene {
     scene.add_light(DirectionalLight::with_direction(lamp_direction).with_intensity(1.0));
 
     // Plane
-    let plane_tex = scene.add_texture(load_bmp("test.bmp").unwrap());
+    let plane_tex = scene.add_texture(load_color_map("./raytracer-samples/meshes/simple/test.bmp").unwrap());
     let plane_mat = scene.add_material(MatLambertian::default());
     let plane_origin = look_to;
     let plane_mesh_builder = load_obj_builder("./raytracer-samples/meshes/simple/plane.obj").unwrap();
@@ -825,5 +825,30 @@ pub fn fleet(config: &CameraConfiguration) -> Scene {
         }
     }
 
+    scene
+}
+
+pub fn dreadnaught(config: &CameraConfiguration) -> Scene {
+    
+    let dist = 800.0;
+
+    // Camera
+    let look_from = position!(Up(dist), North(dist), East(dist));
+    let look_to =   position!(Origin);
+    let camera = config.make_camera(look_to, look_from);
+
+    // Scene
+    let mut scene = Scene::new(camera, SceneSky::Black);
+
+    // Lights
+    scene.add_light(PointLight::with_origin(look_from).with_intensity(100.0));
+    
+    let mesh_builder = load_obj_builder("./raytracer-samples/meshes/Dreadnaught/LOD0.obj").unwrap();
+    let mesh_data = mesh_builder.build_mesh_data("default");
+    let mat = scene.add_material(MatLambertian::default());
+    let tex = scene.add_texture(mesh_data.texture_set);
+    let mesh = MeshObject::new(&mesh_data.mesh, mat, tex);
+    
+    scene.add_object(mesh);
     scene
 }

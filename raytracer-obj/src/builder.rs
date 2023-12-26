@@ -103,9 +103,9 @@ pub fn load_obj_builder(path: impl AsRef<Path>) -> Result<ObjMeshBuilder, ObjErr
 
             // Load associated color map
             if let Some(ref colormap) = mtl.diffuse_color_map {
-                let bmp_path = mtl_path.parent().unwrap().join(colormap);
-                let bmp_data = load_bmp(&bmp_path)?;
-                builder.color_maps.insert(colormap.clone(), Arc::new(bmp_data));
+                let path = mtl_path.parent().unwrap().join(colormap);
+                let data = load_color_map(&path)?;
+                builder.color_maps.insert(colormap.clone(), Arc::new(data));
             }
             
             builder.materials.insert(mtl.name.clone(), mtl);
@@ -137,13 +137,17 @@ pub fn load_mtl(path: impl AsRef<Path>) -> Result<MtlFile, ObjError> {
     Ok(mtl_file)
 }
 
-pub fn load_bmp(path: impl AsRef<Path>) -> Result<ColorMap, ObjError> {
+pub fn load_color_map(path: impl AsRef<Path>) -> Result<ColorMap, ObjError> {
     let path = path.as_ref();
     if !path.exists() {
-        return Err(ObjError::General(format!("load_color_map: expected bmp file at path {}", path.display())));
+        return Err(ObjError::General(format!("load_color_map: expected file at path {}", path.display())));
     }
 
-    let mut file = std::fs::File::open(path)?;
-    let bmp_data = super::color_map::load_bitmap_color_map(&mut file)?;
-    Ok(bmp_data)
+    let format = match path.extension().and_then(image::ImageFormat::from_extension) {
+        Some(ext) => ext,
+        None      => Err(ObjError::General(format!("load_color_map: Color map type unknown")))?,
+    };
+    let file = std::fs::File::open(path)?;
+    let color_data = crate::color_map::load_color_map(file, format)?;
+    Ok(color_data)
 }
