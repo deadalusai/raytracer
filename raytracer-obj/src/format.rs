@@ -1,3 +1,4 @@
+use std::sync::Arc;
 use std::io::{BufRead, BufReader, Read};
 
 use raytracer_impl::types::{ V2, V3 };
@@ -22,11 +23,16 @@ use crate::ObjError;
 // - every texture coordinate has two components `vt u v`
 // - every face has three components `f a b c` (triangles only)
 
-pub struct ObjObject {
-    pub name: String,
+#[derive(Default)]
+pub struct ObjShared {
     pub vertices: Vec<V3>,
     pub uv: Vec<V2>,
+}
+
+pub struct ObjObject {
+    pub name: String,
     pub faces: Vec<ObjFace>,
+    pub shared: Arc<ObjShared>,
 }
 
 pub struct ObjMaterial {
@@ -103,10 +109,15 @@ pub fn try_parse_elements<T, const N: usize>(line: &str) -> Option<[T; N]>
 pub struct ObjFile {
     pub mtllib: Option<String>,
     pub objects: Vec<ObjObject>,
+    pub shared: Arc<ObjShared>,
 }
 
 pub fn parse_obj_file(source: &mut dyn Read) -> Result<ObjFile, ObjError> {
     
+    // A placeholder for "shared" vertice data
+    // while we collect all vertices as we process the file.
+    let shared = Arc::new(ObjShared::default());
+
     let mut objects = Vec::new();
 
     // Braindead OBJ parser, supports o, v, vt & f directives only.
@@ -144,9 +155,8 @@ pub fn parse_obj_file(source: &mut dyn Read) -> Result<ObjFile, ObjError> {
                 if let Some(name) = name.take() {
                     objects.push(ObjObject {
                         name,
-                        vertices: std::mem::replace(&mut vertices, Vec::new()),
+                        shared: shared.clone(),
                         faces: std::mem::replace(&mut faces, Vec::new()),
-                        uv: std::mem::replace(&mut uv, Vec::new()),
                     });
                 }
                 name = Some(line[1..].trim().to_string());
@@ -180,14 +190,15 @@ pub fn parse_obj_file(source: &mut dyn Read) -> Result<ObjFile, ObjError> {
 
     // Emit the last object
     let name = name.unwrap_or_else(|| "default".to_string());
-    objects.push(ObjObject {
-        name,
-        vertices,
-        faces,
-        uv,
-    });
+    objects.push(ObjObject { name, faces, shared });
 
-    Ok(ObjFile { objects, mtllib })
+    // Fix shared data references
+    let shared = Arc::new(ObjShared { vertices, uv });
+    for obj in objects.iter_mut() {
+        obj.shared = shared.clone();
+    }
+
+    Ok(ObjFile { mtllib, objects, shared })
 }
 
 pub struct MtlFile {

@@ -60,8 +60,8 @@ impl ObjMeshBuilder {
         }
 
         // Prepare mesh faces
-        let get_vertex = |i: usize| obj.vertices.get(i - 1).cloned().unwrap();
-        let get_uv_vertex = |oi: Option<usize>| oi.and_then(|i| obj.uv.get(i - 1).cloned()).unwrap_or_default();
+        let get_vertex = |i: usize| obj.shared.vertices.get(i - 1).cloned().unwrap();
+        let get_uv_vertex = |oi: Option<usize>| oi.and_then(|i| obj.shared.uv.get(i - 1).cloned()).unwrap_or_default();
         let mut faces = Vec::new();
         for face in obj.faces.iter() {
 
