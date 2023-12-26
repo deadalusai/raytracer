@@ -6,13 +6,7 @@ use raytracer_impl::texture::{MeshTexture, MeshTextureSet, ColorMap};
 use super::format::{ObjObject, ObjMaterial, MtlFile, ObjFile};
 use crate::ObjError;
 
-use std::path::{PathBuf, Path};
-
-pub trait ObjLoader {
-    fn load_obj(&self, file_name: &str) -> Result<ObjFile, ObjError>;
-    fn load_mtl(&self, file_name: &str) -> Result<MtlFile, ObjError>;
-    fn load_color_map(&self, file_name: &str) -> Result<ColorMap, ObjError>;
-}
+use std::path::Path;
 
 pub struct MeshAndTextureData {
     pub mesh: Mesh,
@@ -28,31 +22,6 @@ pub struct ObjMeshBuilder {
 
 impl ObjMeshBuilder {
 
-    pub fn load_obj_data(&mut self, file_name: &str, loader: &dyn ObjLoader) -> Result<(), ObjError> {
-        // Load objects
-        let ObjFile { objects, mtllib } = loader.load_obj(file_name)?;
-        for obj in objects.into_iter() {
-            self.objects.insert(obj.name.clone(), obj);
-        }
-
-        // Load associated materials
-        if let Some(mtllib) = mtllib {
-            let MtlFile { materials } = loader.load_mtl(&mtllib)?;
-
-            for mtl in materials.into_iter() {
-                self.materials.insert(mtl.name.clone(), mtl);
-
-                // Load associated color maps
-                for bmp_name in self.materials.iter().filter_map(|(_, v)| v.diffuse_color_map.as_ref()) {
-                    let map = loader.load_color_map(bmp_name)?;
-                    self.color_maps.insert(bmp_name.clone(), Arc::new(map));
-                }
-            }
-        }
-        
-        Ok(())
-    }
-
     pub fn build_mesh_data(&self, object_name: &str) -> MeshAndTextureData {
 
         let obj = self.objects.get(object_name).expect("Unable to find object");
@@ -67,7 +36,7 @@ impl ObjMeshBuilder {
             let mtl = match self.materials.get(name) {
                 Some(mtl) => mtl,
                 None => {
-                    println!("WARNING: Unable to find material {} while loading object {}", name, obj.name);
+                    println!("WARNING: Unable to find material {} while building object {}", name, obj.name);
                     continue;
                 },
             };
@@ -76,7 +45,7 @@ impl ObjMeshBuilder {
                 Some(name) => match self.color_maps.get(name) {
                     Some(map) => Some(map.clone()),
                     None => {
-                        println!("WARNING: Unable to find color map {} while loading material {}", name, mtl.name);
+                        println!("WARNING: Unable to find color map {} while building material {}", name, mtl.name);
                         None
                     },
                 }
@@ -116,45 +85,65 @@ impl ObjMeshBuilder {
     }
 }
 
-#[derive(Clone)]
-pub struct FileObjLoader {
-    root_path: PathBuf,
-}
+pub fn load_obj_builder(path: impl AsRef<Path>) -> Result<ObjMeshBuilder, ObjError> {
+    let mut builder = ObjMeshBuilder::default();
 
-impl FileObjLoader {
-    pub fn new(root_path: &Path) -> FileObjLoader {
-        FileObjLoader {
-            root_path: root_path.to_path_buf(),
+    // Load objects
+    let obj_path = path.as_ref();
+    let obj_file = load_obj(&obj_path)?;
+    for obj in obj_file.objects.into_iter() {
+        builder.objects.insert(obj.name.clone(), obj);
+    }
+
+    // Load associated materials
+    if let Some(mtllib) = obj_file.mtllib {
+        let mtl_path = obj_path.parent().unwrap().join(mtllib);
+        let mtl_file = load_mtl(&mtl_path)?;
+        for mtl in mtl_file.materials.into_iter() {
+
+            // Load associated color map
+            if let Some(ref colormap) = mtl.diffuse_color_map {
+                let bmp_path = mtl_path.parent().unwrap().join(colormap);
+                let bmp_data = load_bmp(&bmp_path)?;
+                builder.color_maps.insert(colormap.clone(), Arc::new(bmp_data));
+            }
+            
+            builder.materials.insert(mtl.name.clone(), mtl);
         }
     }
+
+    Ok(builder)
 }
 
-impl ObjLoader for FileObjLoader {
-
-    fn load_obj(&self, file_name: &str) -> Result<ObjFile, ObjError> {
-        let mut obj_path = self.root_path.clone();
-        obj_path.push(file_name);
-
-        let mut file = std::fs::File::open(obj_path)?;
-        let obj_file = super::format::parse_obj_file(&mut file)?;
-        Ok(obj_file)
+pub fn load_obj(path: impl AsRef<Path>) -> Result<ObjFile, ObjError> {
+    let path = path.as_ref();
+    if !path.exists() {
+        return Err(ObjError::General(format!("load_obj: expected obj file at path {}", path.display())));
     }
 
-    fn load_mtl(&self, file_name: &str) -> Result<MtlFile, ObjError> {
-        let mut mtl_path = self.root_path.clone();
-        mtl_path.push(file_name);
+    let mut file = std::fs::File::open(path)?;
+    let obj_file = super::format::parse_obj_file(&mut file)?;
+    Ok(obj_file)
+}
 
-        let mut file = std::fs::File::open(mtl_path)?;
-        let obj_file = super::format::parse_mtl_file(&mut file)?;
-        Ok(obj_file)
+pub fn load_mtl(path: impl AsRef<Path>) -> Result<MtlFile, ObjError> {
+    let path = path.as_ref();
+    if !path.exists() {
+        return Err(ObjError::General(format!("load_mtl: expected mtl file at path {}", path.display())));
     }
 
-    fn load_color_map(&self, file_name: &str) -> Result<ColorMap, ObjError> {
-        let mut image_path = self.root_path.clone();
-        image_path.push(file_name);
+    let mut file = std::fs::File::open(path)?;
+    let mtl_file = super::format::parse_mtl_file(&mut file)?;
+    Ok(mtl_file)
+}
 
-        let mut file = std::fs::File::open(image_path)?;
-        let color_map = super::color_map::load_bitmap_color_map(&mut file)?;
-        Ok(color_map)
+pub fn load_bmp(path: impl AsRef<Path>) -> Result<ColorMap, ObjError> {
+    let path = path.as_ref();
+    if !path.exists() {
+        return Err(ObjError::General(format!("load_color_map: expected bmp file at path {}", path.display())));
     }
+
+    let mut file = std::fs::File::open(path)?;
+    let bmp_data = super::color_map::load_bitmap_color_map(&mut file)?;
+    Ok(bmp_data)
 }

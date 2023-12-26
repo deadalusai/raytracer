@@ -11,7 +11,7 @@ use raytracer_impl::transform::{ Translatable, Rotatable };
 use raytracer_impl::viewport::{ Viewport };
 use raytracer_impl::lights::{ PointLight, DirectionalLight, LampLight };
 use raytracer_impl::implementation::{ Scene, SceneSky, Camera, Material, MatId, TexId };
-use raytracer_obj::{ FileObjLoader, ObjMeshBuilder, ObjLoader };
+use raytracer_obj::{ load_obj_builder, load_bmp };
 
 use rand::{ Rng };
 use rand_xorshift::{ XorShiftRng };
@@ -556,17 +556,12 @@ pub fn mesh_demo(config: &CameraConfiguration) -> Scene {
             .with_origin(world_pos)
             .with_id(0));
 
-    let mut mesh_builder = ObjMeshBuilder::default();
-    let loader = FileObjLoader::new(Path::new("./raytracer-samples/meshes"));
-    mesh_builder.load_obj_data("cube.obj", &loader).unwrap();
-    mesh_builder.load_obj_data("thing.obj", &loader).unwrap();
-    mesh_builder.load_obj_data("suzanne.obj", &loader).unwrap();
-
     // Cube
     let cube_mat = scene.add_material(MatLambertian::default().with_reflectivity(0.0));
     let cube_tex = scene.add_texture(ColorTexture(rgb(36, 193, 89)));
     let cube_origin = position!(South(1.5), West(1.5));
-    let cube_mesh_data = mesh_builder.build_mesh_data("Cube");
+    let cube_mesh_builder = load_obj_builder("./raytracer-samples/meshes/cube.obj").unwrap();
+    let cube_mesh_data = cube_mesh_builder.build_mesh_data("Cube");
     scene.add_object(
         MeshObject::new(&cube_mesh_data.mesh, cube_mat, cube_tex)
             .with_origin(cube_origin)
@@ -578,7 +573,8 @@ pub fn mesh_demo(config: &CameraConfiguration) -> Scene {
     let thing_mat = scene.add_material(MatSpecular::default().with_reflectivity(0.8).with_fuzz(0.02));
     let thing_tex = scene.add_texture(ColorTexture(rgb(89, 172, 255)));
     let thing_origin = position!(North(1.5), East(1.5));
-    let thing_mesh_data = mesh_builder.build_mesh_data("Thing");
+    let thing_mesh_builder = load_obj_builder("./raytracer-samples/meshes/thing.obj").unwrap();
+    let thing_mesh_data = thing_mesh_builder.build_mesh_data("Thing");
     scene.add_object(
         MeshObject::new(&thing_mesh_data.mesh, thing_mat, thing_tex)
             .with_origin(thing_origin)
@@ -589,7 +585,8 @@ pub fn mesh_demo(config: &CameraConfiguration) -> Scene {
     let suz_mat = scene.add_material(MatDielectric::default().with_opacity(0.2).with_ref_index(0.8).with_reflectivity(0.0));
     let suz_tex = scene.add_texture(ColorTexture(rgb(255, 137, 58)));
     let suz_origin = position!(Origin);
-    let suz_mesh_data = mesh_builder.build_mesh_data("Suzanne");
+    let suz_mesh_builder = load_obj_builder("./raytracer-samples/meshes/suzanne.obj").unwrap();
+    let suz_mesh_data = suz_mesh_builder.build_mesh_data("Suzanne");
     scene.add_object(
         MeshObject::new(&suz_mesh_data.mesh, suz_mat, suz_tex)
             .with_origin(suz_origin)
@@ -626,9 +623,7 @@ pub fn spaceships(config: &CameraConfiguration) -> Scene {
     );
 
     // Destroyer (facing EAST)
-    let mut mesh_builder = ObjMeshBuilder::default();
-    let loader = FileObjLoader::new(Path::new("./raytracer-samples/meshes/Destroyer-K"));
-    mesh_builder.load_obj_data("Standarddestroyer.obj", &loader).unwrap();
+    let mesh_builder = load_obj_builder("./raytracer-samples/meshes/Destroyer-K/Standarddestroyer.obj").unwrap();
     let dest_mesh_data = mesh_builder.build_mesh_data("default");
     let dest_mat = scene.add_material(MatLambertian::default());
     let dest_tex = scene.add_texture(dest_mesh_data.texture_set);
@@ -636,9 +631,7 @@ pub fn spaceships(config: &CameraConfiguration) -> Scene {
     let dest_mesh = MeshObject::new(&dest_mesh_data.mesh, dest_mat, dest_tex).rotated(V3::POS_Z, -deg_to_rad(90.0));
 
     // Interceptor (facing EAST)
-    let mut mesh_builder = ObjMeshBuilder::default();
-    let loader = FileObjLoader::new(Path::new("./raytracer-samples/meshes/Interceptor-T"));
-    mesh_builder.load_obj_data("Heavyinterceptor.obj", &loader).unwrap();
+    let mesh_builder = load_obj_builder("./raytracer-samples/meshes/Interceptor-T/Heavyinterceptor.obj").unwrap();
     let int_mesh_data = mesh_builder.build_mesh_data("default");
     let int_mat = scene.add_material(MatLambertian::default());
     let int_tex = scene.add_texture(int_mesh_data.texture_set);
@@ -684,10 +677,7 @@ pub fn capsule(config: &CameraConfiguration) -> Scene {
     );
     
     // Capsule
-    let mut mesh_builder = ObjMeshBuilder::default();
-    let loader = FileObjLoader::new(Path::new("./raytracer-samples/meshes/capsule"));
-    mesh_builder.load_obj_data("capsule.obj", &loader).unwrap();
-
+    let mesh_builder = load_obj_builder("./raytracer-samples/meshes/capsule/capsule.obj").unwrap();
     let capsule_mesh_data = mesh_builder.build_mesh_data("default");
     let capsule_mat = scene.add_material(MatLambertian::default());
     let capsule_tex = scene.add_texture(capsule_mesh_data.texture_set);
@@ -714,18 +704,12 @@ pub fn mesh_plane(config: &CameraConfiguration) -> Scene {
     let lamp_direction = look_to - lamp_pos;
     scene.add_light(DirectionalLight::with_direction(lamp_direction).with_intensity(1.0));
 
-    let mut mesh_builder = ObjMeshBuilder::default();
-    let loader = FileObjLoader::new(Path::new("./raytracer-samples/meshes/simple"));
-    mesh_builder.load_obj_data("plane.obj", &loader).unwrap();
-
-    // Manually load a texture for the "Plane" object to use...
-    let plane_color_map = loader.load_color_map("test.bmp").unwrap();
-
     // Plane
+    let plane_tex = scene.add_texture(load_bmp("test.bmp").unwrap());
     let plane_mat = scene.add_material(MatLambertian::default());
-    let plane_tex = scene.add_texture(plane_color_map);
     let plane_origin = look_to;
-    let plane_mesh_data = mesh_builder.build_mesh_data("plane");
+    let plane_mesh_builder = load_obj_builder("./raytracer-samples/meshes/simple/plane.obj").unwrap();
+    let plane_mesh_data = plane_mesh_builder.build_mesh_data("plane");
     scene.add_object(
         MeshObject::new(&plane_mesh_data.mesh, plane_mat, plane_tex)
             .with_origin(plane_origin)
@@ -822,11 +806,8 @@ pub fn fleet(config: &CameraConfiguration) -> Scene {
     // Lights
     scene.add_light(PointLight::with_origin(look_from).with_intensity(2000.0));
     
-    let mut mesh_builder = ObjMeshBuilder::default();
-    let loader = FileObjLoader::new(Path::new("./raytracer-samples/meshes/Interceptor-T"));
-    mesh_builder.load_obj_data("Heavyinterceptor.obj", &loader).unwrap();
-
-    let int_mesh_data = mesh_builder.build_mesh_data("default");
+    let int_mesh_builder = load_obj_builder("./raytracer-samples/meshes/Interceptor-T/Heavyinterceptor.obj").unwrap();
+    let int_mesh_data = int_mesh_builder.build_mesh_data("default");
     let int_mat = scene.add_material(MatLambertian::default());
     let int_tex = scene.add_texture(int_mesh_data.texture_set);
     let int_mesh = MeshObject::new(&int_mesh_data.mesh, int_mat, int_tex)

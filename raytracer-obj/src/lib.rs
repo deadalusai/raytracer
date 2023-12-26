@@ -2,7 +2,7 @@ mod builder;
 mod format;
 mod color_map;
 
-pub use builder::{ FileObjLoader, ObjMeshBuilder, ObjLoader, MeshAndTextureData };
+pub use builder::{ ObjMeshBuilder, MeshAndTextureData, load_obj_builder, load_obj, load_mtl, load_bmp };
 
 #[derive(thiserror::Error, Debug)]
 pub enum ObjError {
