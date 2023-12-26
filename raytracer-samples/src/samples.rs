@@ -849,7 +849,7 @@ pub fn dreadnaught(config: &CameraConfiguration) -> Scene {
     for name in mesh_builder.group_names() {
         let mesh_data = mesh_builder.build_mesh_group(name);
         let tex = scene.add_texture(mesh_data.texture_set);
-        scene.add_object(MeshObject::new(&mesh_data.mesh, mat, tex));
+        scene.add_object(MeshObject::new(&mesh_data.mesh, mat, tex).rotated(V3::POS_Y, PI));
     }
 
     scene

@@ -39,6 +39,8 @@ impl ObjMeshBuilder {
     fn inner_build_mesh(&self, group_filter: &dyn Fn(&ObjGroup) -> bool) -> MeshAndTextureData {
 
         let groups = self.groups.iter().filter(|g| group_filter(g));
+
+        assert!(groups.clone().next().is_some(), "expected at least one group to match filter predicate");
         
         // Prepare materials as "texture" lookups
         let material_names = groups.clone()
