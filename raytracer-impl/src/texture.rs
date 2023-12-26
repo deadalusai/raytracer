@@ -82,11 +82,12 @@ pub struct ColorMap {
 
 impl Texture for ColorMap {
     fn value(&self, hit_record: &HitRecord) -> V3 {
-        // Map a UV co-ordinate (0..1) into a rank of {0..length} scale.
-        // The UV value may be negative - in this case wrap to the end other of the rank.
-        fn map_to_rank(p: f32, length: usize) -> usize {
-            let p = if p < 0.0 { 1.0 + p } else { p };
-            assert!(p <= 1.0, "uv value expected to be in -1..1 range");
+        // Map a UV co-ordinate into a rank of {0..length} scale.
+        // NOTE: UV co-oridinates are treated as being on an infinite repeating
+        // texture grid, allowing for negative values and values greater than one
+        fn map_to_rank(mut p: f32, length: usize) -> usize {
+            p = p % 1.0;
+            p = if p < 0.0 { 1.0 + p } else { p };
             (p * length as f32) as usize
         }
 
