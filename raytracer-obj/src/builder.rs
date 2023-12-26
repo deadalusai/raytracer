@@ -22,6 +22,10 @@ pub struct ObjMeshBuilder {
 
 impl ObjMeshBuilder {
 
+    pub fn object_names(&self) -> impl Iterator<Item=&str> {
+        self.objects.keys().map(|k| k.as_str())
+    }
+
     pub fn build_mesh_data(&self, object_name: &str) -> MeshAndTextureData {
 
         let obj = self.objects.get(object_name).expect("Unable to find object");

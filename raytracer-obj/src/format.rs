@@ -114,8 +114,8 @@ pub struct ObjFile {
 
 pub fn parse_obj_file(source: &mut dyn Read) -> Result<ObjFile, ObjError> {
     
-    // A placeholder for "shared" vertice data
-    // while we collect all vertices as we process the file.
+    // A placeholder for shared vertex/uv data
+    // while we collect all vertices + uv coordinates as we process the file.
     let shared = Arc::new(ObjShared::default());
 
     let mut objects = Vec::new();

@@ -844,11 +844,13 @@ pub fn dreadnaught(config: &CameraConfiguration) -> Scene {
     scene.add_light(PointLight::with_origin(look_from).with_intensity(100.0));
     
     let mesh_builder = load_obj_builder("./raytracer-samples/meshes/Dreadnaught/Dreadnaught.obj").unwrap();
-    let mesh_data = mesh_builder.build_mesh_data("Greebles");
     let mat = scene.add_material(MatLambertian::default());
-    let tex = scene.add_texture(mesh_data.texture_set);
-    let mesh = MeshObject::new(&mesh_data.mesh, mat, tex);
-    
-    scene.add_object(mesh);
+
+    for name in mesh_builder.object_names() {
+        let mesh_data = mesh_builder.build_mesh_data(name);
+        let tex = scene.add_texture(mesh_data.texture_set);
+        scene.add_object(MeshObject::new(&mesh_data.mesh, mat, tex));
+    }
+
     scene
 }
