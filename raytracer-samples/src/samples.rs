@@ -1,8 +1,10 @@
 #![allow(unused)]
 
+use crate::scene::CameraConfiguration;
+use crate::util::*;
+
 use std::f32::consts::PI;
 use std::path::Path;
-
 use raytracer_impl::texture::{ ColorTexture, CheckerTexture, UvTestTexture, XyzTestTexture, MeshTextureSet };
 use raytracer_impl::types::{ V3, Ray };
 use raytracer_impl::materials::{ MatLambertian, MatDielectric, MatSpecular };
@@ -12,101 +14,7 @@ use raytracer_impl::viewport::{ Viewport };
 use raytracer_impl::lights::{ PointLight, DirectionalLight, LampLight };
 use raytracer_impl::implementation::{ Scene, SceneSky, Camera, Material, MatId, TexId };
 use raytracer_obj::{ load_obj_builder, load_color_map };
-
 use rand::{ Rng };
-use rand_xorshift::{ XorShiftRng };
-
-fn create_rng_from_seed(a: u128) -> XorShiftRng {
-    use rand::SeedableRng;
-    
-    fn set_bytes(bytes: &mut [u8], val: u128) {
-        for offset in 0..16 {
-            let shift = (15 - offset) * 8;
-            bytes[offset] = ((val >> shift) & 0xff) as u8
-        }
-    }
-
-    let mut seed = <XorShiftRng as SeedableRng>::Seed::default();
-
-    set_bytes(&mut seed[0..16], a);
-    
-    XorShiftRng::from_seed(seed)
-}
-
-//
-// Configuration
-//
-
-fn deg_to_rad(deg: f32) -> f32 {
-    (deg / 180.0) * std::f32::consts::PI
-}
-
-pub struct CameraConfiguration {
-    pub width: f32,
-    pub height: f32,
-    pub lens_radius: f32,
-    pub fov: f32,
-    pub angle_adjust_v: f32,
-    pub angle_adjust_h: f32,
-    pub focus_dist_adjust: f32,
-}
-
-impl CameraConfiguration {
-    fn aspect_ratio(&self) -> f32 {
-        self.width / self.height
-    }
-
-    fn make_camera(&self, look_to: V3, default_look_from: V3) -> Camera {
-
-        let look_from = {
-            // Translate into rotation space
-            let p = default_look_from - look_to;
-
-            // The vertical axis (to rotate about horizontally)
-            let v_axis = V3::POS_Y;
-            let p = p.rotate_about_axis(v_axis, deg_to_rad(self.angle_adjust_h));
-            
-            // The horizontal axis (to rotate about vertically)
-            let w = (V3::ZERO - p).unit();             // Vector to origin 
-            let h_axis = V3::cross(v_axis, w).unit();  // Vector to camera right
-            let p = p.rotate_about_axis(h_axis, deg_to_rad(self.angle_adjust_v));
-
-            // Translate into world space
-            p + look_to
-        };
-        let dist_to_focus = (look_from - look_to).length() + self.focus_dist_adjust;
-        
-        Camera::new(look_from, look_to, self.fov, self.aspect_ratio(), self.lens_radius, dist_to_focus)
-    }
-}
-
-//
-// Easing functions
-//
-
-fn lerp_v3(p1: V3, p2: V3, d: f32) -> V3 {
-    let v_between = (p2 - p1) * d;
-    p1 + v_between
-}
-
-fn lerp_f32(p1: f32, p2: f32, d: f32) -> f32 {
-    let v_between = (p2 - p1) * d;
-    p1 + v_between
-}
-
-fn ease_in(t: f32, scale: f32) -> f32 {
-    // y = x ^ 2
-    t.powf(scale)
-}
-
-fn ease_out(t: f32, scale: f32) -> f32 {
-    // y = 1 - ((1 - x) ^ 2)
-    1.0 - (1.0 - t).powf(scale)
-}
-
-fn ease_in_out(t: f32, scale: f32) -> f32 {
-    lerp_f32(ease_in(t, scale), ease_out(t, scale), t)
-}
 
 // Positioning helpers
 
@@ -823,33 +731,6 @@ pub fn fleet(config: &CameraConfiguration) -> Scene {
                 scene.add_object(int_mesh.clone().translated(origin));
             }
         }
-    }
-
-    scene
-}
-
-pub fn dreadnaught(config: &CameraConfiguration) -> Scene {
-    
-    let dist = 800.0;
-
-    // Camera
-    let look_from = position!(Up(dist), North(dist), East(dist));
-    let look_to =   position!(Origin);
-    let camera = config.make_camera(look_to, look_from);
-
-    // Scene
-    let mut scene = Scene::new(camera, SceneSky::Black);
-
-    // Lights
-    scene.add_light(PointLight::with_origin(look_from).with_intensity(100.0));
-    
-    let mesh_builder = load_obj_builder("./raytracer-samples/meshes/Dreadnaught/Dreadnaught.obj").unwrap();
-    let mat = scene.add_material(MatLambertian::default());
-
-    for name in mesh_builder.group_names() {
-        let mesh_data = mesh_builder.build_mesh_group(name);
-        let tex = scene.add_texture(mesh_data.texture_set);
-        scene.add_object(MeshObject::new(&mesh_data.mesh, mat, tex).rotated(V3::POS_Y, PI));
     }
 
     scene

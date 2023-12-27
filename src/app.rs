@@ -7,10 +7,9 @@ use eframe::egui::{self, Spinner};
 use flume::{ Receiver, Sender };
 use raytracer_impl::implementation::{ Scene, RenderSettings };
 use raytracer_impl::viewport::{ RenderChunk, Viewport, create_render_chunks };
-use raytracer_samples::samples::CameraConfiguration;
+use raytracer_samples::scene::{ CameraConfiguration, SceneFactory, SceneControlCollection, SceneConfiguration };
 
 use crate::rgba::{ RgbaBuffer, v3_to_rgba };
-use crate::settings::SceneConfig;
 use crate::frame_history::FrameHistory;
 use crate::thread_stats::ThreadStats;
 use crate::settings::{ SettingsWidget, Settings };
@@ -49,7 +48,8 @@ pub struct App {
     // Persistent state
     settings: Settings,
     // Configuration
-    scene_configs: Vec<SceneConfig>,
+    scene_factories: Vec<Arc<dyn SceneFactory + Send + Sync>>,
+    scene_configs: Vec<SceneControlCollection>,
     // Temporal state
     output_texture: Option<(egui::TextureHandle, [usize; 2])>,
     render_job_creating: Option<ConstructRenderJob>,
@@ -67,24 +67,13 @@ impl App {
             Some(s) => eframe::get_value(s, eframe::APP_KEY).unwrap_or_default(),
         };
 
-        let scene_configs = vec![
-            SceneConfig { name: "Random Spheres", factory: raytracer_samples::samples::random_sphere_scene },
-            SceneConfig { name: "Simple",         factory: raytracer_samples::samples::simple_scene },
-            SceneConfig { name: "Planes",         factory: raytracer_samples::samples::planes_scene },
-            SceneConfig { name: "Mirrors",        factory: raytracer_samples::samples::hall_of_mirrors },
-            SceneConfig { name: "Triangles",      factory: raytracer_samples::samples::triangle_world },
-            SceneConfig { name: "Mesh",           factory: raytracer_samples::samples::mesh_demo },
-            SceneConfig { name: "Capsule",        factory: raytracer_samples::samples::capsule },
-            SceneConfig { name: "Mesh Plane",     factory: raytracer_samples::samples::mesh_plane },
-            SceneConfig { name: "Point Cloud",    factory: raytracer_samples::samples::point_cloud },
-            SceneConfig { name: "Mega Cube",      factory: raytracer_samples::samples::mega_cube },
-            SceneConfig { name: "Spaceships",     factory: raytracer_samples::samples::spaceships },
-            SceneConfig { name: "Fleet",          factory: raytracer_samples::samples::fleet },
-            SceneConfig { name: "Dreadnaught",    factory: raytracer_samples::samples::dreadnaught },
-        ];
+        let scene_factories = raytracer_samples::make_sample_scene_factories();
+        let scene_configs = scene_factories.iter().map(|f| f.create_controls()).collect();
 
         App {
             settings,
+            // Configuration
+            scene_factories,
             scene_configs,
             // Temporal state
             output_texture: None,
@@ -103,9 +92,10 @@ impl App {
             render_job.worker_handle.cts.cancel();
         }
 
-        let scene_factory = self.scene_configs[self.settings.scene].factory;
+        let scene_factory = self.scene_factories[self.settings.scene].clone();
+        let scene_config = self.scene_configs[self.settings.scene].collect_configuration();
 
-        let render_job_creating = start_background_construct_render_job(self.settings.clone(), scene_factory);
+        let render_job_creating = start_background_construct_render_job(self.settings.clone(), scene_factory, scene_config);
         self.render_job_creating = Some(render_job_creating);
         self.error = None;
     }
@@ -306,7 +296,7 @@ struct ConstructRenderJob {
     handle: JoinHandle<RenderJob>,
 }
 
-fn start_background_construct_render_job(st: Settings, factory: fn(&CameraConfiguration) -> Scene) -> ConstructRenderJob {
+fn start_background_construct_render_job(st: Settings, factory: Arc<dyn SceneFactory + Send + Sync>, scene_config: SceneConfiguration) -> ConstructRenderJob {
     let work = move || {
     
         // Create render work arguments
@@ -323,7 +313,7 @@ fn start_background_construct_render_job(st: Settings, factory: fn(&CameraConfig
 
         let start = Instant::now();
 
-        let mut scene = factory(&camera_config);
+        let mut scene = factory.create_scene(&camera_config, &scene_config).unwrap(); // TODO: Error handling
 
         println!("Constructed Scene in {}ms", start.elapsed().as_millis());
 
@@ -436,7 +426,7 @@ impl eframe::App for App {
             .resizable(false)
             .default_width(200.0)
             .show(ctx, |ui| {
-                ui.add(SettingsWidget::new(&mut self.settings, &self.scene_configs));
+                ui.add(SettingsWidget::new(&mut self.settings, &mut self.scene_configs));
                 ui.separator();
 
                 ui.with_layout(egui::Layout::top_down_justified(egui::Align::Center), |ui| {

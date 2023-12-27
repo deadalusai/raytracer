@@ -1,5 +1,5 @@
 use eframe::egui;
-use raytracer_samples::samples::CameraConfiguration;
+use raytracer_samples::scene::SceneControlCollection;
 
 #[derive(Debug, Clone, serde::Deserialize, serde::Serialize)]
 pub struct Settings {
@@ -38,18 +38,13 @@ impl Default for Settings {
     }
 }
 
-pub struct SceneConfig {
-    pub name: &'static str,
-    pub factory: fn(&CameraConfiguration) -> raytracer_impl::implementation::Scene,
-}
-
 pub struct SettingsWidget<'a> {
     settings: &'a mut Settings,
-    scene_configs: &'a [SceneConfig],
+    scene_configs: &'a mut [SceneControlCollection],
 }
 
 impl<'a> SettingsWidget<'a> {
-    pub fn new(settings: &'a mut Settings, scene_configs: &'a [SceneConfig]) -> SettingsWidget<'a> {
+    pub fn new(settings: &'a mut Settings, scene_configs: &'a mut [SceneControlCollection]) -> SettingsWidget<'a> {
         SettingsWidget { settings, scene_configs }
     }
 }
@@ -76,6 +71,16 @@ impl<'a> egui::Widget for SettingsWidget<'a> {
                         }
                     });
                 ui.end_row();
+
+                // Scene-specific controls
+                for c in configs[st.scene].controls.iter_mut() {
+                    ui.label(&c.name);
+                    use raytracer_samples::scene::SceneControlType::*;
+                    ui.add(match c.control_type {
+                        Range(min, max) => egui::DragValue::new(&mut c.value).clamp_range(min..=max),
+                    });
+                    ui.end_row();
+                }
 
                 // Render size
                 ui.label("Render size");
@@ -169,6 +174,9 @@ impl<'a> egui::Widget for SettingsWidget<'a> {
                 ui.with_layout(egui::Layout::top_down_justified(egui::Align::Center), |ui| {
                     if ui.button("Reset").clicked() {
                         *st = Settings::default();
+                        for c in configs.iter_mut() {
+                            c.reset()
+                        }
                     }
                 });
                 ui.end_row();
