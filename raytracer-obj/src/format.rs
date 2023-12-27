@@ -193,12 +193,14 @@ pub fn parse_obj_file(source: &mut dyn Read) -> Result<ObjFile, ObjError> {
             },
             // Vertex
             Some(("v", data)) => {
-                let [x, y, z] = try_parse_elements(data).ok_or_else(|| ObjError::General(format!("Unable to parse vertex on line: {line_no}")))?;
+                let [x, y, z] = try_parse_elements(data)
+                    .ok_or_else(|| ObjError::General(format!("Unable to parse vertex on line {line_no}: {data}")))?;
                 state.vertices.push(V3(x, y, z));
             },
             // Texture vertex
             Some(("vt", data)) => {
-                let [u, v] = try_parse_elements(data).ok_or_else(|| ObjError::General(format!("Unable to parse texture vertex on line: {line_no}")))?;
+                let [u, v] = try_parse_elements(data)
+                    .ok_or_else(|| ObjError::General(format!("Unable to parse texture vertex on line {line_no}: {data}")))?;
                 state.uv.push(V2(u, v));
             },
             // Vertex normals
@@ -208,7 +210,8 @@ pub fn parse_obj_file(source: &mut dyn Read) -> Result<ObjFile, ObjError> {
             // Face
             Some(("f", data)) => {
                 let mtl = state.mtl.clone();
-                let [a, b, c] = try_parse_elements(data).ok_or_else(|| ObjError::General(format!("Unable to parse face on line: {line_no}")))?;
+                let [a, b, c] = try_parse_elements(data)
+                    .ok_or_else(|| ObjError::General(format!("Unable to parse face on line {line_no}: {data}")))?;
                 state.faces.push(ObjFace { a, b, c, mtl });
             },
             _ => {}
@@ -225,16 +228,42 @@ pub struct MtlFile {
     pub materials: Vec<ObjMaterial>,
 }
 
-pub fn parse_mtl_file(source: &mut dyn Read) -> Result<MtlFile, ObjError> {
-    
-    let mut materials = Vec::new();
+/// Braindead MTL parser, supports newmtl, Kd and Kd_map directives only.
+#[derive(Default)]
+struct MtlFileParseState {
+    name: Option<String>,
+    ambient_color: V3,
+    specular_color: V3,
+    diffuse_color: V3,
+    diffuse_color_map: Option<String>,
 
-    // Braindead MTL parser, supports newmtl, Kd and Kd_map directives only.
-    let mut name: Option<String> = None;
-    let mut ambient_color = V3::ZERO;
-    let mut specular_color = V3::ZERO;
-    let mut diffuse_color = V3::ZERO;
-    let mut diffuse_color_map = None;
+    materials: Vec<ObjMaterial>,
+}
+
+impl MtlFileParseState {
+
+    fn try_push_material(&mut self) {
+        if self.name.is_none() {
+            return;
+        }
+
+        self.materials.push(ObjMaterial {
+            name: self.name.take().unwrap(),
+            ambient_color: std::mem::replace(&mut self.ambient_color, V3::ZERO),
+            specular_color: std::mem::replace(&mut self.specular_color, V3::ZERO),
+            diffuse_color: std::mem::replace(&mut self.diffuse_color, V3::ZERO),
+            diffuse_color_map: self.diffuse_color_map.take(),
+        });
+    }
+
+    fn complete(self) -> MtlFile {
+        MtlFile { materials: self.materials }
+    }
+}
+
+pub fn parse_mtl_file(source: &mut dyn Read) -> Result<MtlFile, ObjError> {
+
+    let mut state = MtlFileParseState::default();
 
     for (line_no, line) in BufReader::new(source).lines().enumerate() {
         let line = line?;
@@ -243,58 +272,42 @@ pub fn parse_mtl_file(source: &mut dyn Read) -> Result<MtlFile, ObjError> {
         if line.starts_with("#") {
             continue;
         }
-        let directive = line.split(' ').next();
+        let directive = line.split_once(' ');
         match directive {
             // Object
-            Some("newmtl") => {
+            Some(("newmtl", name)) => {
                 // Starting a new object?
-                if let Some(name) = name.take() {
-                    materials.push(ObjMaterial {
-                        name: name.to_string(),
-                        ambient_color: std::mem::replace(&mut ambient_color, V3::ZERO),
-                        specular_color: std::mem::replace(&mut specular_color, V3::ZERO),
-                        diffuse_color: std::mem::replace(&mut diffuse_color, V3::ZERO),
-                        diffuse_color_map: diffuse_color_map.take(),
-                    });
-                }
-                name = Some(line[6..].trim().to_string());
+                state.try_push_material();
+                state.name = Some(clean(name));
             },
             // Ambient color
-            Some("Ka") => {
-                let [r, g, b] = try_parse_elements(&line[2..].trim())
-                    .ok_or_else(|| ObjError::General(format!("Unable to parse Ka on line: {line_no}")))?;
-                ambient_color = V3(r, g, b);
+            Some(("Ka", data)) => {
+                let [r, g, b] = try_parse_elements(data)
+                    .ok_or_else(|| ObjError::General(format!("Unable to parse Ka on line {line_no}: {data}")))?;
+                state.ambient_color = V3(r, g, b);
             },
             // Specular color
-            Some("Ks") => {
-                let [r, g, b] = try_parse_elements(&line[2..].trim())
-                    .ok_or_else(|| ObjError::General(format!("Unable to parse Ks on line: {line_no}")))?;
-                specular_color = V3(r, g, b);
+            Some(("Ks", data)) => {
+                let [r, g, b] = try_parse_elements(data)
+                    .ok_or_else(|| ObjError::General(format!("Unable to parse Ks on line {line_no}: {data}")))?;
+                state.specular_color = V3(r, g, b);
             },
             // Diffuse color
-            Some("Kd") => {
-                let [r, g, b] = try_parse_elements(&line[2..].trim())
-                    .ok_or_else(|| ObjError::General(format!("Unable to parse Kd on line: {line_no}")))?;
-                diffuse_color = V3(r, g, b);
+            Some(("Kd", data)) => {
+                let [r, g, b] = try_parse_elements(data)
+                    .ok_or_else(|| ObjError::General(format!("Unable to parse Kd on line {line_no}: {data}")))?;
+                state.diffuse_color = V3(r, g, b);
             },
             // Diffuse color map
-            Some("map_Kd") => {
-                diffuse_color_map = Some(line[6..].trim().to_string());
+            Some(("map_Kd", data)) => { 
+                state.diffuse_color_map = Some(clean(data));
             },
             _ => {}
         }
     }
 
     // Emit the last object
-    if let Some(name) = name {
-        materials.push(ObjMaterial {
-            name,
-            ambient_color,
-            specular_color,
-            diffuse_color,
-            diffuse_color_map,
-        });
-    }
+    state.try_push_material();
 
-    Ok(MtlFile { materials })
+    Ok(state.complete())
 }
