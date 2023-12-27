@@ -40,7 +40,8 @@ impl ObjMeshBuilder {
 
         let groups = self.groups.iter().filter(|g| group_filter(g));
 
-        assert!(groups.clone().next().is_some(), "expected at least one group to match filter predicate");
+        // Validate the input
+        groups.clone().next().expect("[ObjMeshBuilder::inner_build_mesh] expected at least one group to match filter predicate");
         
         // Prepare materials as "texture" lookups
         let material_names = groups.clone()

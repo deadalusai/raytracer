@@ -123,8 +123,9 @@ impl App {
             },
             Err(panic) => {
                 self.error = Some(
-                    panic.downcast_ref::<String>()
-                        .map(|s| s.as_ref())
+                    // Try to get the value passed to panic!
+                    panic.downcast_ref::<String>().map(|s| s.as_ref())
+                        .ok_or_else(|| panic.downcast_ref::<&str>())
                         .unwrap_or("Unknown error")
                         .to_string()
                 );
