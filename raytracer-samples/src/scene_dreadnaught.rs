@@ -25,7 +25,7 @@ impl SceneFactory for SceneDreadnaught {
 
     fn create_scene(&self, camera_config: &CameraConfiguration, config: &SceneConfiguration) -> Result<Scene, CreateSceneError> {
         // Camera
-        let dist = config.get("Camera Distance");
+        let dist = config.get("Camera Distance")?;
         let look_to =   V3::ZERO;
         let look_from = V3::ZERO + (V3::POS_Y * dist) + (V3::POS_Z * dist) + (V3::POS_X * dist);
         let camera = camera_config.make_camera(look_to, look_from);
@@ -34,16 +34,15 @@ impl SceneFactory for SceneDreadnaught {
         let mut scene = Scene::new(camera, SceneSky::Black);
 
         // Lights
-        let lamp_intensity = config.get("Lamp Intensity");
+        let lamp_intensity = config.get("Lamp Intensity")?;
         scene.add_light(PointLight::with_origin(look_from).with_intensity(lamp_intensity));
         
-        let mesh_builder = load_obj_builder("./raytracer-samples/meshes/Dreadnaught/Dreadnaught.obj").unwrap();
         let mat = scene.add_material(MatLambertian::default());
-        let mesh_data = mesh_builder.build_mesh();
+        let mesh_data = load_obj_builder("./raytracer-samples/meshes/Dreadnaught/Dreadnaught.obj")?.build_mesh();
         let tex = scene.add_texture(mesh_data.texture_set);
         scene.add_object(MeshObject::new(&mesh_data.mesh, mat, tex)
-            .rotated(V3::POS_Z, deg_to_rad(config.get("Dreadnaught Roll")))
-            .rotated(V3::POS_Y, deg_to_rad(config.get("Dreadnaught Yaw"))));
+            .rotated(V3::POS_Z, deg_to_rad(config.get("Dreadnaught Roll")?))
+            .rotated(V3::POS_Y, deg_to_rad(config.get("Dreadnaught Yaw")?)));
 
         Ok(scene)
     }

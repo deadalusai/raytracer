@@ -5,7 +5,9 @@ use raytracer_impl::implementation::Camera;
 
 use crate::util::deg_to_rad;
 
+//
 // Camera configuration
+//
 
 pub struct CameraConfiguration {
     pub width: f32,
@@ -46,12 +48,24 @@ impl CameraConfiguration {
     }
 }
 
-
-// Scene Configuration Controls
+//
+// Error handling
+//
 
 // TODO: Error type
 #[derive(Debug)]
-pub struct CreateSceneError(String);
+pub struct CreateSceneError(pub String);
+
+impl From<raytracer_obj::ObjError> for CreateSceneError {
+    fn from(value: raytracer_obj::ObjError) -> Self {
+        CreateSceneError(format!("{}", value))
+    }
+}
+
+
+//
+// Scene Configuration Controls
+//
 
 pub trait SceneFactory {
     fn create_controls(&self) -> SceneControlCollection;
@@ -63,8 +77,8 @@ pub struct SceneConfiguration {
 }
 
 impl SceneConfiguration {
-    pub fn get(&self, key: &str) -> f32 {
-        self.values.get(key).expect("scene control value").clone()
+    pub fn get(&self, key: &str) -> Result<f32, CreateSceneError> {
+        self.values.get(key).cloned().ok_or_else(|| CreateSceneError(format!("No scene config with name `{key}`")))
     }
 }
 
@@ -117,9 +131,11 @@ impl SceneControl {
     }
 }
 
+//
 // Wrapper implementation
+//
 
-type BasicSceneFactoryFn = fn(&CameraConfiguration) -> raytracer_impl::implementation::Scene;
+type BasicSceneFactoryFn = fn(&CameraConfiguration) -> Result<raytracer_impl::implementation::Scene, CreateSceneError>;
 
 pub struct BasicSceneFactory {
     name: String,
@@ -141,7 +157,7 @@ impl SceneFactory for BasicSceneFactory {
     }
 
     fn create_scene(&self, camera_config: &CameraConfiguration, _config: &SceneConfiguration) -> Result<raytracer_impl::implementation::Scene, CreateSceneError> {
-        Ok((self.factory)(camera_config))
+        (self.factory)(camera_config)
     }
 }
 

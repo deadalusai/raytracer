@@ -7,7 +7,7 @@ use eframe::egui::{self, Spinner};
 use flume::{ Receiver, Sender };
 use raytracer_impl::implementation::{ Scene, RenderSettings };
 use raytracer_impl::viewport::{ RenderChunk, Viewport, create_render_chunks };
-use raytracer_samples::scene::{ CameraConfiguration, SceneFactory, SceneControlCollection, SceneConfiguration };
+use raytracer_samples::scene::{ CameraConfiguration, SceneFactory, SceneControlCollection, SceneConfiguration, CreateSceneError };
 
 use crate::rgba::{ RgbaBuffer, v3_to_rgba };
 use crate::frame_history::FrameHistory;
@@ -115,8 +115,11 @@ impl App {
 
         let job_creating = self.render_job_creating.take().unwrap();
         match job_creating.handle.join() {
-            Ok(job) => {
+            Ok(Ok(job)) => {
                 self.render_job = Some(job);
+            },
+            Ok(Err(CreateSceneError(err))) => {
+                self.error = Some(err);
             },
             Err(panic) => {
                 self.error = Some(
@@ -293,7 +296,7 @@ fn start_background_render_threads(render_thread_count: u32) -> RenderWorkerHand
 }
 
 struct ConstructRenderJob {
-    handle: JoinHandle<RenderJob>,
+    handle: JoinHandle<Result<RenderJob, CreateSceneError>>,
 }
 
 fn start_background_construct_render_job(st: Settings, factory: Arc<dyn SceneFactory + Send + Sync>, scene_config: SceneConfiguration) -> ConstructRenderJob {
@@ -313,7 +316,7 @@ fn start_background_construct_render_job(st: Settings, factory: Arc<dyn SceneFac
 
         let start = Instant::now();
 
-        let mut scene = factory.create_scene(&camera_config, &scene_config).unwrap(); // TODO: Error handling
+        let mut scene = factory.create_scene(&camera_config, &scene_config)?;
 
         println!("Constructed Scene in {}ms", start.elapsed().as_millis());
 
@@ -333,7 +336,7 @@ fn start_background_construct_render_job(st: Settings, factory: Arc<dyn SceneFac
         let mut chunks = create_render_chunks(&viewport, st.chunk_count);
         chunks.reverse();
 
-        RenderJob {
+        Ok(RenderJob {
             render_args: Arc::new((scene, settings)),
             total_chunk_count: chunks.len() as u32,
             completed_chunk_count: 0,
@@ -342,7 +345,7 @@ fn start_background_construct_render_job(st: Settings, factory: Arc<dyn SceneFac
             render_time_secs: 0_f64,
             buffer: RgbaBuffer::new(st.width, st.height),
             worker_handle: start_background_render_threads(st.thread_count),
-        }
+        })
     };
 
     let handle = std::thread::Builder::new()

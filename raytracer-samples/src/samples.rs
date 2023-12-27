@@ -1,6 +1,6 @@
 #![allow(unused)]
 
-use crate::scene::CameraConfiguration;
+use crate::scene::{CameraConfiguration, CreateSceneError};
 use crate::util::*;
 
 use std::f32::consts::PI;
@@ -107,7 +107,7 @@ fn make_glass(scene: &mut Scene, rng: &mut impl Rng) -> (MatId, TexId) {
     )
 }
 
-pub fn random_sphere_scene(config: &CameraConfiguration) -> Scene {
+pub fn random_sphere_scene(config: &CameraConfiguration) -> Result<Scene, CreateSceneError> {
     // Camera
     let look_from = V3(13.0, 2.0, 3.0);
     let look_to = V3(0.0, 0.0, 0.0);
@@ -136,7 +136,7 @@ pub fn random_sphere_scene(config: &CameraConfiguration) -> Scene {
     let lam_sphere_tex = scene.add_texture(ColorTexture(V3(0.8, 0.2, 0.1)));
     let lam_sphere_mat = scene.add_material(MatLambertian::default());
     scene.add_object(Sphere::new(1.0, lam_sphere_mat, lam_sphere_tex).with_origin(lam_sphere_center.clone()));
-    
+
     // Large hollow glass sphere
     let hollow_sphere_center = V3(0.0, 1.0, 0.0);
     let hollow_sphere_tex = scene.add_texture(ColorTexture(V3(0.95, 0.95, 0.95)));
@@ -177,7 +177,7 @@ pub fn random_sphere_scene(config: &CameraConfiguration) -> Scene {
         }
     }
 
-    scene
+    Ok(scene)
 }
 
 fn add_cardinal_markers(scene: &mut Scene) {
@@ -204,7 +204,7 @@ fn add_coordinates_marker(scene: &mut Scene) {
     scene.add_object(Sphere::new(0.05, mat, blue).with_origin(V3(0.0, 0.0, 1.0)));
 }
 
-pub fn simple_scene(config: &CameraConfiguration) -> Scene {
+pub fn simple_scene(config: &CameraConfiguration) -> Result<Scene, CreateSceneError> {
 
     // Camera
     let look_from = position!(South(6.0), East(1.5), Up(3.0));
@@ -249,7 +249,7 @@ pub fn simple_scene(config: &CameraConfiguration) -> Scene {
     let glass_tex = scene.add_texture(ColorTexture(rgb(130, 255, 140)));
     let glass_pos = position!(Up(1.0), South(2.0), East(2.0));
     scene.add_object(Sphere::new(1.0, glass_mat, glass_tex).with_origin(glass_pos.clone()));
-    
+
     // Glass sphere (small)
     let small_glass_mat = scene.add_material(MatDielectric::default().with_opacity(0.01).with_reflectivity(0.98));
     let small_glass_tex = scene.add_texture(ColorTexture(rgb(66, 206, 245)));
@@ -294,10 +294,10 @@ pub fn simple_scene(config: &CameraConfiguration) -> Scene {
         scene.add_object(Sphere::new(small_plastic_radius, small_plastic_mat, small_plastic_tex).with_origin(small_plastic_pos));
     }
 
-    scene
+    Ok(scene)
 }
 
-pub fn planes_scene(config: &CameraConfiguration) -> Scene {
+pub fn planes_scene(config: &CameraConfiguration) -> Result<Scene, CreateSceneError> {
 
     // Camera
     let look_from = position!(South(6.0), East(1.5), Up(3.0));
@@ -326,10 +326,10 @@ pub fn planes_scene(config: &CameraConfiguration) -> Scene {
     let plane_normal = position!(Origin) - plane_pos; // normal facing world origin
     scene.add_object(Plane::new(plane_normal, plane_mat, plane_tex).with_origin(plane_pos));
 
-    scene
+    Ok(scene)
 }
 
-pub fn hall_of_mirrors(config: &CameraConfiguration) -> Scene {
+pub fn hall_of_mirrors(config: &CameraConfiguration) -> Result<Scene, CreateSceneError> {
 
     // Camera
     let look_from = position!(Up(1.0), South(2.0), East(1.5));
@@ -371,10 +371,10 @@ pub fn hall_of_mirrors(config: &CameraConfiguration) -> Scene {
         );
     }
 
-    scene
+    Ok(scene)
 }
 
-pub fn triangle_world(config: &CameraConfiguration) -> Scene {
+pub fn triangle_world(config: &CameraConfiguration) -> Result<Scene, CreateSceneError> {
 
     // Camera
     let look_from = position!(Up(5.0), South(6.0), East(1.5));
@@ -431,11 +431,11 @@ pub fn triangle_world(config: &CameraConfiguration) -> Scene {
     };
     scene.add_object(MeshObject::new(&tri_mesh, tri_mat, tri_tex).with_origin(tri_pos));
 
-    scene
+    Ok(scene)
 }
 
-pub fn mesh_demo(config: &CameraConfiguration) -> Scene {
-    
+pub fn mesh_demo(config: &CameraConfiguration) -> Result<Scene, CreateSceneError> {
+
     // Camera
     let look_from = position!(Up(1.5), South(4.0), East(4.0));
     let look_to =   position!(Up(1.0));
@@ -448,7 +448,7 @@ pub fn mesh_demo(config: &CameraConfiguration) -> Scene {
     let lamp_pos = position!(Up(5.0), East(4.0));
     let lamp_direction = position!(Origin) - lamp_pos;
     scene.add_light(LampLight::with_origin_and_direction(lamp_pos, lamp_direction).with_intensity(80.0).with_angle(20.0));
-    
+
     let lamp_pos = position!(Up(3.0), West(6.0), North(1.5));
     let lamp_direction = position!(Origin) - lamp_pos;
     scene.add_light(LampLight::with_origin_and_direction(lamp_pos, lamp_direction).with_intensity(80.0).with_angle(20.0));
@@ -468,8 +468,7 @@ pub fn mesh_demo(config: &CameraConfiguration) -> Scene {
     let cube_mat = scene.add_material(MatLambertian::default().with_reflectivity(0.0));
     let cube_tex = scene.add_texture(ColorTexture(rgb(36, 193, 89)));
     let cube_origin = position!(South(1.5), West(1.5));
-    let cube_mesh_builder = load_obj_builder("./raytracer-samples/meshes/simple/cube.obj").unwrap();
-    let cube_mesh_data = cube_mesh_builder.build_mesh();
+    let cube_mesh_data = load_obj_builder("./raytracer-samples/meshes/simple/cube.obj")?.build_mesh();
     scene.add_object(
         MeshObject::new(&cube_mesh_data.mesh, cube_mat, cube_tex)
             .with_origin(cube_origin)
@@ -481,8 +480,7 @@ pub fn mesh_demo(config: &CameraConfiguration) -> Scene {
     let thing_mat = scene.add_material(MatSpecular::default().with_reflectivity(0.8).with_fuzz(0.02));
     let thing_tex = scene.add_texture(ColorTexture(rgb(89, 172, 255)));
     let thing_origin = position!(North(1.5), East(1.5));
-    let thing_mesh_builder = load_obj_builder("./raytracer-samples/meshes/simple/thing.obj").unwrap();
-    let thing_mesh_data = thing_mesh_builder.build_mesh();
+    let thing_mesh_data = load_obj_builder("./raytracer-samples/meshes/simple/thing.obj")?.build_mesh();
     scene.add_object(
         MeshObject::new(&thing_mesh_data.mesh, thing_mat, thing_tex)
             .with_origin(thing_origin)
@@ -493,19 +491,18 @@ pub fn mesh_demo(config: &CameraConfiguration) -> Scene {
     let suz_mat = scene.add_material(MatDielectric::default().with_opacity(0.2).with_ref_index(0.8).with_reflectivity(0.0));
     let suz_tex = scene.add_texture(ColorTexture(rgb(255, 137, 58)));
     let suz_origin = position!(Origin);
-    let suz_mesh_builder = load_obj_builder("./raytracer-samples/meshes/simple/suzanne.obj").unwrap();
-    let suz_mesh_data = suz_mesh_builder.build_mesh();
+    let suz_mesh_data = load_obj_builder("./raytracer-samples/meshes/simple/suzanne.obj")?.build_mesh();
     scene.add_object(
         MeshObject::new(&suz_mesh_data.mesh, suz_mat, suz_tex)
             .with_origin(suz_origin)
             .with_id(3)
     );
 
-    scene
+    Ok(scene)
 }
 
-pub fn spaceships(config: &CameraConfiguration) -> Scene {
-    
+pub fn spaceships(config: &CameraConfiguration) -> Result<Scene, CreateSceneError> {
+
     // Camera
     let look_from = position!(Up(350.0), South(400.0), East(700.0));
     let look_to =   position!(Down(50.0), West(350.0));
@@ -531,16 +528,14 @@ pub fn spaceships(config: &CameraConfiguration) -> Scene {
     );
 
     // Destroyer (facing EAST)
-    let mesh_builder = load_obj_builder("./raytracer-samples/meshes/Destroyer-K/Standarddestroyer.obj").unwrap();
-    let dest_mesh_data = mesh_builder.build_mesh();
+    let dest_mesh_data = load_obj_builder("./raytracer-samples/meshes/Destroyer-K/Standarddestroyer.obj")?.build_mesh();
     let dest_mat = scene.add_material(MatLambertian::default());
     let dest_tex = scene.add_texture(dest_mesh_data.texture_set);
     // NOTE: Destroyer model is facing +Z rotated on its side (X UP)
     let dest_mesh = MeshObject::new(&dest_mesh_data.mesh, dest_mat, dest_tex).rotated(V3::POS_Z, -deg_to_rad(90.0));
 
     // Interceptor (facing EAST)
-    let mesh_builder = load_obj_builder("./raytracer-samples/meshes/Interceptor-T/Heavyinterceptor.obj").unwrap();
-    let int_mesh_data = mesh_builder.build_mesh();
+    let int_mesh_data = load_obj_builder("./raytracer-samples/meshes/Interceptor-T/Heavyinterceptor.obj")?.build_mesh();
     let int_mat = scene.add_material(MatLambertian::default());
     let int_tex = scene.add_texture(int_mesh_data.texture_set);
     // NOTE: Interceptor model is facing +Z rotated on its side (X UP)
@@ -553,13 +548,14 @@ pub fn spaceships(config: &CameraConfiguration) -> Scene {
     scene.add_object(int_mesh.clone().translated(int_origin + position!(East(1.0), South(65.0), Down(15.0))));
 
     scene.add_object(dest_mesh.translated(look_to));
-    scene
+
+    Ok(scene)
 }
 
-pub fn capsule(config: &CameraConfiguration) -> Scene {
+pub fn capsule(config: &CameraConfiguration) -> Result<Scene, CreateSceneError> {
 
     // Example object and texture taken from http://paulbourke.net/dataformats/obj/minobj.html
-    
+
     // Camera
     let look_from = position!(Up(10.0), South(10.0));
     let look_to =   position!(Up(4.0));
@@ -583,10 +579,9 @@ pub fn capsule(config: &CameraConfiguration) -> Scene {
             .with_origin(world_pos)
             .with_id(0)
     );
-    
+
     // Capsule
-    let mesh_builder = load_obj_builder("./raytracer-samples/meshes/capsule/capsule.obj").unwrap();
-    let capsule_mesh_data = mesh_builder.build_mesh();
+    let capsule_mesh_data = load_obj_builder("./raytracer-samples/meshes/capsule/capsule.obj")?.build_mesh();
     let capsule_mat = scene.add_material(MatLambertian::default());
     let capsule_tex = scene.add_texture(capsule_mesh_data.texture_set);
     let capsule_origin = position!(Up(4.0));
@@ -595,10 +590,10 @@ pub fn capsule(config: &CameraConfiguration) -> Scene {
             .with_origin(capsule_origin)
     );
 
-    scene
+    Ok(scene)
 }
 
-pub fn mesh_plane(config: &CameraConfiguration) -> Scene {
+pub fn mesh_plane(config: &CameraConfiguration) -> Result<Scene, CreateSceneError> {
     // Camera
     let look_from = position!(East(2.0));
     let look_to =   position!(Origin);
@@ -613,21 +608,20 @@ pub fn mesh_plane(config: &CameraConfiguration) -> Scene {
     scene.add_light(DirectionalLight::with_direction(lamp_direction).with_intensity(1.0));
 
     // Plane
-    let plane_tex = scene.add_texture(load_color_map("./raytracer-samples/meshes/simple/test.bmp").unwrap());
+    let plane_tex = scene.add_texture(load_color_map("./raytracer-samples/meshes/simple/test.bmp")?);
     let plane_mat = scene.add_material(MatLambertian::default());
     let plane_origin = look_to;
-    let plane_mesh_builder = load_obj_builder("./raytracer-samples/meshes/simple/plane.obj").unwrap();
-    let plane_mesh_data = plane_mesh_builder.build_mesh();
+    let plane_mesh_data = load_obj_builder("./raytracer-samples/meshes/simple/plane.obj")?.build_mesh();
     scene.add_object(
         MeshObject::new(&plane_mesh_data.mesh, plane_mat, plane_tex)
             .with_origin(plane_origin)
             .with_id(1)
     );
 
-    scene
+    Ok(scene)
 }
 
-pub fn point_cloud(config: &CameraConfiguration) -> Scene {
+pub fn point_cloud(config: &CameraConfiguration) -> Result<Scene, CreateSceneError> {
     const LENGTH: f32 = 100.0;
 
     // Camera
@@ -637,7 +631,7 @@ pub fn point_cloud(config: &CameraConfiguration) -> Scene {
 
     // Scene
     let mut scene = Scene::new(camera, SceneSky::Black);
-    
+
     // Lights
     let lamp_pos = look_from;
     let lamp_direction = look_to - lamp_pos;
@@ -649,7 +643,7 @@ pub fn point_cloud(config: &CameraConfiguration) -> Scene {
     let mut rng = create_rng_from_seed(432789012409);
 
     for _ in 0..1_000_000 {
-        
+
         let a = rng.gen::<f32>();
         let b = rng.gen::<f32>();
         let c = rng.gen::<f32>();
@@ -662,10 +656,10 @@ pub fn point_cloud(config: &CameraConfiguration) -> Scene {
         scene.add_object(Sphere::new(point_radius, point_mat, point_tex).with_origin(V3(x, y, z)))
     }
 
-    scene
+    Ok(scene)
 }
 
-pub fn mega_cube(config: &CameraConfiguration) -> Scene {
+pub fn mega_cube(config: &CameraConfiguration) -> Result<Scene, CreateSceneError> {
     // Camera
     let look_dist = 300.0;
     let look_from = position!(Up(look_dist), South(look_dist), East(look_dist));
@@ -682,7 +676,7 @@ pub fn mega_cube(config: &CameraConfiguration) -> Scene {
 
     let int_mat = scene.add_material(MatLambertian::default());
     let int_tex = scene.add_texture(ColorTexture(V3(1.0, 0.41, 0.70))); // #FF69B4;
-    
+
     let range = (-100..=100).step_by(25);
 
     for x in range.clone() {
@@ -696,11 +690,11 @@ pub fn mega_cube(config: &CameraConfiguration) -> Scene {
         }
     }
 
-    scene
+    Ok(scene)
 }
 
-pub fn fleet(config: &CameraConfiguration) -> Scene {
-    
+pub fn fleet(config: &CameraConfiguration) -> Result<Scene, CreateSceneError> {
+
     let dist = 100.0;
 
     // Camera
@@ -713,15 +707,14 @@ pub fn fleet(config: &CameraConfiguration) -> Scene {
 
     // Lights
     scene.add_light(PointLight::with_origin(look_from).with_intensity(2000.0));
-    
-    let int_mesh_builder = load_obj_builder("./raytracer-samples/meshes/Interceptor-T/Heavyinterceptor.obj").unwrap();
-    let int_mesh_data = int_mesh_builder.build_mesh();
+
+    let int_mesh_data = load_obj_builder("./raytracer-samples/meshes/Interceptor-T/Heavyinterceptor.obj")?.build_mesh();
     let int_mat = scene.add_material(MatLambertian::default());
     let int_tex = scene.add_texture(int_mesh_data.texture_set);
     let int_mesh = MeshObject::new(&int_mesh_data.mesh, int_mat, int_tex)
         // Interceptor model is facing +Z rotated on its side (X UP?)
         .rotated(V3::POS_Z, -deg_to_rad(90.0));
-    
+
     let range = (-600..=0).step_by(60);
 
     for x in range.clone() {
@@ -733,5 +726,5 @@ pub fn fleet(config: &CameraConfiguration) -> Scene {
         }
     }
 
-    scene
+    Ok(scene)
 }
