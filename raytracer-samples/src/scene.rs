@@ -103,6 +103,7 @@ impl SceneControlCollection {
 
 pub enum SceneControlType {
     Range(f32, f32),
+    RangeAngleDegrees,
 }
 
 pub struct SceneControl {
@@ -117,6 +118,15 @@ impl SceneControl {
         Self {
             name: name.into(),
             control_type: SceneControlType::Range(min, max),
+            default: 0.0,
+            value: 0.0,
+        }
+    }
+
+    pub fn range_angle_deg(name: &str) -> Self {
+        Self {
+            name: name.into(),
+            control_type: SceneControlType::RangeAngleDegrees,
             default: 0.0,
             value: 0.0,
         }

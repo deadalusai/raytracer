@@ -1,4 +1,4 @@
-use eframe::egui;
+use eframe::egui::{self, WidgetText};
 use raytracer_samples::scene::SceneControlCollection;
 
 #[derive(Debug, Clone, serde::Deserialize, serde::Serialize)]
@@ -74,10 +74,23 @@ impl<'a> egui::Widget for SettingsWidget<'a> {
 
                 // Scene-specific controls
                 for c in configs[st.scene].controls.iter_mut() {
-                    ui.label(&c.name);
+                    // Tab in  these control labels a bit to differentiate them
+                    // from normal settings controls following
+                    ui.horizontal(|ui| {
+                        ui.add_space(20.0);
+                        ui.label(WidgetText::from(&c.name).italics());
+                    });
                     use raytracer_samples::scene::SceneControlType::*;
                     ui.add(match c.control_type {
-                        Range(min, max) => egui::DragValue::new(&mut c.value).clamp_range(min..=max),
+
+                        Range(min, max) => egui::DragValue::new(&mut c.value)
+                            .clamp_range(min..=max),
+
+                        RangeAngleDegrees => egui::DragValue::new(&mut c.value)
+                            .clamp_range(-360.0..=360.0)
+                            .speed(1.0)
+                            .max_decimals(0)
+                            .suffix("°"),
                     });
                     ui.end_row();
                 }
