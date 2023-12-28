@@ -51,7 +51,7 @@ pub struct App {
     scene_factories: Vec<Arc<dyn SceneFactory + Send + Sync>>,
     scene_configs: Vec<SceneControlCollection>,
     // Temporal state
-    output_texture: Option<(egui::TextureHandle, [usize; 2])>,
+    output_texture: Option<egui::TextureHandle>,
     render_job_creating: Option<ConstructRenderJob>,
     render_job: Option<RenderJob>,
     error: Option<String>,
@@ -368,7 +368,7 @@ impl eframe::App for App {
 
         ctx.set_visuals(egui::Visuals::dark());
 
-        self.frame_history.on_new_frame(ctx.input().time, frame.info().cpu_usage);
+        self.frame_history.on_new_frame(ctx.input(|s| s.time), frame.info().cpu_usage);
 
         // Ensure we keep updating the UI as long as there's a job being created,
         // as we rely on the update loop to keep checking the factory thread.
@@ -380,12 +380,16 @@ impl eframe::App for App {
 
         let buffer_updated = self.update_job();
         if buffer_updated {
-            // Update the output texture
+            // Update the output texture?
             if let Some(job) = self.render_job.as_ref() {
-                let (tex_dim, tex_data) = job.buffer.get_raw_rgba_data();
-                let tex_data = egui::ColorImage::from_rgba_unmultiplied(tex_dim, tex_data);
-                let tex_id = ctx.load_texture("output_tex", tex_data, egui::TextureOptions::LINEAR);
-                self.output_texture = Some((tex_id, tex_dim));
+                // Allocate a new texture for the latest frame
+                let rgba = job.buffer.get_raw_rgba_data();
+                let tex_id = ctx.load_texture(
+                    "output_tex",
+                    egui::ColorImage::from_rgba_unmultiplied([rgba.width, rgba.height], rgba.data),
+                    egui::TextureOptions::LINEAR
+                );
+                self.output_texture = Some(tex_id);
             }
         }
         
@@ -413,14 +417,16 @@ impl eframe::App for App {
                 });
             }
             // Output image in progress
-            else if let Some((id, dim)) = self.output_texture.as_ref() {
+            else if let Some(handle) = self.output_texture.as_ref() {
                 ui.centered_and_justified(|ui| {
-                    let (width, height) = match dim {
-                        // Scale the output texture to fit in the container
-                        &[w, h] if self.settings.scale_render_to_window => scale_to_container_dimensions((w as f32, h as f32), (ui.available_width(), ui.available_height())),
-                        &[w, h] => (w as f32, h as f32),
-                    };
-                    ui.image(id, [width, height]);
+                    ui.add(
+                        if self.settings.scale_render_to_window {
+                            egui::Image::new(handle).fit_to_fraction(egui::vec2(1.0, 1.0))
+                        }
+                        else {
+                            egui::Image::new(handle).fit_to_original_size(1.0)
+                        }
+                    );
                 });
             }
         });
@@ -451,17 +457,5 @@ impl eframe::App for App {
 
                 self.frame_history.ui(ui);
             });
-    }
-}
-
-/// Scales the given `i` dimensions to fit the given `c` dimensions
-fn scale_to_container_dimensions((iw, ih): (f32, f32), (cw, ch): (f32, f32)) -> (f32, f32) {
-    let iratio = iw / ih;
-    let cratio = cw / ch;
-    match (cw < ch, iratio > cratio) {
-        | (true,  true)  => (cw, cw * (1.0 / iratio)),
-        | (false, true)  => (cw, cw * (1.0 / iratio)),
-        | (true,  false) => (ch * iratio, ch),
-        | (false, false) => (ch * iratio, ch),
     }
 }

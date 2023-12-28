@@ -18,6 +18,12 @@ pub struct RgbaBuffer {
     data: Vec<u8>,
 }
 
+pub struct RgbaRaw<'a> {
+    pub width: usize,
+    pub height: usize,
+    pub data: &'a [u8],
+}
+
 impl RgbaBuffer {
     pub fn new(width: usize, height: usize) -> RgbaBuffer {
         RgbaBuffer {
@@ -54,7 +60,11 @@ impl RgbaBuffer {
         }
     }
     
-    pub fn get_raw_rgba_data(&self) -> ([usize; 2], &[u8]) {
-        ([self.width as usize, self.height as usize], self.data.as_ref())
+    pub fn get_raw_rgba_data(&self) -> RgbaRaw {
+        RgbaRaw {
+            width: self.width as usize,
+            height: self.height as usize,
+            data: self.data.as_ref(),
+        }
     }
 }
