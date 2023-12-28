@@ -39,9 +39,6 @@ impl ObjMeshBuilder {
     fn inner_build_mesh(&self, group_filter: &dyn Fn(&ObjGroup) -> bool) -> MeshAndTextureData {
 
         let groups = self.groups.iter().filter(|g| group_filter(g));
-
-        // Validate the input
-        groups.clone().next().expect("[ObjMeshBuilder::inner_build_mesh] expected at least one group to match filter predicate");
         
         // Prepare materials as "texture" lookups
         let material_names = groups.clone()
@@ -94,6 +91,10 @@ impl ObjMeshBuilder {
                     tex_key,
                 });
             }
+        }
+
+        if faces.len() == 0 {
+            panic!("[ObjMeshBuilder::inner_build_mesh] expected at least one face (are you building a vertex group with the wrong name?)");
         }
 
         MeshAndTextureData {
