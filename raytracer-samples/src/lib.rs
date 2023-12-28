@@ -2,8 +2,7 @@ pub mod util;
 pub mod scene;
 
 use std::sync::Arc;
-use scene::SceneFactory;
-use crate::scene::BasicSceneFactory;
+use scene::{SceneFactory, BasicSceneFactory};
 
 mod samples;
 mod scene_dreadnaught;
@@ -25,3 +24,15 @@ pub fn make_sample_scene_factories() -> Vec<Arc<dyn SceneFactory + Send + Sync>>
         Arc::new(scene_dreadnaught::SceneDreadnaught),
     ]
 }
+
+//
+// Macros
+//
+
+/// Gets an absolute path to any sub-path under raytracer-samples/meshes
+macro_rules! mesh_path {
+    ($sub_path: expr) => {
+        concat!(env!("CARGO_MANIFEST_DIR"), "/meshes/", $sub_path)
+    };
+}
+pub(crate) use mesh_path;

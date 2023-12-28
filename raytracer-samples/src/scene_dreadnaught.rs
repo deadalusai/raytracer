@@ -52,7 +52,7 @@ impl SceneFactory for SceneDreadnaught {
         });
         
         let mat = scene.add_material(MatLambertian::default());
-        let mesh_data = load_obj_builder("./raytracer-samples/meshes/Dreadnaught/Dreadnaught.obj")?.build_mesh();
+        let mesh_data = load_obj_builder(crate::mesh_path!("Dreadnaught/Dreadnaught.obj"))?.build_mesh();
         let tex = scene.add_texture(mesh_data.texture_set);
         scene.add_object(
             MeshObject::new(&mesh_data.mesh, mat, tex)
