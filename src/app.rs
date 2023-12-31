@@ -28,7 +28,7 @@ struct RenderJob {
     total_chunk_count: u32,
     completed_chunk_count: u32,
     buffer: RgbaBuffer,
-    worker_handle: RenderWorkerHandle,
+    worker_handle: RenderJobWorkerHandle,
 }
 
 // A message from the master thread to a worker
@@ -51,11 +51,16 @@ pub struct App {
     scene_factories: Vec<Arc<dyn SceneFactory + Send + Sync>>,
     scene_configs: Vec<SceneControlCollection>,
     // Temporal state
-    output_texture: Option<egui::TextureHandle>,
-    render_job_creating: Option<ConstructRenderJob>,
-    render_job: Option<RenderJob>,
-    error: Option<String>,
     frame_history: FrameHistory,
+    state: AppState,
+    output_texture: Option<egui::TextureHandle>,
+}
+
+enum AppState {
+    None,
+    RenderJobConstructing(RenderJobConstructingState),
+    RenderJobRunning(RenderJob),
+    Error(String),
 }
 
 impl App {
@@ -76,119 +81,220 @@ impl App {
             scene_factories,
             scene_configs,
             // Temporal state
-            output_texture: None,
-            render_job_creating: None,
-            render_job: None,
-            error: None,
             frame_history: FrameHistory::default(),
+            state: AppState::None,
+            output_texture: None,
         }
     }
 
-    fn start_job(&mut self) {
+    fn start_new_job(&mut self) {
 
         // Stop running worker threads if an existing job is in progress
-        if let Some(render_job) = self.render_job.take() {
-            // Start shutdown of all threads
-            render_job.worker_handle.cts.cancel();
+        if let AppState::RenderJobRunning(state) = &self.state {
+            state.worker_handle.cts.cancel();
         }
 
         let scene_factory = self.scene_factories[self.settings.scene].clone();
         let scene_config = self.scene_configs[self.settings.scene].collect_configuration();
 
-        let render_job_creating = start_background_construct_render_job(self.settings.clone(), scene_factory, scene_config);
-        self.render_job_creating = Some(render_job_creating);
-        self.error = None;
+        let state = start_background_construct_render_job(ConstructRenderJobArgs {
+            settings: self.settings.clone(),
+            scene_config,
+            scene_factory,
+        });
+
+        self.state = AppState::RenderJobConstructing(state);
     }
 
-    fn update_pending_job(&mut self) -> bool {
-
-        let is_creating_job = self.render_job_creating.is_some();
-        if !is_creating_job {
-            return false;
-        }
-
-        let is_job_finished = self.render_job_creating.as_ref().unwrap().handle.is_finished();
-        if !is_job_finished {
-            // Trigger immediate repaint to ensure we keep checking
-            return true;
-        }
-
-        let job_creating = self.render_job_creating.take().unwrap();
-        match job_creating.handle.join() {
-            Ok(Ok(job)) => {
-                self.render_job = Some(job);
-            },
-            Ok(Err(CreateSceneError(err))) => {
-                self.error = Some(err);
-            },
-            Err(panic) => {
-                self.error = Some(
-                    // Try to get the value passed to panic!
-                    panic.downcast_ref::<String>().map(|s| s.as_ref())
-                        .ok_or_else(|| panic.downcast_ref::<&str>())
-                        .unwrap_or("Unknown error")
-                        .to_string()
-                );
-            },
-        }
-
-        return false;
-    }
-
-    fn update_job(&mut self) -> bool {
-        use RenderThreadMessage::*;
-
-        let mut buffer_updated = false;
-
-        if let Some(ref mut job) = self.render_job {
-
-            // Poll for completed work
-            while let Ok(result) = job.worker_handle.result_receiver.try_recv() {
-                match result {
-                    Ready(_) => {}, // Worker thread ready to go.
-                    FrameUpdated(_, chunk, buf) => {
-                        // Copy chunk to buffer
-                        job.buffer.copy_from_sub_buffer(chunk.left, chunk.top, &buf);
-                        buffer_updated = true;
-                    },
-                    FrameCompleted(id, elapsed) => {
-                        // Update stats
-                        let thread = &mut job.worker_handle.thread_handles[id as usize];
-                        thread.total_time_secs += duration_total_secs(elapsed);
-                        thread.total_chunks_rendered += 1;
-                        job.completed_chunk_count += 1;
-                    },
-                    Terminated(_) => {}, // Worker halted
+    /// Runs internal state update logic, and may transition
+    /// the app into a new state.
+    /// 
+    /// The return value indicates if work is still running on a background thread.
+    fn update_state(&mut self, ctx: &eframe::egui::Context) -> bool {
+        self.state = match &mut self.state {
+            AppState::RenderJobConstructing(state) => {
+                if !state.is_finished() {
+                    // Background work still in progress
+                    return true;
                 }
-            }
-    
-            // Refill the the work queue
-            use flume::TrySendError;
-            while let Some(chunk) = job.pending_chunks.pop() {
-                let work = RenderWork(chunk, job.render_args.clone());
-                if let Err(err) = job.worker_handle.work_sender.try_send(work) {
-                    match err {
-                        TrySendError::Full(RenderWork(chunk, _)) => {
-                            // Queue full, try again later
-                            job.pending_chunks.push(chunk);
-                        }
-                        TrySendError::Disconnected(_) => {
-                            println!("All render threads stopped!");
-                        }
+                // Background work completed,
+                // transition to appropriate next state
+                let handle = state.handle.take().unwrap();
+                match handle.join() {
+                    Ok(Ok(job)) => {
+                        AppState::RenderJobRunning(job)
+                    },
+                    Ok(Err(CreateSceneError(err))) => {
+                        AppState::Error(err)
+                    },
+                    Err(panic) => {
+                        AppState::Error(try_extract_panic_argument(&panic).unwrap_or("Unknown error").to_string())
+                    },
+                }
+            },
+            AppState::RenderJobRunning(job) => {
+                use RenderThreadMessage::*;
+
+                let mut buffer_updated = false;
+
+                // Poll for completed work
+                while let Ok(result) = job.worker_handle.result_receiver.try_recv() {
+                    match result {
+                        Ready(_) => {}, // Worker thread ready to go.
+                        FrameUpdated(_, chunk, buf) => {
+                            // Copy chunk to buffer
+                            job.buffer.copy_from_sub_buffer(chunk.left, chunk.top, &buf);
+                            buffer_updated = true;
+                        },
+                        FrameCompleted(id, elapsed) => {
+                            // Update stats
+                            let thread = &mut job.worker_handle.thread_handles[id as usize];
+                            thread.total_time_secs += duration_total_secs(elapsed);
+                            thread.total_chunks_rendered += 1;
+                            job.completed_chunk_count += 1;
+                        },
+                        Terminated(_) => {}, // Worker halted
                     }
-                    break;
                 }
-            }
-    
-            // Update timer, as long as we have outstanding work
-            if job.completed_chunk_count < job.total_chunk_count {
-                job.render_time_secs = duration_total_secs(job.start_time.elapsed());
-            }
-        }
 
-        buffer_updated
+                // Update the working texture?
+                if buffer_updated {
+                    let rgba = job.buffer.get_raw_rgba_data();
+                    let tex_id = ctx.load_texture(
+                        "output_tex",
+                        egui::ColorImage::from_rgba_unmultiplied([rgba.width, rgba.height], rgba.data),
+                        egui::TextureOptions::LINEAR
+                    );
+                    self.output_texture = Some(tex_id);
+                }
+        
+                // Refill the the work queue
+                use flume::TrySendError;
+                while let Some(chunk) = job.pending_chunks.pop() {
+                    let work = RenderWork(chunk, job.render_args.clone());
+                    if let Err(err) = job.worker_handle.work_sender.try_send(work) {
+                        match err {
+                            TrySendError::Full(RenderWork(chunk, _)) => {
+                                // Queue full, try again later
+                                job.pending_chunks.push(chunk);
+                            }
+                            TrySendError::Disconnected(_) => {
+                                println!("All render threads stopped!");
+                            }
+                        }
+                        break;
+                    }
+                }
+            
+                // Update timer, as long as we have outstanding work
+                let working = job.completed_chunk_count < job.total_chunk_count;
+                if working {
+                    job.render_time_secs = duration_total_secs(job.start_time.elapsed());
+                }
+
+                return true;
+            },
+            _ => {
+                return false;
+            }
+        };
+
+        false
     }
 }
+
+/// Tries to get the value passed to [panic!]
+fn try_extract_panic_argument(panic: &dyn std::any::Any) -> Option<&str> {
+    panic.downcast_ref::<String>().map(|s| s.as_ref())
+        .ok_or_else(|| panic.downcast_ref::<&str>())
+        .ok()
+}
+
+//
+// RenderJob factory worker
+//
+
+struct ConstructRenderJobArgs {
+    settings: Settings,
+    scene_config: SceneConfiguration,
+    scene_factory: Arc<dyn SceneFactory + Send + Sync>,
+}
+
+struct RenderJobConstructingState {
+    // NOTE: Wrap the thread handle in an Option
+    // to allow us to move ownership out of a mut reference as part of [App::update].
+    handle: Option<JoinHandle<Result<RenderJob, CreateSceneError>>>,
+}
+
+impl RenderJobConstructingState {
+    fn is_finished(&self) -> bool {
+        match &self.handle {
+            Some(handle) => handle.is_finished(),
+            None => false,
+        }
+    }
+}
+
+fn start_background_construct_render_job(args: ConstructRenderJobArgs) -> RenderJobConstructingState {
+    let work = move || {
+    
+        // Create render work arguments
+        let viewport = Viewport::new(args.settings.width, args.settings.height);
+        let camera_config = CameraConfiguration {
+            width: args.settings.width as f32,
+            height: args.settings.height as f32,
+            fov: args.settings.camera_fov,
+            lens_radius: args.settings.camera_lens_radius,
+            angle_adjust_v: args.settings.camera_angle_adjust_v,
+            angle_adjust_h: args.settings.camera_angle_adjust_h,
+            focus_dist_adjust: args.settings.camera_focus_dist_adjust,
+        };
+
+        let start = Instant::now();
+
+        let mut scene = args.scene_factory.create_scene(&camera_config, &args.scene_config)?;
+
+        println!("Constructed Scene in {}ms", start.elapsed().as_millis());
+
+        let start = Instant::now();
+
+        scene.reorganize_objects_into_bvh();
+
+        println!("Constructed Bounding Volume Hierachy in {}ms", start.elapsed().as_millis());
+        
+        let render_settings = RenderSettings {
+            max_reflections: args.settings.max_reflections,
+            samples_per_pixel: args.settings.samples_per_pixel,
+        };
+
+        // Chunks are popped from this list as they are rendered.
+        // Reverse the list so the top of the image is rendered first.
+        let mut chunks = create_render_chunks(&viewport, args.settings.chunk_count);
+        chunks.reverse();
+
+        Ok(RenderJob {
+            render_args: Arc::new((scene, render_settings)),
+            total_chunk_count: chunks.len() as u32,
+            completed_chunk_count: 0,
+            pending_chunks: chunks,
+            start_time: Instant::now(),
+            render_time_secs: 0_f64,
+            buffer: RgbaBuffer::new(args.settings.width, args.settings.height),
+            worker_handle: start_background_render_threads(args.settings.thread_count),
+        })
+    };
+
+    let handle = std::thread::Builder::new()
+        .name("Construct Render Job".into())
+        .spawn(work)
+        .expect("failed to spawn background thread");
+
+    RenderJobConstructingState { handle: Some(handle) }
+}
+
+//
+// Render workers
+//
 
 const RNG_SEED: u64 = 12345;
 
@@ -249,14 +355,14 @@ struct RenderThread {
     total_chunks_rendered: u32,
 }
 
-struct RenderWorkerHandle {
+struct RenderJobWorkerHandle {
     cts: CancellationTokenSource,
     work_sender: Sender<RenderWork>,
     result_receiver: Receiver<RenderThreadMessage>,
     thread_handles: Vec<RenderThread>,
 }
 
-fn start_background_render_threads(render_thread_count: u32) -> RenderWorkerHandle {
+fn start_background_render_threads(render_thread_count: u32) -> RenderJobWorkerHandle {
     let cts = CancellationTokenSource::new();
     let (work_sender, work_receiver) = flume::bounded(render_thread_count as usize);
     let (result_sender, result_receiver) = flume::unbounded();
@@ -288,73 +394,12 @@ fn start_background_render_threads(render_thread_count: u32) -> RenderWorkerHand
         })
         .collect::<Vec<_>>();
 
-    RenderWorkerHandle {
+    RenderJobWorkerHandle {
         cts,
         work_sender,
         result_receiver,
         thread_handles,
     }
-}
-
-struct ConstructRenderJob {
-    handle: JoinHandle<Result<RenderJob, CreateSceneError>>,
-}
-
-fn start_background_construct_render_job(st: Settings, factory: Arc<dyn SceneFactory + Send + Sync>, scene_config: SceneConfiguration) -> ConstructRenderJob {
-    let work = move || {
-    
-        // Create render work arguments
-        let viewport = Viewport::new(st.width, st.height);
-        let camera_config = CameraConfiguration {
-            width: st.width as f32,
-            height: st.height as f32,
-            fov: st.camera_fov,
-            lens_radius: st.camera_lens_radius,
-            angle_adjust_v: st.camera_angle_adjust_v,
-            angle_adjust_h: st.camera_angle_adjust_h,
-            focus_dist_adjust: st.camera_focus_dist_adjust,
-        };
-
-        let start = Instant::now();
-
-        let mut scene = factory.create_scene(&camera_config, &scene_config)?;
-
-        println!("Constructed Scene in {}ms", start.elapsed().as_millis());
-
-        let start = Instant::now();
-
-        scene.reorganize_objects_into_bvh();
-
-        println!("Constructed Bounding Volume Hierachy in {}ms", start.elapsed().as_millis());
-        
-        let settings = RenderSettings {
-            max_reflections: st.max_reflections,
-            samples_per_pixel: st.samples_per_pixel,
-        };
-
-        // Chunks are popped from this list as they are rendered.
-        // Reverse the list so the top of the image is rendered first.
-        let mut chunks = create_render_chunks(&viewport, st.chunk_count);
-        chunks.reverse();
-
-        Ok(RenderJob {
-            render_args: Arc::new((scene, settings)),
-            total_chunk_count: chunks.len() as u32,
-            completed_chunk_count: 0,
-            pending_chunks: chunks,
-            start_time: Instant::now(),
-            render_time_secs: 0_f64,
-            buffer: RgbaBuffer::new(st.width, st.height),
-            worker_handle: start_background_render_threads(st.thread_count),
-        })
-    };
-
-    let handle = std::thread::Builder::new()
-        .name("Construct Render Job".into())
-        .spawn(work)
-        .expect("failed to spawn background thread");
-
-    ConstructRenderJob { handle }
 }
 
 impl eframe::App for App {
@@ -370,65 +415,45 @@ impl eframe::App for App {
 
         self.frame_history.on_new_frame(ctx.input(|s| s.time), frame.info().cpu_usage);
 
-        // Ensure we keep updating the UI as long as there's a job being created,
-        // as we rely on the update loop to keep checking the factory thread.
+        // Ensure we keep updating the UI as long as there's work on a background thread,
+        // as we rely on the update loop to keep checking for progress.
         
-        let job_pending = self.update_pending_job(); 
-        if job_pending {
+        let work_pending = self.update_state(ctx); 
+        if work_pending {
             ctx.request_repaint();
         }
-
-        let buffer_updated = self.update_job();
-        if buffer_updated {
-            // Update the output texture?
-            if let Some(job) = self.render_job.as_ref() {
-                // Allocate a new texture for the latest frame
-                let rgba = job.buffer.get_raw_rgba_data();
-                let tex_id = ctx.load_texture(
-                    "output_tex",
-                    egui::ColorImage::from_rgba_unmultiplied([rgba.width, rgba.height], rgba.data),
-                    egui::TextureOptions::LINEAR
-                );
-                self.output_texture = Some(tex_id);
-            }
-        }
         
-        // Ensure we keep updating the UI as long as there's an active job,
-        // as we rely on the update loop to keep feeding the worker threads and updating the in-progress image.
-        
-        if let Some(job) = self.render_job.as_ref() {
-            if job.completed_chunk_count != job.total_chunk_count {
-                // Tell the backend to repaint as soon as possible
-                ctx.request_repaint();
-            }
-        }
-
         egui::CentralPanel::default().show(ctx, |ui| {
-            // Output pending job status
-            if self.render_job_creating.is_some() {
-                ui.centered_and_justified(|ui| {
-                    ui.add(Spinner::new());
-                });
-            }
-            // Output error
-            else if let Some(error) = self.error.as_ref() {
-                ui.centered_and_justified(|ui| {
-                    ui.label(error);
-                });
-            }
-            // Output image in progress
-            else if let Some(handle) = self.output_texture.as_ref() {
-                ui.centered_and_justified(|ui| {
-                    ui.add(
-                        if self.settings.scale_render_to_window {
-                            egui::Image::new(handle).fit_to_fraction(egui::vec2(1.0, 1.0))
+            ui.centered_and_justified(|ui| {
+                match &self.state {
+                    AppState::None => {
+                        ui.label("Press 'Start render' to start");
+                    },
+                    AppState::RenderJobConstructing(_) => {
+                        ui.add(Spinner::new());
+                    },
+                    AppState::RenderJobRunning(_) => {
+                        match self.output_texture.as_ref() {
+                            Some(output_texture) => {
+                                ui.add(
+                                    if self.settings.scale_render_to_window {
+                                        egui::Image::new(output_texture).fit_to_fraction(egui::vec2(1.0, 1.0))
+                                    }
+                                    else {
+                                        egui::Image::new(output_texture).fit_to_original_size(1.0)
+                                    }
+                                );
+                            }
+                            None => {
+                                ui.spinner();
+                            }
                         }
-                        else {
-                            egui::Image::new(handle).fit_to_original_size(1.0)
-                        }
-                    );
-                });
-            }
+                    },
+                    AppState::Error(error) => {
+                        ui.label(error);
+                    },
+                }
+            });
         });
 
         // Settings UI
@@ -441,11 +466,11 @@ impl eframe::App for App {
 
                 ui.with_layout(egui::Layout::top_down_justified(egui::Align::Center), |ui| {
                     if ui.button("Start render").clicked() {
-                        self.start_job();
+                        self.start_new_job();
                     }
                 });
 
-                if let Some(job) = self.render_job.as_ref() {
+                if let AppState::RenderJobRunning(job) = &self.state {
                     for thread in job.worker_handle.thread_handles.iter() {
                         ui.add(ThreadStats {
                             id: thread.id,
