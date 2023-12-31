@@ -53,13 +53,12 @@ pub struct App {
     // Temporal state
     frame_history: FrameHistory,
     state: AppState,
-    output_texture: Option<egui::TextureHandle>,
 }
 
 enum AppState {
     None,
     RenderJobConstructing(RenderJobConstructingState),
-    RenderJobRunning(RenderJob),
+    RenderJobRunning(RenderJobRunningState),
     Error(String),
 }
 
@@ -83,7 +82,6 @@ impl App {
             // Temporal state
             frame_history: FrameHistory::default(),
             state: AppState::None,
-            output_texture: None,
         }
     }
 
@@ -91,7 +89,7 @@ impl App {
 
         // Stop running worker threads if an existing job is in progress
         if let AppState::RenderJobRunning(state) = &self.state {
-            state.worker_handle.cts.cancel();
+            state.job.worker_handle.cts.cancel();
         }
 
         let scene_factory = self.scene_factories[self.settings.scene].clone();
@@ -109,7 +107,7 @@ impl App {
     /// Runs internal state update logic, and may transition
     /// the app into a new state.
     /// 
-    /// The return value indicates if work is still running on a background thread.
+    /// The return value indicates if work is running on a background thread.
     fn update_state(&mut self, ctx: &eframe::egui::Context) -> bool {
         self.state = match &mut self.state {
             AppState::RenderJobConstructing(state) => {
@@ -122,7 +120,7 @@ impl App {
                 let handle = state.handle.take().unwrap();
                 match handle.join() {
                     Ok(Ok(job)) => {
-                        AppState::RenderJobRunning(job)
+                        AppState::RenderJobRunning(RenderJobRunningState { job, output_tex: None })
                     },
                     Ok(Err(CreateSceneError(err))) => {
                         AppState::Error(err)
@@ -132,26 +130,26 @@ impl App {
                     },
                 }
             },
-            AppState::RenderJobRunning(job) => {
+            AppState::RenderJobRunning(state) => {
                 use RenderThreadMessage::*;
 
                 let mut buffer_updated = false;
 
                 // Poll for completed work
-                while let Ok(result) = job.worker_handle.result_receiver.try_recv() {
+                while let Ok(result) = state.job.worker_handle.result_receiver.try_recv() {
                     match result {
                         Ready(_) => {}, // Worker thread ready to go.
                         FrameUpdated(_, chunk, buf) => {
                             // Copy chunk to buffer
-                            job.buffer.copy_from_sub_buffer(chunk.left, chunk.top, &buf);
+                            state.job.buffer.copy_from_sub_buffer(chunk.left, chunk.top, &buf);
                             buffer_updated = true;
                         },
                         FrameCompleted(id, elapsed) => {
                             // Update stats
-                            let thread = &mut job.worker_handle.thread_handles[id as usize];
+                            let thread = &mut state.job.worker_handle.thread_handles[id as usize];
                             thread.total_time_secs += duration_total_secs(elapsed);
                             thread.total_chunks_rendered += 1;
-                            job.completed_chunk_count += 1;
+                            state.job.completed_chunk_count += 1;
                         },
                         Terminated(_) => {}, // Worker halted
                     }
@@ -159,24 +157,24 @@ impl App {
 
                 // Update the working texture?
                 if buffer_updated {
-                    let rgba = job.buffer.get_raw_rgba_data();
+                    let rgba = state.job.buffer.get_raw_rgba_data();
                     let tex_id = ctx.load_texture(
                         "output_tex",
                         egui::ColorImage::from_rgba_unmultiplied([rgba.width, rgba.height], rgba.data),
                         egui::TextureOptions::LINEAR
                     );
-                    self.output_texture = Some(tex_id);
+                    state.output_tex = Some(tex_id);
                 }
         
                 // Refill the the work queue
                 use flume::TrySendError;
-                while let Some(chunk) = job.pending_chunks.pop() {
-                    let work = RenderWork(chunk, job.render_args.clone());
-                    if let Err(err) = job.worker_handle.work_sender.try_send(work) {
+                while let Some(chunk) = state.job.pending_chunks.pop() {
+                    let work = RenderWork(chunk, state.job.render_args.clone());
+                    if let Err(err) = state.job.worker_handle.work_sender.try_send(work) {
                         match err {
                             TrySendError::Full(RenderWork(chunk, _)) => {
                                 // Queue full, try again later
-                                job.pending_chunks.push(chunk);
+                                state.job.pending_chunks.push(chunk);
                             }
                             TrySendError::Disconnected(_) => {
                                 println!("All render threads stopped!");
@@ -187,9 +185,9 @@ impl App {
                 }
             
                 // Update timer, as long as we have outstanding work
-                let working = job.completed_chunk_count < job.total_chunk_count;
+                let working = state.job.completed_chunk_count < state.job.total_chunk_count;
                 if working {
-                    job.render_time_secs = duration_total_secs(job.start_time.elapsed());
+                    state.job.render_time_secs = duration_total_secs(state.job.start_time.elapsed());
                 }
 
                 return true;
@@ -295,6 +293,11 @@ fn start_background_construct_render_job(args: ConstructRenderJobArgs) -> Render
 //
 // Render workers
 //
+
+struct RenderJobRunningState {
+    job: RenderJob,
+    output_tex: Option<egui::TextureHandle>,
+}
 
 const RNG_SEED: u64 = 12345;
 
@@ -432,8 +435,8 @@ impl eframe::App for App {
                     AppState::RenderJobConstructing(_) => {
                         ui.add(Spinner::new());
                     },
-                    AppState::RenderJobRunning(_) => {
-                        match self.output_texture.as_ref() {
+                    AppState::RenderJobRunning(state) => {
+                        match state.output_tex.as_ref() {
                             Some(output_texture) => {
                                 ui.add(
                                     if self.settings.scale_render_to_window {
@@ -470,8 +473,8 @@ impl eframe::App for App {
                     }
                 });
 
-                if let AppState::RenderJobRunning(job) = &self.state {
-                    for thread in job.worker_handle.thread_handles.iter() {
+                if let AppState::RenderJobRunning(state) = &self.state {
+                    for thread in state.job.worker_handle.thread_handles.iter() {
                         ui.add(ThreadStats {
                             id: thread.id,
                             total_chunks_rendered: thread.total_chunks_rendered,
