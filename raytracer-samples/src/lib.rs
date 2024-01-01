@@ -6,6 +6,7 @@ use scene::{SceneFactory, BasicSceneFactory};
 
 mod samples;
 mod scene_dreadnaught;
+mod scene_point_cloud;
 
 pub fn make_sample_scene_factories() -> Vec<Arc<dyn SceneFactory + Send + Sync>> {
     vec![
@@ -17,7 +18,7 @@ pub fn make_sample_scene_factories() -> Vec<Arc<dyn SceneFactory + Send + Sync>>
         Arc::new(BasicSceneFactory::new("Mesh",           samples::mesh_demo)),
         Arc::new(BasicSceneFactory::new("Capsule",        samples::capsule)),
         Arc::new(BasicSceneFactory::new("Mesh Plane",     samples::mesh_plane)),
-        Arc::new(BasicSceneFactory::new("Point Cloud",    samples::point_cloud)),
+        Arc::new(scene_point_cloud::ScenePointCloud),
         Arc::new(BasicSceneFactory::new("Mega Cube",      samples::mega_cube)),
         Arc::new(BasicSceneFactory::new("Spaceships",     samples::spaceships)),
         Arc::new(BasicSceneFactory::new("Fleet",          samples::fleet)),

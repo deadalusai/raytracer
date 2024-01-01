@@ -621,44 +621,6 @@ pub fn mesh_plane(config: &CameraConfiguration) -> Result<Scene, CreateSceneErro
     Ok(scene)
 }
 
-pub fn point_cloud(config: &CameraConfiguration) -> Result<Scene, CreateSceneError> {
-    const LENGTH: f32 = 100.0;
-
-    // Camera
-    let look_from = position!(East(LENGTH), South(LENGTH), Up(LENGTH));
-    let look_to =   position!(Origin);
-    let camera = config.make_camera(look_to, look_from);
-
-    // Scene
-    let mut scene = Scene::new(camera, SceneSky::Black);
-
-    // Lights
-    let lamp_pos = look_from;
-    let lamp_direction = look_to - lamp_pos;
-    scene.add_light(DirectionalLight::with_direction(lamp_direction).with_intensity(1.0));
-
-    let point_mat = scene.add_material(MatLambertian::default());
-    let point_radius = 0.05;
-
-    let mut rng = create_rng_from_seed(432789012409);
-
-    for _ in 0..1_000_000 {
-
-        let a = rng.gen::<f32>();
-        let b = rng.gen::<f32>();
-        let c = rng.gen::<f32>();
-
-        let x = (a * LENGTH) - (LENGTH / 2.0);
-        let y = (b * LENGTH) - (LENGTH / 2.0);
-        let z = (c * LENGTH) - (LENGTH / 2.0);
-
-        let point_tex = scene.add_texture(ColorTexture(V3(a, b, c)));
-        scene.add_object(Sphere::new(point_radius, point_mat, point_tex).with_origin(V3(x, y, z)))
-    }
-
-    Ok(scene)
-}
-
 pub fn mega_cube(config: &CameraConfiguration) -> Result<Scene, CreateSceneError> {
     // Camera
     let look_dist = 300.0;
