@@ -22,6 +22,62 @@ pub struct RenderJob {
     pub worker_handle: RenderJobWorkerHandle,
 }
 
+impl RenderJob {
+    pub fn is_work_completed(&self) -> bool {
+        self.completed_chunk_count >= self.total_chunk_count
+    }
+
+    pub fn update(&mut self) {
+        use RenderThreadMessage::*;
+
+        // Poll for completed work
+        while let Ok(result) = self.worker_handle.result_receiver.try_recv() {
+            match result {
+                Ready(_) => {}, // Worker thread ready to go.
+                FrameUpdated(_, chunk, buf) => {
+                    // Copy chunk to buffer
+                    self.buffer.copy_from_sub_buffer(chunk.left, chunk.top, &buf);
+                },
+                FrameCompleted(id, elapsed) => {
+                    // Update stats
+                    let thread = &mut self.worker_handle.thread_handles[id as usize];
+                    thread.total_time_secs += duration_total_secs(elapsed);
+                    thread.total_chunks_rendered += 1;
+                    self.completed_chunk_count += 1;
+                },
+                Terminated(_) => {}, // Worker halted
+            }
+        }
+
+        // Refill the the work queue
+        use flume::TrySendError;
+        while let Some(chunk) = self.pending_chunks.pop() {
+            let work = RenderWork(chunk, self.render_args.clone());
+            if let Err(err) = self.worker_handle.work_sender.try_send(work) {
+                match err {
+                    TrySendError::Full(RenderWork(chunk, _)) => {
+                        // Queue full, try again later
+                        self.pending_chunks.push(chunk);
+                    }
+                    TrySendError::Disconnected(_) => {
+                        println!("All render threads stopped!");
+                    }
+                }
+                break;
+            }
+        }
+    
+        if !self.is_work_completed() {
+            // Update timer
+            self.render_time_secs = duration_total_secs(self.start_time.elapsed());
+        }
+    }
+}
+
+fn duration_total_secs(elapsed: Duration) -> f64 {
+    elapsed.as_secs() as f64 + elapsed.subsec_nanos() as f64 * 1e-9
+}
+
 // A message from the master thread to a worker
 #[derive(Clone)]
 pub struct RenderWork(pub RenderChunk, pub Arc<(Scene, RenderSettings)>);

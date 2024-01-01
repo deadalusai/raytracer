@@ -59,15 +59,14 @@ impl App {
     fn start_new_job(&mut self) {
 
         // Stop running worker threads if an existing job is in progress
-        if let AppState::RenderJobRunning(state) = &self.state {
-            state.job.worker_handle.cts.cancel();
+        if let AppState::RenderJobRunning(running) = &self.state {
+            running.stop();
         }
 
         let scene_factory = self.scene_factories[self.settings.scene].clone();
         let scene_config = self.scene_configs[self.settings.scene].collect_configuration();
 
         let state = start_render_job_construction(self.settings.clone(), scene_config, scene_factory);
-
         self.state = AppState::RenderJobConstructing(state);
     }
 

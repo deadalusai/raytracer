@@ -63,7 +63,6 @@ pub fn start_render_job_construction(
     let work = move || {
     
         // Create render work arguments
-        let viewport = Viewport::new(settings.width, settings.height);
         let camera_config = CameraConfiguration {
             width: settings.width as f32,
             height: settings.height as f32,
@@ -93,6 +92,7 @@ pub fn start_render_job_construction(
 
         // Chunks are popped from this list as they are rendered.
         // Reverse the list so the top of the image is rendered first.
+        let viewport = Viewport::new(settings.width, settings.height);
         let mut chunks = create_render_chunks(&viewport, settings.chunk_count);
         chunks.reverse();
 
