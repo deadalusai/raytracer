@@ -62,6 +62,12 @@ enum AppState {
     Error(String),
 }
 
+enum AppStateUpdateResult {
+    None,
+    RequestRefresh,
+    TransitionToNewState(AppState),
+}
+
 impl App {
     pub fn new(cc: &eframe::CreationContext<'_>) -> Self {
         
@@ -106,98 +112,23 @@ impl App {
 
     /// Runs internal state update logic, and may transition
     /// the app into a new state.
-    /// 
-    /// The return value indicates if work is running on a background thread.
-    fn update_state(&mut self, ctx: &eframe::egui::Context) -> bool {
-        self.state = match &mut self.state {
-            AppState::RenderJobConstructing(state) => {
-                if !state.is_finished() {
-                    // Background work still in progress
-                    return true;
-                }
-                // Background work completed,
-                // transition to appropriate next state
-                let handle = state.handle.take().unwrap();
-                match handle.join() {
-                    Ok(Ok(job)) => {
-                        AppState::RenderJobRunning(RenderJobRunningState { job, output_tex: None })
-                    },
-                    Ok(Err(CreateSceneError(err))) => {
-                        AppState::Error(err)
-                    },
-                    Err(panic) => {
-                        AppState::Error(try_extract_panic_argument(&panic).unwrap_or("Unknown error").to_string())
-                    },
-                }
-            },
-            AppState::RenderJobRunning(state) => {
-                use RenderThreadMessage::*;
-
-                let mut buffer_updated = false;
-
-                // Poll for completed work
-                while let Ok(result) = state.job.worker_handle.result_receiver.try_recv() {
-                    match result {
-                        Ready(_) => {}, // Worker thread ready to go.
-                        FrameUpdated(_, chunk, buf) => {
-                            // Copy chunk to buffer
-                            state.job.buffer.copy_from_sub_buffer(chunk.left, chunk.top, &buf);
-                            buffer_updated = true;
-                        },
-                        FrameCompleted(id, elapsed) => {
-                            // Update stats
-                            let thread = &mut state.job.worker_handle.thread_handles[id as usize];
-                            thread.total_time_secs += duration_total_secs(elapsed);
-                            thread.total_chunks_rendered += 1;
-                            state.job.completed_chunk_count += 1;
-                        },
-                        Terminated(_) => {}, // Worker halted
-                    }
-                }
-
-                // Update the working texture?
-                if buffer_updated {
-                    let rgba = state.job.buffer.get_raw_rgba_data();
-                    let tex_id = ctx.load_texture(
-                        "output_tex",
-                        egui::ColorImage::from_rgba_unmultiplied([rgba.width, rgba.height], rgba.data),
-                        egui::TextureOptions::LINEAR
-                    );
-                    state.output_tex = Some(tex_id);
-                }
-        
-                // Refill the the work queue
-                use flume::TrySendError;
-                while let Some(chunk) = state.job.pending_chunks.pop() {
-                    let work = RenderWork(chunk, state.job.render_args.clone());
-                    if let Err(err) = state.job.worker_handle.work_sender.try_send(work) {
-                        match err {
-                            TrySendError::Full(RenderWork(chunk, _)) => {
-                                // Queue full, try again later
-                                state.job.pending_chunks.push(chunk);
-                            }
-                            TrySendError::Disconnected(_) => {
-                                println!("All render threads stopped!");
-                            }
-                        }
-                        break;
-                    }
-                }
-            
-                // Update timer, as long as we have outstanding work
-                let working = state.job.completed_chunk_count < state.job.total_chunk_count;
-                if working {
-                    state.job.render_time_secs = duration_total_secs(state.job.start_time.elapsed());
-                }
-
-                return true;
-            },
-            _ => {
-                return false;
-            }
+    fn update_state(&mut self, ctx: &eframe::egui::Context) {
+        let result = match &mut self.state {
+            AppState::RenderJobConstructing(state) => state.update(),
+            AppState::RenderJobRunning(state) => state.update(ctx),
+            _ => AppStateUpdateResult::None
         };
-
-        false
+        
+        match result {
+            AppStateUpdateResult::None => {},
+            AppStateUpdateResult::RequestRefresh => {
+                ctx.request_repaint();
+            },
+            AppStateUpdateResult::TransitionToNewState(state) => {
+                self.state = state;
+                ctx.request_repaint();
+            },
+        }
     }
 }
 
@@ -230,6 +161,27 @@ impl RenderJobConstructingState {
             Some(handle) => handle.is_finished(),
             None => false,
         }
+    }
+
+    fn update(&mut self) -> AppStateUpdateResult {
+        if !self.is_finished() {
+            // Background work still in progress
+            return AppStateUpdateResult::RequestRefresh;
+        }
+        // Background work completed,
+        // transition to appropriate next state
+        let handle = self.handle.take().unwrap();
+        AppStateUpdateResult::TransitionToNewState(match handle.join() {
+            Ok(Ok(job)) => {
+                AppState::RenderJobRunning(RenderJobRunningState { job, output_tex: None })
+            },
+            Ok(Err(CreateSceneError(err))) => {
+                AppState::Error(err)
+            },
+            Err(panic) => {
+                AppState::Error(try_extract_panic_argument(&panic).unwrap_or("Unknown error").to_string())
+            },
+        })
     }
 }
 
@@ -297,6 +249,71 @@ fn start_background_construct_render_job(args: ConstructRenderJobArgs) -> Render
 struct RenderJobRunningState {
     job: RenderJob,
     output_tex: Option<egui::TextureHandle>,
+}
+
+impl RenderJobRunningState {
+    fn update(&mut self, ctx: &egui::Context) -> AppStateUpdateResult {
+        use RenderThreadMessage::*;
+
+        let mut buffer_updated = false;
+
+        // Poll for completed work
+        while let Ok(result) = self.job.worker_handle.result_receiver.try_recv() {
+            match result {
+                Ready(_) => {}, // Worker thread ready to go.
+                FrameUpdated(_, chunk, buf) => {
+                    // Copy chunk to buffer
+                    self.job.buffer.copy_from_sub_buffer(chunk.left, chunk.top, &buf);
+                    buffer_updated = true;
+                },
+                FrameCompleted(id, elapsed) => {
+                    // Update stats
+                    let thread = &mut self.job.worker_handle.thread_handles[id as usize];
+                    thread.total_time_secs += duration_total_secs(elapsed);
+                    thread.total_chunks_rendered += 1;
+                    self.job.completed_chunk_count += 1;
+                },
+                Terminated(_) => {}, // Worker halted
+            }
+        }
+
+        // Update the working texture?
+        if buffer_updated {
+            let rgba = self.job.buffer.get_raw_rgba_data();
+            let tex_id = ctx.load_texture(
+                "output_tex",
+                egui::ColorImage::from_rgba_unmultiplied([rgba.width, rgba.height], rgba.data),
+                egui::TextureOptions::LINEAR
+            );
+            self.output_tex = Some(tex_id);
+        }
+
+        // Refill the the work queue
+        use flume::TrySendError;
+        while let Some(chunk) = self.job.pending_chunks.pop() {
+            let work = RenderWork(chunk, self.job.render_args.clone());
+            if let Err(err) = self.job.worker_handle.work_sender.try_send(work) {
+                match err {
+                    TrySendError::Full(RenderWork(chunk, _)) => {
+                        // Queue full, try again later
+                        self.job.pending_chunks.push(chunk);
+                    }
+                    TrySendError::Disconnected(_) => {
+                        println!("All render threads stopped!");
+                    }
+                }
+                break;
+            }
+        }
+    
+        // Update timer, as long as we have outstanding work
+        let working = self.job.completed_chunk_count < self.job.total_chunk_count;
+        if working {
+            self.job.render_time_secs = duration_total_secs(self.job.start_time.elapsed());
+        }
+
+        AppStateUpdateResult::RequestRefresh
+    }
 }
 
 const RNG_SEED: u64 = 12345;
@@ -414,18 +431,12 @@ impl eframe::App for App {
 
     fn update(&mut self, ctx: &egui::Context, frame: &mut eframe::Frame) {
 
+        self.update_state(ctx);
+        
         ctx.set_visuals(egui::Visuals::dark());
 
         self.frame_history.on_new_frame(ctx.input(|s| s.time), frame.info().cpu_usage);
 
-        // Ensure we keep updating the UI as long as there's work on a background thread,
-        // as we rely on the update loop to keep checking for progress.
-        
-        let work_pending = self.update_state(ctx); 
-        if work_pending {
-            ctx.request_repaint();
-        }
-        
         egui::CentralPanel::default().show(ctx, |ui| {
             ui.centered_and_justified(|ui| {
                 match &self.state {
