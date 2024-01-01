@@ -1,48 +1,13 @@
 use std::sync::Arc;
-use std::thread::JoinHandle;
-use std::time::{ Instant, Duration };
 
-use cancellation::{ CancellationToken, CancellationTokenSource };
 use eframe::egui::{self, Spinner};
-use flume::{ Receiver, Sender };
-use raytracer_impl::implementation::{ Scene, RenderSettings };
-use raytracer_impl::viewport::{ RenderChunk, Viewport, create_render_chunks };
-use raytracer_samples::scene::{ CameraConfiguration, SceneFactory, SceneControlCollection, SceneConfiguration, CreateSceneError };
+use raytracer_samples::scene::{ SceneFactory, SceneControlCollection };
 
-use crate::rgba::{ RgbaBuffer, v3_to_rgba };
 use crate::frame_history::FrameHistory;
+use crate::job_constructing::{RenderJobConstructingState, start_render_job_construction};
+use crate::job_running::RenderJobRunningState;
 use crate::thread_stats::ThreadStats;
 use crate::settings::{ SettingsWidget, Settings };
-
-fn duration_total_secs(elapsed: Duration) -> f64 {
-    elapsed.as_secs() as f64 + elapsed.subsec_nanos() as f64 * 1e-9
-}
-
-type BoxError = Box<dyn std::error::Error + 'static>;
-
-struct RenderJob {
-    render_args: Arc<(Scene, RenderSettings)>,
-    pending_chunks: Vec<RenderChunk>,
-    start_time: Instant,
-    render_time_secs: f64,
-    total_chunk_count: u32,
-    completed_chunk_count: u32,
-    buffer: RgbaBuffer,
-    worker_handle: RenderJobWorkerHandle,
-}
-
-// A message from the master thread to a worker
-#[derive(Clone)]
-struct RenderWork(RenderChunk, Arc<(Scene, RenderSettings)>);
-
-// A message from a worker thread to the master thread
-#[derive(Clone)]
-enum RenderThreadMessage {
-    Ready(ThreadId),
-    FrameUpdated(ThreadId, RenderChunk, RgbaBuffer),
-    FrameCompleted(ThreadId, Duration),
-    Terminated(ThreadId)
-}
 
 pub struct App {
     // Persistent state
@@ -55,14 +20,14 @@ pub struct App {
     state: AppState,
 }
 
-enum AppState {
+pub enum AppState {
     None,
     RenderJobConstructing(RenderJobConstructingState),
     RenderJobRunning(RenderJobRunningState),
     Error(String),
 }
 
-enum AppStateUpdateResult {
+pub enum AppStateUpdateResult {
     None,
     RequestRefresh,
     TransitionToNewState(AppState),
@@ -101,11 +66,7 @@ impl App {
         let scene_factory = self.scene_factories[self.settings.scene].clone();
         let scene_config = self.scene_configs[self.settings.scene].collect_configuration();
 
-        let state = start_background_construct_render_job(ConstructRenderJobArgs {
-            settings: self.settings.clone(),
-            scene_config,
-            scene_factory,
-        });
+        let state = start_render_job_construction(self.settings.clone(), scene_config, scene_factory);
 
         self.state = AppState::RenderJobConstructing(state);
     }
@@ -129,296 +90,6 @@ impl App {
                 ctx.request_repaint();
             },
         }
-    }
-}
-
-/// Tries to get the value passed to [panic!]
-fn try_extract_panic_argument(panic: &dyn std::any::Any) -> Option<&str> {
-    panic.downcast_ref::<String>().map(|s| s.as_ref())
-        .ok_or_else(|| panic.downcast_ref::<&str>())
-        .ok()
-}
-
-//
-// RenderJob factory worker
-//
-
-struct ConstructRenderJobArgs {
-    settings: Settings,
-    scene_config: SceneConfiguration,
-    scene_factory: Arc<dyn SceneFactory + Send + Sync>,
-}
-
-struct RenderJobConstructingState {
-    // NOTE: Wrap the thread handle in an Option
-    // to allow us to move ownership out of a mut reference as part of [App::update].
-    handle: Option<JoinHandle<Result<RenderJob, CreateSceneError>>>,
-}
-
-impl RenderJobConstructingState {
-    fn is_finished(&self) -> bool {
-        match &self.handle {
-            Some(handle) => handle.is_finished(),
-            None => false,
-        }
-    }
-
-    fn update(&mut self) -> AppStateUpdateResult {
-        if !self.is_finished() {
-            // Background work still in progress
-            return AppStateUpdateResult::RequestRefresh;
-        }
-        // Background work completed,
-        // transition to appropriate next state
-        let handle = self.handle.take().unwrap();
-        AppStateUpdateResult::TransitionToNewState(match handle.join() {
-            Ok(Ok(job)) => {
-                AppState::RenderJobRunning(RenderJobRunningState { job, output_tex: None })
-            },
-            Ok(Err(CreateSceneError(err))) => {
-                AppState::Error(err)
-            },
-            Err(panic) => {
-                AppState::Error(try_extract_panic_argument(&panic).unwrap_or("Unknown error").to_string())
-            },
-        })
-    }
-}
-
-fn start_background_construct_render_job(args: ConstructRenderJobArgs) -> RenderJobConstructingState {
-    let work = move || {
-    
-        // Create render work arguments
-        let viewport = Viewport::new(args.settings.width, args.settings.height);
-        let camera_config = CameraConfiguration {
-            width: args.settings.width as f32,
-            height: args.settings.height as f32,
-            fov: args.settings.camera_fov,
-            lens_radius: args.settings.camera_lens_radius,
-            angle_adjust_v: args.settings.camera_angle_adjust_v,
-            angle_adjust_h: args.settings.camera_angle_adjust_h,
-            focus_dist_adjust: args.settings.camera_focus_dist_adjust,
-        };
-
-        let start = Instant::now();
-
-        let mut scene = args.scene_factory.create_scene(&camera_config, &args.scene_config)?;
-
-        println!("Constructed Scene in {}ms", start.elapsed().as_millis());
-
-        let start = Instant::now();
-
-        scene.reorganize_objects_into_bvh();
-
-        println!("Constructed Bounding Volume Hierachy in {}ms", start.elapsed().as_millis());
-        
-        let render_settings = RenderSettings {
-            max_reflections: args.settings.max_reflections,
-            samples_per_pixel: args.settings.samples_per_pixel,
-        };
-
-        // Chunks are popped from this list as they are rendered.
-        // Reverse the list so the top of the image is rendered first.
-        let mut chunks = create_render_chunks(&viewport, args.settings.chunk_count);
-        chunks.reverse();
-
-        Ok(RenderJob {
-            render_args: Arc::new((scene, render_settings)),
-            total_chunk_count: chunks.len() as u32,
-            completed_chunk_count: 0,
-            pending_chunks: chunks,
-            start_time: Instant::now(),
-            render_time_secs: 0_f64,
-            buffer: RgbaBuffer::new(args.settings.width, args.settings.height),
-            worker_handle: start_background_render_threads(args.settings.thread_count),
-        })
-    };
-
-    let handle = std::thread::Builder::new()
-        .name("Construct Render Job".into())
-        .spawn(work)
-        .expect("failed to spawn background thread");
-
-    RenderJobConstructingState { handle: Some(handle) }
-}
-
-//
-// Render workers
-//
-
-struct RenderJobRunningState {
-    job: RenderJob,
-    output_tex: Option<egui::TextureHandle>,
-}
-
-impl RenderJobRunningState {
-    fn update(&mut self, ctx: &egui::Context) -> AppStateUpdateResult {
-        use RenderThreadMessage::*;
-
-        let mut buffer_updated = false;
-
-        // Poll for completed work
-        while let Ok(result) = self.job.worker_handle.result_receiver.try_recv() {
-            match result {
-                Ready(_) => {}, // Worker thread ready to go.
-                FrameUpdated(_, chunk, buf) => {
-                    // Copy chunk to buffer
-                    self.job.buffer.copy_from_sub_buffer(chunk.left, chunk.top, &buf);
-                    buffer_updated = true;
-                },
-                FrameCompleted(id, elapsed) => {
-                    // Update stats
-                    let thread = &mut self.job.worker_handle.thread_handles[id as usize];
-                    thread.total_time_secs += duration_total_secs(elapsed);
-                    thread.total_chunks_rendered += 1;
-                    self.job.completed_chunk_count += 1;
-                },
-                Terminated(_) => {}, // Worker halted
-            }
-        }
-
-        // Update the working texture?
-        if buffer_updated {
-            let rgba = self.job.buffer.get_raw_rgba_data();
-            let tex_id = ctx.load_texture(
-                "output_tex",
-                egui::ColorImage::from_rgba_unmultiplied([rgba.width, rgba.height], rgba.data),
-                egui::TextureOptions::LINEAR
-            );
-            self.output_tex = Some(tex_id);
-        }
-
-        // Refill the the work queue
-        use flume::TrySendError;
-        while let Some(chunk) = self.job.pending_chunks.pop() {
-            let work = RenderWork(chunk, self.job.render_args.clone());
-            if let Err(err) = self.job.worker_handle.work_sender.try_send(work) {
-                match err {
-                    TrySendError::Full(RenderWork(chunk, _)) => {
-                        // Queue full, try again later
-                        self.job.pending_chunks.push(chunk);
-                    }
-                    TrySendError::Disconnected(_) => {
-                        println!("All render threads stopped!");
-                    }
-                }
-                break;
-            }
-        }
-    
-        // Update timer, as long as we have outstanding work
-        let working = self.job.completed_chunk_count < self.job.total_chunk_count;
-        if working {
-            self.job.render_time_secs = duration_total_secs(self.job.start_time.elapsed());
-        }
-
-        AppStateUpdateResult::RequestRefresh
-    }
-}
-
-const RNG_SEED: u64 = 12345;
-
-fn start_render_thread(
-    id: ThreadId,
-    cancellation_token: &CancellationToken,
-    work_receiver: &Receiver<RenderWork>,
-    result_sender: &Sender<RenderThreadMessage>
-) -> Result<(), BoxError> {
-    use RenderThreadMessage::*;
-    use rand::SeedableRng;
-    use rand_xorshift::XorShiftRng;
-
-    result_sender.send(Ready(id))?;
-
-    // Receive messages
-    for RenderWork(chunk, args) in work_receiver.into_iter() {
-        if cancellation_token.is_canceled() {
-            return Ok(());
-        }
-        // Paint in-progress chunks green
-        let mut buffer = RgbaBuffer::new(chunk.width, chunk.height);
-        let green = v3_to_rgba(raytracer_impl::types::V3(0.0, 0.58, 0.0));
-        for p in chunk.iter_pixels() {
-            buffer.put_pixel(p.chunk_x, p.chunk_y, green);
-        }
-        result_sender.send(FrameUpdated(id, chunk.clone(), buffer.clone()))?;
-        // Using the same seeded RNG for every frame makes every run repeatable
-        let mut rng = XorShiftRng::seed_from_u64(RNG_SEED);
-        // Render the scene chunk
-        let (scene, render_settings) = args.as_ref();
-        let time = Instant::now();
-        // For each x, y coordinate in this view chunk, cast a ray.
-        for p in chunk.iter_pixels() {
-            if cancellation_token.is_canceled() {
-                return Ok(());
-            }
-            // Convert to view-relative coordinates
-            let color = raytracer_impl::implementation::cast_rays_into_scene(render_settings, scene, &chunk.viewport, p.viewport_x, p.viewport_y, &mut rng);
-            buffer.put_pixel(p.chunk_x, p.chunk_y, v3_to_rgba(color));
-        }
-        let elapsed = time.elapsed();
-        // Send final frame and results
-        result_sender.send(FrameUpdated(id, chunk, buffer))?;
-        result_sender.send(FrameCompleted(id, elapsed))?;
-    }
-
-    Ok(())
-}
-
-type ThreadId = u32;
-
-#[allow(unused)]
-struct RenderThread {
-    id: ThreadId,
-    handle: JoinHandle<()>,
-    total_time_secs: f64,
-    total_chunks_rendered: u32,
-}
-
-struct RenderJobWorkerHandle {
-    cts: CancellationTokenSource,
-    work_sender: Sender<RenderWork>,
-    result_receiver: Receiver<RenderThreadMessage>,
-    thread_handles: Vec<RenderThread>,
-}
-
-fn start_background_render_threads(render_thread_count: u32) -> RenderJobWorkerHandle {
-    let cts = CancellationTokenSource::new();
-    let (work_sender, work_receiver) = flume::bounded(render_thread_count as usize);
-    let (result_sender, result_receiver) = flume::unbounded();
-
-    let thread_handles = (0..render_thread_count)
-        .map(|id| {
-            let cancellation_token = cts.token().clone();
-            let work_receiver = work_receiver.clone();
-            let result_sender = result_sender.clone();
-            let work = move || {
-                if let Err(err) = start_render_thread(id, &cancellation_token, &work_receiver, &result_sender) {
-                    println!("Thread {id} terminated due to error: {err}");
-                }
-                // Notify master thread that we've terminated.
-                // NOTE: There may be nobody listening...
-                result_sender.send(RenderThreadMessage::Terminated(id)).ok();
-            };
-            let handle = std::thread::Builder::new()
-                .name(format!("Render Thread {id}"))
-                .spawn(work)
-                .expect("failed to spawn render thread");
-
-            RenderThread {
-                id,
-                handle,
-                total_time_secs: 0.0,
-                total_chunks_rendered: 0,
-            }
-        })
-        .collect::<Vec<_>>();
-
-    RenderJobWorkerHandle {
-        cts,
-        work_sender,
-        result_receiver,
-        thread_handles,
     }
 }
 

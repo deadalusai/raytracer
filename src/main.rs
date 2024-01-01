@@ -1,4 +1,7 @@
 mod app;
+mod job_constructing;
+mod job_running;
+mod render;
 mod rgba;
 mod frame_history;
 mod settings;
