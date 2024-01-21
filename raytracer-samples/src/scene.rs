@@ -104,6 +104,7 @@ impl SceneControlCollection {
 pub enum SceneControlType {
     Range(f32, f32),
     RangeAngleDegrees,
+    SelectList(Vec<String>)
 }
 
 pub struct SceneControl {
@@ -127,6 +128,15 @@ impl SceneControl {
         Self {
             name: name.into(),
             control_type: SceneControlType::RangeAngleDegrees,
+            default: 0.0,
+            value: 0.0,
+        }
+    }
+
+    pub fn select_list(name: &str, values: Vec<String>) -> Self {
+        Self {
+            name: name.into(),
+            control_type: SceneControlType::SelectList(values),
             default: 0.0,
             value: 0.0,
         }

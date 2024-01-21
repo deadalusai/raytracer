@@ -80,18 +80,38 @@ impl<'a> egui::Widget for SettingsWidget<'a> {
                         ui.add_space(20.0);
                         ui.label(WidgetText::from(&c.name).italics());
                     });
+
                     use raytracer_samples::scene::SceneControlType::*;
-                    ui.add(match c.control_type {
+                    let value = &mut c.value;
+                    match c.control_type {
+                        Range(min, max) => {
+                            ui.add(egui::DragValue::new(value)
+                                .clamp_range(min..=max));
+                        },
 
-                        Range(min, max) => egui::DragValue::new(&mut c.value)
-                            .clamp_range(min..=max),
+                        RangeAngleDegrees => {
+                            ui.add(egui::DragValue::new(value)
+                                .clamp_range(-360.0..=360.0)
+                                .speed(1.0)
+                                .max_decimals(0)
+                                .suffix("°"));
+                        },
 
-                        RangeAngleDegrees => egui::DragValue::new(&mut c.value)
-                            .clamp_range(-360.0..=360.0)
-                            .speed(1.0)
-                            .max_decimals(0)
-                            .suffix("°"),
-                    });
+                        SelectList(ref values) => {
+                            let mut index = *value as usize;
+                            if index >= values.len() {
+                                index = 0;
+                            }
+                            egui::ComboBox::from_id_source(&c.name)
+                                .selected_text(&values[index])
+                                .width(120.0)
+                                .show_ui(ui, |ui| {
+                                    for (i, v) in values.iter().enumerate() {
+                                        ui.selectable_value(value, i as f32, v);
+                                    }
+                                });
+                        },
+                    };
                     ui.end_row();
                 }
 

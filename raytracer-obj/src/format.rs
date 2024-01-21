@@ -146,7 +146,7 @@ impl ObjFileParseState {
 
         self.groups.push(ObjGroup {
             name: self.group_name.take().unwrap_or_else(|| "default".to_string()),
-            faces: std::mem::replace(&mut self.faces, Vec::new()),
+            faces: std::mem::take(&mut self.faces),
             shared: self.shared.clone(),
         });
     }
@@ -249,9 +249,9 @@ impl MtlFileParseState {
 
         self.materials.push(ObjMaterial {
             name: self.name.take().unwrap(),
-            ambient_color: std::mem::replace(&mut self.ambient_color, V3::ZERO),
-            specular_color: std::mem::replace(&mut self.specular_color, V3::ZERO),
-            diffuse_color: std::mem::replace(&mut self.diffuse_color, V3::ZERO),
+            ambient_color: std::mem::take(&mut self.ambient_color),
+            specular_color: std::mem::take(&mut self.specular_color),
+            diffuse_color: std::mem::take(&mut self.diffuse_color),
             diffuse_color_map: self.diffuse_color_map.take(),
         });
     }
