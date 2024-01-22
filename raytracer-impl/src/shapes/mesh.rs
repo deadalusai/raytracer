@@ -5,7 +5,7 @@ use crate::implementation::{ Hitable, HitRecord, AABB, MatId, TexId };
 
 // Triangle Mesh BVH
 
-struct MeshFaceHit {
+struct MeshTriHit {
     p: V3,
     normal: V3,
     t: f32,
@@ -13,7 +13,7 @@ struct MeshFaceHit {
     tex_key: Option<usize>,
 }
 
-fn try_hit_face(ray: &Ray, face: &MeshFace) -> Option<MeshFaceHit> {
+fn try_hit_tri(ray: &Ray, face: &MeshTri) -> Option<MeshTriHit> {
     // compute normal of and area of the triangle
     // NOTE: not normalized! Used for area calculations
     let edge_ab = face.b - face.a;
@@ -72,24 +72,24 @@ fn try_hit_face(ray: &Ray, face: &MeshFace) -> Option<MeshFaceHit> {
     let uv = (face.a_uv * w) + (face.b_uv * u) + (face.c_uv * v);
     let tex_key = face.tex_key.clone();
 
-    return Some(MeshFaceHit { p, normal: normal.unit(), t, uv, tex_key })
+    return Some(MeshTriHit { p, normal: normal.unit(), t, uv, tex_key })
 }
 
-fn face_aabb(tri: &MeshFace) -> AABB {
+fn tri_aabb(tri: &MeshTri) -> AABB {
     AABB::from_vertices(&[tri.a, tri.b, tri.c])
 }
 
 #[derive(Clone)]
-pub struct MeshBvhLeaf(MeshFace);
+pub struct MeshBvhLeaf(MeshTri);
 
 impl MeshBvhLeaf {
-    fn hit_node(&self, ray: &Ray, t_min: f32, t_max: f32) -> Option<MeshFaceHit> {
-        try_hit_face(ray, &self.0)
+    fn hit_node(&self, ray: &Ray, t_min: f32, t_max: f32) -> Option<MeshTriHit> {
+        try_hit_tri(ray, &self.0)
             .filter(|hit| t_min < hit.t && hit.t < t_max)
     }
 
     fn aabb(&self) -> AABB {
-        face_aabb(&self.0)
+        tri_aabb(&self.0)
     }
 }
 
@@ -101,7 +101,7 @@ pub struct MeshBvhBranch {
 }
 
 impl MeshBvhBranch {
-    fn hit_node(&self, ray: &Ray, t_min: f32, t_max: f32) -> Option<MeshFaceHit> {
+    fn hit_node(&self, ray: &Ray, t_min: f32, t_max: f32) -> Option<MeshTriHit> {
         if !self.aabb.hit_aabb(ray, t_min, t_max) {
             return None;
         }
@@ -127,7 +127,7 @@ pub enum MeshBvhNode {
 }
 
 impl MeshBvhNode {
-    fn hit_node(&self, ray: &Ray, t_min: f32, t_max: f32) -> Option<MeshFaceHit> {
+    fn hit_node(&self, ray: &Ray, t_min: f32, t_max: f32) -> Option<MeshTriHit> {
         match self {
             MeshBvhNode::Leaf(leaf) => leaf.hit_node(ray, t_min, t_max),
             MeshBvhNode::Branch(branch) => branch.hit_node(ray, t_min, t_max),
@@ -142,18 +142,18 @@ impl MeshBvhNode {
     }
 }
 
-pub fn build_face_bounding_volume_hierachy(faces: &[MeshFace]) -> MeshBvhNode {
+pub fn build_tri_bounding_volume_hierachy(tris: &[MeshTri]) -> MeshBvhNode {
     use super::bvh::{ SortAxis, compare_aabb };
 
-    fn inner(faces: &mut [(AABB, &MeshFace)], axis: SortAxis) -> MeshBvhNode {
-        match faces {
+    fn inner(tris: &mut [(AABB, &MeshTri)], axis: SortAxis) -> MeshBvhNode {
+        match tris {
             [] => panic!("Expected at least one face for mesh"),
             [a] => MeshBvhNode::Leaf(MeshBvhLeaf(a.1.clone())),
             _ => {
-                faces.sort_by(|l, r| compare_aabb(&l.0, &r.0, axis));
-                let mid = faces.len() / 2;
-                let left = inner(&mut faces[0..mid], axis.next());
-                let right = inner(&mut faces[mid..], axis.next());
+                tris.sort_by(|l, r| compare_aabb(&l.0, &r.0, axis));
+                let mid = tris.len() / 2;
+                let left = inner(&mut tris[0..mid], axis.next());
+                let right = inner(&mut tris[mid..], axis.next());
                 MeshBvhNode::Branch(MeshBvhBranch {
                     aabb: AABB::surrounding(left.aabb(), right.aabb()),
                     left: Box::new(left),
@@ -164,21 +164,21 @@ pub fn build_face_bounding_volume_hierachy(faces: &[MeshFace]) -> MeshBvhNode {
     }
 
     // Pre-caculate triangle bounding boxes
-    let mut faces = faces.iter()
-        .map(|f| (face_aabb(f), f))
+    let mut tris = tris.iter()
+        .map(|f| (tri_aabb(f), f))
         .collect::<Vec<_>>();
 
-    inner(&mut faces, SortAxis::X)
+    inner(&mut tris, SortAxis::X)
 }
 
 // Mesh
 
 pub struct Mesh {
-    pub faces: Vec<MeshFace>,
+    pub tris: Vec<MeshTri>,
 }
 
 #[derive(Clone, Default)]
-pub struct MeshFace {
+pub struct MeshTri {
     pub a: V3,
     pub b: V3,
     pub c: V3,
@@ -188,7 +188,7 @@ pub struct MeshFace {
     pub tex_key: Option<usize>,
 }
 
-impl MeshFace {
+impl MeshTri {
     pub fn from_abc(a: V3, b: V3, c: V3) -> Self {
         Self { a, b, c, ..Default::default() }
     }
@@ -210,7 +210,7 @@ impl MeshObject {
         MeshObject {
             object_id: None,
             origin: V3::ZERO,
-            root_node: Arc::new(build_face_bounding_volume_hierachy(&mesh.faces)),
+            root_node: Arc::new(build_tri_bounding_volume_hierachy(&mesh.tris)),
             mat_id,
             tex_id,
         }

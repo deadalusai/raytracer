@@ -1,7 +1,7 @@
 use std::collections::{HashMap, HashSet};
 use std::sync::Arc;
 
-use raytracer_impl::shapes::{Mesh, MeshFace};
+use raytracer_impl::shapes::{Mesh, MeshTri};
 use raytracer_impl::texture::{MeshTexture, MeshTextureSet, ColorMap};
 use super::format::{ObjGroup, ObjMaterial, MtlFile, ObjFile};
 use crate::ObjError;
@@ -74,14 +74,14 @@ impl ObjMeshBuilder {
             });
         }
 
-        // Prepare mesh faces
-        let mut faces = Vec::new();
+        // Prepare mesh tris
+        let mut tris = Vec::new();
         for group in groups {
             for face in group.faces.iter() {
                 let tex_key = face.mtl.as_ref().and_then(|name| textures.iter().position(|m| &m.name == name));
                 let get_vertex = |i: usize| group.shared.vertices.get(i - 1).cloned().expect("vertex by index");
                 let get_uv_vertex = |oi: Option<usize>| oi.and_then(|i| group.shared.uv.get(i - 1).cloned()).unwrap_or_default();
-                faces.push(MeshFace {
+                tris.push(MeshTri {
                     a: get_vertex(face.a.vertex_index),
                     b: get_vertex(face.b.vertex_index),
                     c: get_vertex(face.c.vertex_index),
@@ -93,12 +93,12 @@ impl ObjMeshBuilder {
             }
         }
 
-        if faces.len() == 0 {
+        if tris.len() == 0 {
             panic!("[ObjMeshBuilder::inner_build_mesh] expected at least one face (are you building a vertex group with the wrong name?)");
         }
 
         MeshAndTextureData {
-            mesh: Mesh { faces },
+            mesh: Mesh { tris },
             texture_set: MeshTextureSet { textures },
         }
     }

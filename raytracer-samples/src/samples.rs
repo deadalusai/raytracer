@@ -8,7 +8,7 @@ use std::path::Path;
 use raytracer_impl::texture::{ ColorTexture, CheckerTexture, UvTestTexture, XyzTestTexture, MeshTextureSet };
 use raytracer_impl::types::{ V3, Ray };
 use raytracer_impl::materials::{ MatLambertian, MatDielectric, MatSpecular };
-use raytracer_impl::shapes::{ Sphere, Plane, MeshObject, MeshFace, Mesh, mesh };
+use raytracer_impl::shapes::{ Sphere, Plane, MeshObject, MeshTri, Mesh, mesh };
 use raytracer_impl::transform::{ Translatable, Rotatable };
 use raytracer_impl::viewport::{ Viewport };
 use raytracer_impl::lights::{ PointLight, DirectionalLight, LampLight };
@@ -407,8 +407,8 @@ pub fn triangle_world(config: &CameraConfiguration) -> Result<Scene, CreateScene
     let tri_mat = scene.add_material(MatLambertian::default().with_reflectivity(0.0));
     let tri_tex = scene.add_texture(ColorTexture(rgb(200, 100, 80)));
     let tri_mesh = Mesh {
-        faces: vec![
-            MeshFace::from_abc(
+        tris: vec![
+            MeshTri::from_abc(
                 position!(Up(0.3), South(1.0)),
                 position!(Up(0.6), East(1.0)),
                 position!(Up(0.8), West(1.0))
@@ -421,8 +421,8 @@ pub fn triangle_world(config: &CameraConfiguration) -> Result<Scene, CreateScene
     let tri_mat = scene.add_material(MatLambertian::default().with_reflectivity(0.0));
     let tri_tex = scene.add_texture(ColorTexture(rgb(100, 100, 200)));
     let tri_mesh = Mesh {
-        faces: vec![
-            MeshFace::from_abc(
+        tris: vec![
+            MeshTri::from_abc(
                 position!(Up(0.4), North(1.0)),
                 position!(Up(0.8), South(1.0)),
                 position!(Up(0.6), East(1.0))
