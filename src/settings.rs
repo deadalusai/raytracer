@@ -111,6 +111,12 @@ impl<'a> egui::Widget for SettingsWidget<'a> {
                                     }
                                 });
                         },
+
+                        Toggle => {
+                            let mut checked = *value != 0.0;
+                            ui.add(egui::Checkbox::new(&mut checked, ""));
+                            *value = if checked { 1.0 } else { 0.0 }; 
+                        },
                     };
                     ui.end_row();
                 }
