@@ -1,5 +1,5 @@
 use crate::implementation::AABB;
-use crate::types::V3;
+use crate::types::{Ray, V3};
 
 pub trait BvhObject {
     fn vertices(&self) -> impl Iterator<Item=V3>;
@@ -20,7 +20,7 @@ struct BvhBranch {
 
 #[derive(Clone)]
 struct BvhLeaf {
-    // Index of first object in Objct collection
+    // Index of object in Object collection
     first_index: usize,
     // Number of objects in object collection which this node includes
     length: usize,
@@ -44,6 +44,44 @@ impl BvhNode {
 pub struct Bvh {
     object_indices: Vec<usize>,
     nodes: Vec<BvhNode>,
+}
+
+pub struct BvhHit {
+    t: f32,
+    object_index: usize,
+}
+
+impl Bvh {
+    // BVH algorithm adapted
+    // from https://jacco.ompf2.com/2022/04/13/how-to-build-a-bvh-part-1-basics/    
+    pub fn construct<T: BvhObject>(objects: &[T]) -> Bvh {
+        // Initialise the object index map
+        let mut object_indices = (0..objects.len()).collect::<Vec<usize>>();
+        let mut nodes = Vec::default();
+        
+        // Prepare the root node
+        let root = BvhLeaf { first_index: 0, length: objects.len() };
+        let root = create_leaf_node(root, &mut object_indices, objects);
+        nodes.push(root);
+
+        subdivide(&mut nodes, 0, &mut object_indices, objects);
+        nodes.shrink_to_fit();
+        
+        Bvh {
+            object_indices,
+            nodes
+        }
+    }
+
+    pub fn aabb(&self) -> &AABB {
+        &self.nodes[0].aabb
+    }
+
+    pub fn hit_candidates<'a>(&'a self, ray: &'a Ray, t_min: f32, t_max: f32) -> BvhHitCandidateIter<'a> {
+        let mut stack = Vec::with_capacity(10);
+        stack.push(State::Branch(0));
+        BvhHitCandidateIter { bvh: self, stack, ray, t_min, t_max }
+    }
 }
 
 #[derive(Copy, Clone)]
@@ -125,20 +163,51 @@ fn subdivide<T: BvhObject>(nodes: &mut Vec<BvhNode>, node_index: usize, object_i
     subdivide(nodes, right_index, object_indices, objects);
 }
 
-pub fn construct_bvh<T: BvhObject>(objects: &[T]) -> Bvh {
-    // Initialise the object index map
-    let mut object_indices = (0..objects.len()).collect::<Vec<usize>>();
-    let mut nodes = Vec::default();
-    
-    // Prepare the root node
-    let root = BvhLeaf { first_index: 0, length: objects.len() };
-    let root = create_leaf_node(root, object_indices.as_mut_slice(), objects);
-    nodes.push(root);
+pub struct BvhHitCandidateIter<'a> {
+    bvh: &'a Bvh,
+    stack: Vec<State>,
+    ray: &'a Ray,
+    t_min: f32,
+    t_max: f32
+}
 
-    subdivide(&mut nodes, 0, object_indices.as_mut_slice(), objects);
-    
-    Bvh {
-        object_indices,
-        nodes
+pub struct BvhHitCandidate {
+    pub object_index: usize,
+}
+
+enum State {
+    Branch(usize),
+    Leaf(usize),
+}
+
+/// Iterator over a depth-first search of the bounding volume hierachy
+impl<'a> Iterator for BvhHitCandidateIter<'a> {
+    type Item=BvhHitCandidate;
+
+    fn next(&mut self) -> Option<Self::Item> {   
+        loop {
+            match self.stack.pop()? {
+                State::Branch(node_index) => {
+                    let node = &self.bvh.nodes[node_index];
+                    if !node.aabb.hit_aabb(self.ray, self.t_min, self.t_max) {
+                        continue;
+                    }
+                    match node.data {
+                        BvhNodeData::Branch(ref branch) => {
+                            self.stack.push(State::Branch(branch.left_index));
+                            self.stack.push(State::Branch(branch.right_index));
+                        },
+                        BvhNodeData::Leaf(ref leaf) => {
+                            for object_index in leaf.first_index..(leaf.first_index + leaf.length) {
+                                self.stack.push(State::Leaf(object_index))
+                            }
+                        },
+                    }
+                },
+                State::Leaf(object_index) => {
+                    return Some(BvhHitCandidate { object_index });
+                }
+            }
+        }
     }
 }

@@ -1,5 +1,6 @@
 use std::sync::Arc;
 
+use crate::bvh::{Bvh, BvhObject};
 use crate::types::{ V3, V2, Ray };
 use crate::implementation::{ Hitable, HitRecord, AABB, MatId, TexId };
 
@@ -13,15 +14,15 @@ struct MeshTriHit {
     tex_key: Option<usize>,
 }
 
-fn try_hit_tri(ray: &Ray, face: &MeshTri) -> Option<MeshTriHit> {
+fn try_hit_tri(ray: &Ray, tri: &MeshTri) -> Option<MeshTriHit> {
     // compute normal of and area of the triangle
     // NOTE: not normalized! Used for area calculations
-    let edge_ab = face.b - face.a;
-    let edge_ac = face.c - face.a;
+    let edge_ab = tri.b - tri.a;
+    let edge_ac = tri.c - tri.a;
     let normal = V3::cross(edge_ab, edge_ac);
 
     // Step 1: find the intersection {P}
-    let t = super::plane::intersect_plane(ray, face.a, normal)?;
+    let t = super::plane::intersect_plane(ray, tri.a, normal)?;
     if t < 0.0 {
         // Triangle is behind the ray origin
         return None;
@@ -33,21 +34,21 @@ fn try_hit_tri(ray: &Ray, face: &MeshTri) -> Option<MeshTriHit> {
     // by checking to see if it is to the left of each edge
 
     // edge ab
-    let normal_abp = V3::cross(edge_ab, p - face.a);
+    let normal_abp = V3::cross(edge_ab, p - tri.a);
     if V3::dot(normal, normal_abp) < 0.0 {
         // P is to the right of edge ab
         return None;
     }
 
     // edge bc
-    let normal_bcp = V3::cross(face.c - face.b, p - face.b);
+    let normal_bcp = V3::cross(tri.c - tri.b, p - tri.b);
     if V3::dot(normal, normal_bcp) < 0.0 {
         // P is to the right of edge bc
         return None;
     }
 
     // edge ca
-    let normal_cap = V3::cross(face.a - face.c, p - face.c);
+    let normal_cap = V3::cross(tri.a - tri.c, p - tri.c);
     if V3::dot(normal, normal_cap) < 0.0 {
         // P is to the right of edge ca
         return None;
@@ -69,8 +70,8 @@ fn try_hit_tri(ray: &Ray, face: &MeshTri) -> Option<MeshTriHit> {
     let u = normal_cap.length() / area2;
     let v = normal_abp.length() / area2;
     let w = 1.0 - u - v;
-    let uv = (face.a_uv * w) + (face.b_uv * u) + (face.c_uv * v);
-    let tex_key = face.tex_key.clone();
+    let uv = (tri.a_uv * w) + (tri.b_uv * u) + (tri.c_uv * v);
+    let tex_key = tri.tex_key.clone();
 
     return Some(MeshTriHit { p, normal: normal.unit(), t, uv, tex_key })
 }
@@ -79,96 +80,31 @@ fn tri_aabb(tri: &MeshTri) -> AABB {
     AABB::from_vertices(&[tri.a, tri.b, tri.c])
 }
 
-#[derive(Clone)]
-pub struct MeshBvhLeaf(MeshTri);
-
-impl MeshBvhLeaf {
-    fn hit_node(&self, ray: &Ray, t_min: f32, t_max: f32) -> Option<MeshTriHit> {
-        try_hit_tri(ray, &self.0)
-            .filter(|hit| t_min < hit.t && hit.t < t_max)
-    }
-
-    fn aabb(&self) -> AABB {
-        tri_aabb(&self.0)
-    }
+struct MeshBvhRoot {
+    bvh: Bvh,
+    tris: Vec<MeshTri>,
 }
 
-#[derive(Clone)]
-pub struct MeshBvhBranch {
-    aabb: AABB,
-    left: Box<MeshBvhNode>,
-    right: Box<MeshBvhNode>,
-}
-
-impl MeshBvhBranch {
-    fn hit_node(&self, ray: &Ray, t_min: f32, t_max: f32) -> Option<MeshTriHit> {
-        if !self.aabb.hit_aabb(ray, t_min, t_max) {
-            return None;
-        }
-        let left = self.left.hit_node(ray, t_min, t_max);
-        let right = self.right.hit_node(ray, t_min, t_max);
-        match (left, right) {
-            (Some(l), Some(r)) => Some(if l.t < r.t { l } else { r }),
-            (Some(l), None)    => Some(l),
-            (None,    Some(r)) => Some(r),
-            _                  => None,
+impl MeshBvhRoot {
+    fn new(source: &[MeshTri]) -> MeshBvhRoot {
+        let mut tris = Vec::new();
+        tris.extend_from_slice(source);
+        MeshBvhRoot {
+            bvh: Bvh::construct(&tris),
+            tris,
         }
     }
 
-    fn aabb(&self) -> AABB {
-        self.aabb.clone()
-    }
-}
-
-#[derive(Clone)]
-pub enum MeshBvhNode {
-    Leaf(MeshBvhLeaf),
-    Branch(MeshBvhBranch)
-}
-
-impl MeshBvhNode {
-    fn hit_node(&self, ray: &Ray, t_min: f32, t_max: f32) -> Option<MeshTriHit> {
-        match self {
-            MeshBvhNode::Leaf(leaf) => leaf.hit_node(ray, t_min, t_max),
-            MeshBvhNode::Branch(branch) => branch.hit_node(ray, t_min, t_max),
-        }
+    fn aabb(&self) -> &AABB {
+        self.bvh.aabb()
     }
 
-    fn aabb(&self) -> AABB {
-        match self {
-            MeshBvhNode::Leaf(leaf) => leaf.aabb(),
-            MeshBvhNode::Branch(branch) => branch.aabb(),
-        }
+    fn try_hit(&self, ray: &Ray, t_min: f32, t_max: f32) -> Option<MeshTriHit> {
+        // Locate the closest triangle in the BVH index
+        self.bvh.hit_candidates(ray, t_min, t_max)
+            .filter_map(|candidate| try_hit_tri(ray, &self.tris[candidate.object_index]))
+            .reduce(|closest, next| if next.t < closest.t { next } else { closest })
     }
-}
-
-pub fn build_tri_bounding_volume_hierachy(tris: &[MeshTri]) -> MeshBvhNode {
-    use super::bvh::{ SortAxis, compare_aabb };
-
-    fn inner(tris: &mut [(AABB, &MeshTri)], axis: SortAxis) -> MeshBvhNode {
-        match tris {
-            [] => panic!("Expected at least one face for mesh"),
-            [a] => MeshBvhNode::Leaf(MeshBvhLeaf(a.1.clone())),
-            _ => {
-                tris.sort_by(|l, r| compare_aabb(&l.0, &r.0, axis));
-                let mid = tris.len() / 2;
-                let left = inner(&mut tris[0..mid], axis.next());
-                let right = inner(&mut tris[mid..], axis.next());
-                MeshBvhNode::Branch(MeshBvhBranch {
-                    aabb: AABB::surrounding(left.aabb(), right.aabb()),
-                    left: Box::new(left),
-                    right: Box::new(right),
-                })
-            }
-        }
-    }
-
-    // Pre-caculate triangle bounding boxes
-    let mut tris = tris.iter()
-        .map(|f| (tri_aabb(f), f))
-        .collect::<Vec<_>>();
-
-    inner(&mut tris, SortAxis::X)
 }
 
 // Mesh
@@ -188,6 +124,18 @@ pub struct MeshTri {
     pub tex_key: Option<usize>,
 }
 
+// Allow MeshTri to be used with the Bvh algorithm
+
+impl BvhObject for MeshTri {
+    fn vertices(&self) -> impl Iterator<Item=V3> {
+        [self.a, self.b, self.c].into_iter()
+    }
+
+    fn centroid(&self) -> V3 {
+        (self.a + self.b + self.c) * 0.33333
+    }
+}
+
 impl MeshTri {
     pub fn from_abc(a: V3, b: V3, c: V3) -> Self {
         Self { a, b, c, ..Default::default() }
@@ -200,7 +148,7 @@ pub struct MeshObject {
     origin: V3,
     // NOTE: Store the root node in an Arc so that all
     // clones of this MeshObject will share their internal mesh representation.
-    root_node: Arc<MeshBvhNode>,
+    root: Arc<MeshBvhRoot>,
     mat_id: MatId,
     tex_id: TexId,
 }
@@ -210,7 +158,7 @@ impl MeshObject {
         MeshObject {
             object_id: None,
             origin: V3::ZERO,
-            root_node: Arc::new(build_tri_bounding_volume_hierachy(&mesh.tris)),
+            root: Arc::new(MeshBvhRoot::new(&mesh.tris)),
             mat_id,
             tex_id,
         }
@@ -233,7 +181,7 @@ impl Hitable for MeshObject {
     fn hit(&self, ray: &Ray, t_min: f32, t_max: f32) -> Option<HitRecord> {
         // Shift the ray into mesh space
         let mesh_ray = Ray::new(ray.origin - self.origin, ray.direction);
-        let mesh_hit = self.root_node.hit_node(&mesh_ray, t_min, t_max)?;
+        let mesh_hit = self.root.try_hit(&mesh_ray, t_min, t_max)?;
         Some(HitRecord {
             object_id: self.object_id,
             // Shift the hit back into world space
@@ -253,7 +201,7 @@ impl Hitable for MeshObject {
 
     fn aabb(&self) -> Option<AABB> {
         // Shift the mesh bounding box into world space
-        let aabb = self.root_node.aabb();
+        let aabb = self.root.aabb();
         Some(AABB {
             min: self.origin + aabb.min,
             max: self.origin + aabb.max,
