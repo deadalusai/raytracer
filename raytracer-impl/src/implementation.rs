@@ -37,7 +37,7 @@ pub fn random_normal_reflection_angle(normal: V3, rng: &mut dyn RngCore) -> V3 {
 
 // AABB / Bounding Boxes
 
-#[derive(Clone, Debug)]
+#[derive(Clone, Debug, Default)]
 pub struct AABB {
     pub min: V3,
     pub max: V3,
@@ -51,7 +51,12 @@ impl AABB {
 
     /// Finds the axis-aligned bounding box which fully contains the given list of vertices
     pub fn from_vertices(vertices: &[V3]) -> AABB {
-        let mut iter = vertices.iter();
+        AABB::from_vertices_iter(vertices.iter().cloned())
+    }
+
+    /// Finds the axis-aligned bounding box which fully contains the given sequence of vertices
+    pub fn from_vertices_iter(vertices: impl IntoIterator<Item=V3>) -> AABB {
+        let mut iter = vertices.into_iter();
 
         let mut min = iter.next().expect("Cannot create AABB from empty vertex list").clone();
         let mut max = min.clone();
