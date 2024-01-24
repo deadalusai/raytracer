@@ -1,5 +1,5 @@
 use crate::app::AppStateUpdateResult;
-use crate::render::RenderJob;
+use crate::render::{RenderJob, RenderJobUpdateResult};
 
 pub struct RenderJobRunningState {
     pub job: RenderJob,
@@ -14,8 +14,12 @@ impl RenderJobRunningState {
     pub fn update(&mut self, ctx: &eframe::egui::Context) -> AppStateUpdateResult {
 
         let v1 = self.job.buffer.version();
-        self.job.update();
+        let result = self.job.update();
         let v2 = self.job.buffer.version();
+
+        if result == RenderJobUpdateResult::ErrorRenderThreadsStopped {
+            return AppStateUpdateResult::TransitionToNewState(crate::app::AppState::Error("All render threads stopped".into()));
+        }
     
         if v1 != v2 {
             // Update the working texture

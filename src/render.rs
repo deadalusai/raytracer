@@ -22,12 +22,18 @@ pub struct RenderJob {
     pub worker_handle: RenderJobWorkerHandle,
 }
 
+#[derive(Eq, PartialEq)]
+pub enum RenderJobUpdateResult {
+    Updated,
+    ErrorRenderThreadsStopped
+}
+
 impl RenderJob {
     pub fn is_work_completed(&self) -> bool {
         self.completed_chunk_count >= self.total_chunk_count
     }
 
-    pub fn update(&mut self) {
+    pub fn update(&mut self) -> RenderJobUpdateResult {
         use RenderThreadMessage::*;
 
         // Poll for completed work
@@ -60,7 +66,7 @@ impl RenderJob {
                         self.pending_chunks.push(chunk);
                     }
                     TrySendError::Disconnected(_) => {
-                        println!("All render threads stopped!");
+                        return RenderJobUpdateResult::ErrorRenderThreadsStopped
                     }
                 }
                 break;
@@ -71,6 +77,8 @@ impl RenderJob {
             // Update timer
             self.render_time_secs = duration_total_secs(self.start_time.elapsed());
         }
+
+        RenderJobUpdateResult::Updated
     }
 }
 
