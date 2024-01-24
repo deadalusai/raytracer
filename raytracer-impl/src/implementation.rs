@@ -382,7 +382,7 @@ fn cast_light_ray_to_lamp(hit_point: V3, light_record: &LightRecord, scene: &Sce
     let t_max = light_record.t;
 
     let mut light_color = light_record.color * light_record.intensity;
-    let mut closest_so_far = 0.0;
+    let mut closest_so_far = BIAS;
 
     // Perform hit tests until we escape
     while let Some(shadow_hit) = scene.hit_closest(&light_ray, closest_so_far, t_max) {
@@ -393,7 +393,7 @@ fn cast_light_ray_to_lamp(hit_point: V3, light_record: &LightRecord, scene: &Sce
             // Hack: simulate colored shadows by taking the albedo of transparent materials.
             let albedo = scene.get_tex(shadow_hit.tex_id).value(&shadow_hit);
             light_color = light_color * (albedo * shadow_refraction.intensity);
-            closest_so_far = shadow_hit.t;
+            closest_so_far = shadow_hit.t + BIAS;
             continue;
         }
 
@@ -407,7 +407,7 @@ fn cast_light_ray_to_lamp(hit_point: V3, light_record: &LightRecord, scene: &Sce
 
 /// Determines the color which the given ray resolves to.
 fn cast_ray(ray: &Ray, scene: &Scene, rng: &mut dyn RngCore, max_reflections: u32) -> V3 {
-
+    
     // Internal implementation
     fn cast_ray_recursive(ray: &Ray, scene: &Scene, rng: &mut dyn RngCore, recurse_limit: u32) -> V3 {
 
@@ -415,7 +415,7 @@ fn cast_ray(ray: &Ray, scene: &Scene, rng: &mut dyn RngCore, max_reflections: u3
         if recurse_limit == 0 {
             return color_sky(ray, scene);
         }
-        
+
         // Hit anything in the scene?
         match scene.hit_closest(ray, BIAS, std::f32::MAX) {
             // Hit the sky instead

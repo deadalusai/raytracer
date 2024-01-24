@@ -6,6 +6,7 @@ use crate::implementation::{ Hitable, HitRecord, AABB, MatId, TexId };
 
 // Triangle Mesh BVH
 
+#[derive(Debug)]
 struct MeshTriHit {
     p: V3,
     normal: V3,
@@ -14,7 +15,8 @@ struct MeshTriHit {
     tex_key: Option<usize>,
 }
 
-fn try_hit_tri(ray: &Ray, tri: &MeshTri) -> Option<MeshTriHit> {
+fn try_hit_tri(ray: &Ray, t_min: f32, t_max: f32, tri: &MeshTri) -> Option<MeshTriHit> {
+
     // compute normal of and area of the triangle
     // NOTE: not normalized! Used for area calculations
     let edge_ab = tri.b - tri.a;
@@ -23,11 +25,11 @@ fn try_hit_tri(ray: &Ray, tri: &MeshTri) -> Option<MeshTriHit> {
 
     // Step 1: find the intersection {P}
     let t = super::plane::intersect_plane(ray, tri.a, normal)?;
-    if t < 0.0 {
-        // Triangle is behind the ray origin
+    if t < t_min || t > t_max {
+        // Triangle is outside the search range
         return None;
     }
-    
+
     let p = ray.point_at_parameter(t);
 
     // Step 2: determine if p is inside the triangle
@@ -76,10 +78,6 @@ fn try_hit_tri(ray: &Ray, tri: &MeshTri) -> Option<MeshTriHit> {
     return Some(MeshTriHit { p, normal: normal.unit(), t, uv, tex_key })
 }
 
-fn tri_aabb(tri: &MeshTri) -> AABB {
-    AABB::from_vertices(&[tri.a, tri.b, tri.c])
-}
-
 struct MeshBvhRoot {
     bvh: Bvh,
     tris: Vec<MeshTri>,
@@ -95,15 +93,12 @@ impl MeshBvhRoot {
         }
     }
 
-    fn aabb(&self) -> &AABB {
-        self.bvh.aabb()
-    }
-
     fn try_hit(&self, ray: &Ray, t_min: f32, t_max: f32) -> Option<MeshTriHit> {
-        // Locate the closest triangle in the BVH index
         self.bvh.hit_candidates(ray, t_min, t_max)
-            .filter_map(|candidate| try_hit_tri(ray, &self.tris[candidate.object_index]))
-            .reduce(|closest, next| if next.t < closest.t { next } else { closest })
+            .filter_map(|candidate| try_hit_tri(ray, t_min, t_max, &self.tris[candidate.object_index]))
+            .reduce(|closest, next| {
+                if next.t < closest.t { next } else { closest }
+            })
     }
 }
 
@@ -127,8 +122,8 @@ pub struct MeshTri {
 // Allow MeshTri to be used with the Bvh algorithm
 
 impl BvhObject for MeshTri {
-    fn vertices(&self) -> impl Iterator<Item=V3> {
-        [self.a, self.b, self.c].into_iter()
+    fn aabb(&self) -> AABB {
+        AABB::from_vertices(&[self.a, self.b, self.c])
     }
 
     fn centroid(&self) -> V3 {
@@ -201,7 +196,7 @@ impl Hitable for MeshObject {
 
     fn aabb(&self) -> Option<AABB> {
         // Shift the mesh bounding box into world space
-        let aabb = self.root.aabb();
+        let aabb = self.root.bvh.aabb();
         Some(AABB {
             min: self.origin + aabb.min,
             max: self.origin + aabb.max,

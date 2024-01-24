@@ -164,6 +164,7 @@ impl Default for V3 {
 // Ray
 //
 
+#[derive(Debug)]
 pub struct Ray {
     pub origin: V3,
     pub direction: V3
