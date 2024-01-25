@@ -1,4 +1,4 @@
-use std::mem::size_of_val;
+use arrayvec::ArrayVec;
 
 use crate::implementation::AABB;
 use crate::types::{Ray, V3};
@@ -75,7 +75,7 @@ impl Bvh {
     }
 
     pub fn hit_candidates<'a>(&'a self, ray: &'a Ray, t_min: f32, t_max: f32) -> BvhHitCandidateIter<'a> {
-        let mut stack = Vec::with_capacity(10);
+        let mut stack = ArrayVec::new();
         stack.push(State { node_index: 0 });
         BvhHitCandidateIter { bvh: self, stack, ray, t_min, t_max }
     }
@@ -158,7 +158,7 @@ fn subdivide<T: BvhObject>(nodes: &mut Vec<BvhNode>, axis: SortAxis, node_index:
 
 pub struct BvhHitCandidateIter<'a> {
     bvh: &'a Bvh,
-    stack: Vec<State>,
+    stack: ArrayVec<State, 30>,
     ray: &'a Ray,
     t_min: f32,
     t_max: f32
