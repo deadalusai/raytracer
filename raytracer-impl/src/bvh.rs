@@ -1,3 +1,5 @@
+use std::mem::size_of_val;
+
 use crate::implementation::AABB;
 use crate::types::{Ray, V3};
 
@@ -52,7 +54,7 @@ impl Bvh {
     pub fn construct<T: BvhObject>(objects: &[T]) -> Bvh {
         // Initialise the object index map
         let mut object_indices = (0..objects.len()).collect::<Vec<usize>>();
-        let mut nodes = Vec::default();
+        let mut nodes = Vec::with_capacity(objects.len() * 2);
         
         // Prepare the root node
         let root = BvhLeaf { first_index: 0, length: objects.len() };
@@ -61,7 +63,7 @@ impl Bvh {
 
         subdivide(&mut nodes, SortAxis::X, 0, &mut object_indices, objects);
         nodes.shrink_to_fit();
-        
+
         Bvh {
             object_indices,
             nodes

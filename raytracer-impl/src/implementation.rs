@@ -1,5 +1,6 @@
 use std::sync::Arc;
 
+use crate::bvh::{Bvh, BvhObject};
 use crate::types::{ V2, V3, Ray, IntoArc };
 use crate::viewport::Viewport;
 
@@ -268,8 +269,8 @@ impl Scene {
         let mut bounded = Vec::new();
 
         for hitable in self.hitables.iter() {
-            if let Some(bbox) = hitable.aabb() {
-                bounded.push((bbox, hitable.clone()));
+            if hitable.aabb().is_some() {
+                bounded.push(HitableBvhObject(hitable.clone()));
             }
             else {
                 // Non-bounded objects stay at the top of the object list
@@ -277,8 +278,7 @@ impl Scene {
             }
         }
 
-        // Re-organize the bounded objects into a hierachy of BvhNodes
-        hitables.push(crate::shapes::bvh::build_bounding_volume_hierachy(&mut bounded));
+        hitables.push(Arc::new(HitableBvhRoot::new(bounded)));
 
         self.hitables = hitables;
     }
@@ -291,6 +291,62 @@ impl Scene {
         self.textures.get(tex_id.0).unwrap().as_ref()
     }
 }
+
+//
+// Adapt Hitable objects into BVH
+//
+
+struct HitableBvhRoot {
+    bvh: Bvh,
+    hitables: Vec<HitableBvhObject>,
+}
+
+impl HitableBvhRoot {
+    fn new(hitables: Vec<HitableBvhObject>) -> HitableBvhRoot {
+        HitableBvhRoot {
+            bvh: Bvh::construct(&hitables),
+            hitables,
+        }
+    }
+
+    fn try_hit(&self, ray: &Ray, t_min: f32, t_max: f32) -> Option<HitRecord> {
+        self.bvh.hit_candidates(ray, t_min, t_max)
+            .filter_map(|candidate| self.hitables[candidate.object_index].0.hit(ray, t_min, t_max))
+            .reduce(|closest, next| {
+                if next.t < closest.t { next } else { closest }
+            })
+    }
+}
+
+impl Hitable for HitableBvhRoot {
+    fn hit(&self, ray: &Ray, t_min: f32, t_max: f32) -> Option<HitRecord> {
+        self.try_hit(ray, t_min, t_max)
+    }
+
+    fn origin(&self) -> V3 {
+        // BVH trees are always anchored at 0,0,0
+        V3::ZERO
+    }
+
+    fn aabb(&self) -> Option<AABB> {
+        Some(self.bvh.aabb().clone())
+    }
+}
+
+// Allow any Arc<dyn Hitable> to be wrapped and used with the Bvh algorithm
+
+struct HitableBvhObject(Arc<dyn Hitable>);
+
+impl BvhObject for HitableBvhObject {
+    fn aabb(&self) -> AABB {
+        self.0.aabb().expect("Any Hitable being organised into a BVH must support aabb")
+    }
+
+    fn centroid(&self) -> V3 {
+        self.0.origin() // TODO(benf): Good enough?
+    }
+}
+
 
 //
 // Camera
