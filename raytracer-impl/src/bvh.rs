@@ -64,6 +64,8 @@ impl Bvh {
         subdivide(&mut nodes, SortAxis::X, 0, &mut object_indices, objects);
         nodes.shrink_to_fit();
 
+        println!("Generated {}-node tree for {}-object set", nodes.len(), objects.len());
+
         Bvh {
             object_indices,
             nodes
@@ -76,7 +78,7 @@ impl Bvh {
 
     pub fn hit_candidates<'a>(&'a self, ray: &'a Ray, t_min: f32, t_max: f32) -> BvhHitCandidateIter<'a> {
         let mut stack = ArrayVec::new();
-        stack.push(State { node_index: 0 });
+        stack.push(State::Branch(0));
         BvhHitCandidateIter { bvh: self, stack, ray, t_min, t_max }
     }
 }
@@ -117,26 +119,33 @@ fn subdivide<T: BvhObject>(nodes: &mut Vec<BvhNode>, axis: SortAxis, node_index:
     let node = &nodes[node_index];
 
     // Stop subdividing nodes when we get to a minimum size
-    if node.leaf_data().length <= 1 {
+    if node.leaf_data().length <= 2 {
         return;
     }
 
-    // Sort objects along the chosen axis
-    let node_data = node.leaf_data();
-    let i = node_data.first_index;
-    let j = node_data.first_index + node_data.length;
-    let nlen = node_data.length / 2;
+    // Split this axis at the midpoint
+    let extent = node.aabb.max - node.aabb.min;
+    let split_pos = axis_value(&node.aabb.min, axis) + (axis_value(&extent, axis) * 0.5);
 
-    object_indices[i..j]
-        .sort_by(|&a, &b| {
-            let a = axis_value(&T::centroid(&objects[a]), axis);
-            let b = axis_value(&T::centroid(&objects[b]), axis);
-            a.partial_cmp(&b).unwrap_or(std::cmp::Ordering::Equal)
-        });
+    // Roughly partition objects in place
+    let node_data = node.leaf_data();
+    let mut i = node_data.first_index;
+    let mut j = node_data.first_index + node_data.length - 1;
+    while i < j {
+        if axis_value(&T::centroid(&objects[object_indices[i]]), axis) < split_pos {
+            // Object in correct partition
+            i += 1;
+        }
+        else {
+            // Swap with an object in the other partition
+            object_indices.swap(i, j);
+            j -= 1;
+        }
+    }
 
     // Create child nodes
-    let left = BvhLeaf { first_index: i, length: nlen };
-    let right = BvhLeaf { first_index: i + nlen, length: node_data.length - nlen };
+    let left = BvhLeaf { first_index: node_data.first_index, length: i - node_data.first_index };
+    let right = BvhLeaf { first_index: i, length: node_data.length - left.length };
 
     // HACK: Stop subdividing if one of the sides is empty
     if left.length == 0 || right.length == 0 {
@@ -168,8 +177,9 @@ pub struct BvhHitCandidate {
     pub object_index: usize,
 }
 
-struct State {
-    node_index: usize,
+enum State {
+    Branch(usize), // node_index
+    Leaf(usize, usize), // node_index, count
 }
 
 /// Iterator over a depth-first search of the bounding volume hierachy
@@ -178,21 +188,33 @@ impl<'a> Iterator for BvhHitCandidateIter<'a> {
 
     fn next(&mut self) -> Option<Self::Item> {
         loop {
-            let state = self.stack.pop()?;
-            let node = &self.bvh.nodes[state.node_index];
-            if !node.aabb.hit_aabb(self.ray, self.t_min, self.t_max) {
-                continue;
-            }
-            match node.data {
-                BvhNodeData::Branch(ref branch) => {
-                    self.stack.push(State { node_index: branch.left_index });
-                    self.stack.push(State { node_index: branch.right_index });
+            match self.stack.pop()? {
+                State::Branch(node_index) => {
+                    let node = &self.bvh.nodes[node_index];
+                    if !node.aabb.hit_aabb(self.ray, self.t_min, self.t_max) {
+                        continue;
+                    }
+                    match node.data {
+                        BvhNodeData::Branch(ref branch) => {
+                            self.stack.push(State::Branch(branch.left_index));
+                            self.stack.push(State::Branch(branch.right_index));
+                        },
+                        BvhNodeData::Leaf(_) => {
+                            self.stack.push(State::Leaf(node_index, 0));
+                        }
+                    }
                 },
-                BvhNodeData::Leaf(ref leaf) => {
-                    assert_eq!(leaf.length, 1, "Expected leaf to represent exactly one object");
-                    let object_index = self.bvh.object_indices[leaf.first_index];
-                    return Some(BvhHitCandidate { object_index });
-                }
+                State::Leaf(node_index, count) => {
+                    let leaf = self.bvh.nodes[node_index].leaf_data();
+                    if count < leaf.length {
+                        // Push the next object to be emitted to the stack
+                        self.stack.push(State::Leaf(node_index, count + 1));
+                        // Emit the current object
+                        let object_index = self.bvh.object_indices[leaf.first_index + count];
+                        return Some(BvhHitCandidate { object_index });
+                    }
+                },
+                
             }
         }
     }
