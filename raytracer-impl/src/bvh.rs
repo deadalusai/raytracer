@@ -103,11 +103,11 @@ fn axis_value(v3: &V3, axis: SortAxis) -> f32 {
 
 fn create_leaf_node<T: BvhObject>(leaf: BvhLeaf, object_indices: &[usize], objects: &[T]) -> BvhNode {
     BvhNode {
-        aabb: object_indices[leaf.first_index..(leaf.first_index + leaf.length)]
-                .iter()
+        aabb: AABB::from_vertices_iter(
+            object_indices[leaf.first_index..(leaf.first_index + leaf.length)].iter()
                 .map(|&i| T::aabb(&objects[i]))
-                .reduce(|a, b| AABB::surrounding(a, b))
-                .unwrap(),
+                .flat_map(|a| [a.min, a.max])
+        ),
         data: BvhNodeData::Leaf(leaf),
     }
 }
