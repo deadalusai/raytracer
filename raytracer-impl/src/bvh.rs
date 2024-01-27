@@ -1,3 +1,5 @@
+use std::ops::Range;
+
 use arrayvec::ArrayVec;
 
 use crate::implementation::AABB;
@@ -28,6 +30,16 @@ struct BvhLeaf {
     length: usize,
 }
 
+impl BvhLeaf {
+    fn range(&self) -> Range<usize> {
+        self.first_index..(self.first_index + self.length)
+    }
+
+    fn offset(&self, offset: usize) -> usize {
+        self.first_index + offset
+    }
+}
+
 #[derive(Clone)]
 enum BvhNodeData {
     Branch(BvhBranch),
@@ -43,8 +55,14 @@ impl BvhNode {
     }
 }
 
+struct BvhObjectBounds {
+    object_index: usize,
+    aabb: AABB,
+    centroid: V3,
+}
+
 pub struct Bvh {
-    object_indices: Vec<usize>,
+    object_bounds: Vec<BvhObjectBounds>,
     nodes: Vec<BvhNode>,
 }
 
@@ -52,22 +70,27 @@ impl Bvh {
     // BVH algorithm adapted
     // from https://jacco.ompf2.com/2022/04/13/how-to-build-a-bvh-part-1-basics/    
     pub fn construct<T: BvhObject>(objects: &[T]) -> Bvh {
-        // Initialise the object index map
-        let mut object_indices = (0..objects.len()).collect::<Vec<usize>>();
+        // Precalculate the object bounds map
+        let mut object_bounds = (0..objects.len())
+            .map(|object_index| BvhObjectBounds {
+                object_index,
+                aabb: T::aabb(&objects[object_index]),
+                centroid: T::centroid(&objects[object_index]),
+            })
+            .collect::<Vec<_>>();
+
         let mut nodes = Vec::with_capacity(objects.len() * 2);
         
         // Prepare the root node
         let root = BvhLeaf { first_index: 0, length: objects.len() };
-        let root = create_leaf_node(root, &mut object_indices, objects);
+        let root = create_leaf_node(root, &object_bounds);
         nodes.push(root);
 
-        subdivide(&mut nodes, SortAxis::X, 0, &mut object_indices, objects);
+        subdivide(&mut nodes, 0, &mut object_bounds, objects);
         nodes.shrink_to_fit();
 
-        println!("Generated {}-node tree for {}-object set", nodes.len(), objects.len());
-
         Bvh {
-            object_indices,
+            object_bounds,
             nodes
         }
     }
@@ -84,61 +107,74 @@ impl Bvh {
 }
 
 #[derive(Clone, Copy, Debug)]
-enum SortAxis { X, Y, Z }
-impl SortAxis {
-    pub fn next(self) -> SortAxis {
+enum Axis { X, Y, Z }
+impl Axis {
+    fn value(&self, v3: &V3) -> f32 {
         match self {
-            SortAxis::X => SortAxis::Y,
-            SortAxis::Y => SortAxis::Z,
-            SortAxis::Z => SortAxis::X,
+            Axis::X => v3.x(),
+            Axis::Y => v3.y(),
+            Axis::Z => v3.z(),
         }
     }
 }
 
-fn axis_value(v3: &V3, axis: SortAxis) -> f32 {
-    match axis {
-        SortAxis::X => v3.x(),
-        SortAxis::Y => v3.y(),
-        SortAxis::Z => v3.z(),
-    }
-}
-
-fn create_leaf_node<T: BvhObject>(leaf: BvhLeaf, object_indices: &[usize], objects: &[T]) -> BvhNode {
+fn create_leaf_node(leaf: BvhLeaf, object_bounds: &[BvhObjectBounds]) -> BvhNode {
     BvhNode {
         aabb: AABB::from_vertices_iter(
-            object_indices[leaf.first_index..(leaf.first_index + leaf.length)].iter()
-                .map(|&i| T::aabb(&objects[i]))
-                .flat_map(|a| [a.min, a.max])
+            object_bounds[leaf.range()].iter().flat_map(|b| [b.aabb.min, b.aabb.max])
         ),
         data: BvhNodeData::Leaf(leaf),
     }
 }
 
-fn subdivide<T: BvhObject>(nodes: &mut Vec<BvhNode>, axis: SortAxis, node_index: usize, object_indices: &mut [usize], objects: &[T]) {
+fn select_longest_axis(extent: &V3) -> Axis {
+    let (mut axis, mut len) = (Axis::X, extent.x());
+    if extent.y() > len {
+        (axis, len) = (Axis::Y, extent.y());
+    }
+    if extent.z() > len {
+        axis = Axis::Z;
+    }
+    axis
+}
+
+fn calculate_subdivision_bounds(leaf: &BvhLeaf, object_bounds: &[BvhObjectBounds]) -> AABB {
+    // Find the AABB bounds which includes all centroids for the given leaf
+    AABB::from_vertices_iter(object_bounds[leaf.range()].iter().map(|o| o.centroid))
+}
+
+fn subdivide<T: BvhObject>(nodes: &mut Vec<BvhNode>, node_index: usize, object_bounds: &mut [BvhObjectBounds], objects: &[T]) {
 
     let node = &nodes[node_index];
+    let node_data = node.leaf_data();
 
     // Stop subdividing nodes when we get to a minimum size
-    if node.leaf_data().length <= 2 {
+    if node_data.length <= 2 {
         return;
     }
 
-    // Split this axis at the midpoint
-    let extent = node.aabb.max - node.aabb.min;
-    let split_pos = axis_value(&node.aabb.min, axis) + (axis_value(&extent, axis) * 0.5);
+    // Select an axis to subdivide on and a split position
+    let bounds = calculate_subdivision_bounds(node_data, object_bounds);
+    let extent = bounds.max - bounds.min;
+    let axis = select_longest_axis(&extent);
+    let split_pos = axis.value(&bounds.min) + (axis.value(&extent) * 0.5);
 
     // Roughly partition objects in place
-    let node_data = node.leaf_data();
     let mut i = node_data.first_index;
     let mut j = node_data.first_index + node_data.length - 1;
-    while i < j {
-        if axis_value(&T::centroid(&objects[object_indices[i]]), axis) < split_pos {
-            // Object in correct partition
+    while i <= j {
+        let pos = axis.value(&object_bounds[i].centroid);
+        if pos < split_pos {
+            // Count object into left partition
             i += 1;
         }
+        else if j == 0 {
+            // HACK: Halt if `j` is about to underflow
+            break;
+        }
         else {
-            // Swap with an object in the other partition
-            object_indices.swap(i, j);
+            // Swap object to the end of the right partition
+            object_bounds.swap(i, j);
             j -= 1;
         }
     }
@@ -146,23 +182,23 @@ fn subdivide<T: BvhObject>(nodes: &mut Vec<BvhNode>, axis: SortAxis, node_index:
     // Create child nodes
     let left = BvhLeaf { first_index: node_data.first_index, length: i - node_data.first_index };
     let right = BvhLeaf { first_index: i, length: node_data.length - left.length };
-
+    
     // HACK: Stop subdividing if one of the sides is empty
     if left.length == 0 || right.length == 0 {
         return;
     }
 
     let left_index = nodes.len();
-    nodes.push(create_leaf_node(left, object_indices, objects));
+    nodes.push(create_leaf_node(left, object_bounds));
     let right_index = nodes.len();
-    nodes.push(create_leaf_node(right, object_indices, objects));
+    nodes.push(create_leaf_node(right, object_bounds));
 
     // Convert current node into a branch
     nodes[node_index].data = BvhNodeData::Branch(BvhBranch { left_index, right_index });
     
     // Recurse
-    subdivide(nodes, axis.next(), left_index, object_indices, objects);
-    subdivide(nodes, axis.next(), right_index, object_indices, objects);
+    subdivide(nodes, left_index, object_bounds, objects);
+    subdivide(nodes, right_index, object_bounds, objects);
 }
 
 pub struct BvhHitCandidateIter<'a> {
@@ -179,7 +215,7 @@ pub struct BvhHitCandidate {
 
 enum State {
     Branch(usize), // node_index
-    Leaf(usize, usize), // node_index, count
+    Leaf(usize, usize), // node_index, offset
 }
 
 /// Iterator over a depth-first search of the bounding volume hierachy
@@ -204,13 +240,13 @@ impl<'a> Iterator for BvhHitCandidateIter<'a> {
                         }
                     }
                 },
-                State::Leaf(node_index, count) => {
+                State::Leaf(node_index, offset) => {
                     let leaf = self.bvh.nodes[node_index].leaf_data();
-                    if count < leaf.length {
+                    if offset < leaf.length {
                         // Push the next object to be emitted to the stack
-                        self.stack.push(State::Leaf(node_index, count + 1));
+                        self.stack.push(State::Leaf(node_index, offset + 1));
                         // Emit the current object
-                        let object_index = self.bvh.object_indices[leaf.first_index + count];
+                        let object_index = self.bvh.object_bounds[leaf.offset(offset)].object_index;
                         return Some(BvhHitCandidate { object_index });
                     }
                 },
