@@ -16,13 +16,13 @@ impl SceneFactory for ScenePointCloud {
             name: "Point Cloud".into(),
             controls: vec![
                 SceneControl::range("Camera Distance", 1.0, 1500.0).with_default(100.0),
-                SceneControl::range("Cloud Width",  1.0, 200.0).with_default(50.0),
-                SceneControl::range("Cloud Depth",  1.0, 200.0).with_default(50.0),
-                SceneControl::range("Cloud Height", 1.0, 200.0).with_default(50.0),
+                SceneControl::range("Cloud Width",  1.0, 1000.0).with_default(50.0),
+                SceneControl::range("Cloud Depth",  1.0, 1000.0).with_default(50.0),
+                SceneControl::range("Cloud Height", 1.0, 1000.0).with_default(50.0),
                 SceneControl::range("Cloud Point Count", 1.0, 10_000_000.0).with_default(1_000_000.0),
-                SceneControl::range("Global Intensity", 0.0, 1.0).with_default(0.5),
-                SceneControl::range("Spotlight Intensity", 0.0, 2000.0).with_default(200.0),
-                SceneControl::range("Spotlight Beam Angle", 1.0, 90.0).with_default(10.0),
+                SceneControl::range("Cloud Point Diameter", 0.05, 100.0).with_default(0.05),
+                SceneControl::range("Spotlight Intensity", 0.0, 2000.0).with_default(700.0),
+                SceneControl::range("Spotlight Beam Angle", 1.0, 90.0).with_default(60.0),
             ],
         }
     }
@@ -38,12 +38,8 @@ impl SceneFactory for ScenePointCloud {
         let mut scene = Scene::new(camera, SceneSky::Black);
     
         // Lights
-        let lamp_pos = look_from;
+        let lamp_pos = look_from.rotate_about_axis(V3::POS_Y, deg_to_rad(15.0));
         let lamp_direction = look_to - lamp_pos;
-        scene.add_light(
-            DirectionalLight::with_direction(lamp_direction)
-                .with_intensity(config.get("Global Intensity")?)
-        );
         scene.add_light(
             LampLight::with_origin_and_direction(look_from, lamp_direction)
                 .with_intensity(config.get("Spotlight Intensity")?)
@@ -51,7 +47,7 @@ impl SceneFactory for ScenePointCloud {
         );
     
         let point_mat = scene.add_material(MatLambertian::default());
-        let point_radius = 0.05;
+        let point_radius = config.get("Cloud Point Diameter")?;
     
         let mut rng = create_rng_from_seed(432789012409);
 
