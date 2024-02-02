@@ -84,11 +84,9 @@ struct MeshBvhRoot {
 }
 
 impl MeshBvhRoot {
-    fn new(source: &[MeshTri]) -> MeshBvhRoot {
-        let mut tris = Vec::new();
-        tris.extend_from_slice(source);
+    fn new(tris: Vec<MeshTri>) -> MeshBvhRoot {
         MeshBvhRoot {
-            bvh: Bvh::construct(&tris),
+            bvh: Bvh::from(&tris),
             tris,
         }
     }
@@ -153,7 +151,7 @@ impl MeshObject {
         MeshObject {
             object_id: None,
             origin: V3::ZERO,
-            root: Arc::new(MeshBvhRoot::new(&mesh.tris)),
+            root: Arc::new(MeshBvhRoot::new(mesh.tris.clone())),
             mat_id,
             tex_id,
         }

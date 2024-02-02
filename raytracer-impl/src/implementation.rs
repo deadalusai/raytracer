@@ -55,6 +55,11 @@ impl AABB {
         AABB::from_vertices_iter(vertices.iter().cloned())
     }
 
+    /// Creates a bounding box which fully contains the given two vertices
+    pub fn surrounding(b0: AABB, b1: AABB) -> AABB {
+        AABB::from_vertices_iter([b0.min, b0.max, b1.min, b1.max])
+    }
+
     /// Finds the axis-aligned bounding box which fully contains the given sequence of vertices
     pub fn from_vertices_iter(vertices: impl IntoIterator<Item=V3>) -> AABB {
         let mut iter = vertices.into_iter();
@@ -73,11 +78,6 @@ impl AABB {
         }
 
         AABB::from_min_max(min, max)
-    }
-
-    /// Creates a bounding box which fully contains the given two vertices
-    pub fn surrounding(b0: AABB, b1: AABB) -> AABB {
-        AABB::from_vertices_iter([b0.min, b0.max, b1.min, b1.max])
     }
 
     pub fn hit_aabb(&self, ray: &Ray, mut t_min: f32, mut t_max: f32) -> bool {
@@ -304,7 +304,7 @@ struct HitableBvhRoot {
 impl HitableBvhRoot {
     fn new(hitables: Vec<HitableBvhObject>) -> HitableBvhRoot {
         HitableBvhRoot {
-            bvh: Bvh::construct(&hitables),
+            bvh: Bvh::from(&hitables),
             hitables,
         }
     }

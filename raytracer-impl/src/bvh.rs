@@ -69,30 +69,18 @@ pub struct Bvh {
 impl Bvh {
     // BVH algorithm adapted
     // from https://jacco.ompf2.com/2022/04/13/how-to-build-a-bvh-part-1-basics/    
-    pub fn construct<T: BvhObject>(objects: &[T]) -> Bvh {
+    pub fn from<T: BvhObject>(objects: &[T]) -> Bvh {
         // Precalculate the object bounds map
-        let mut object_bounds = (0..objects.len())
-            .map(|object_index| BvhObjectBounds {
+        let object_bounds = objects.iter()
+            .enumerate()
+            .map(|(object_index, object)| BvhObjectBounds {
                 object_index,
-                aabb: T::aabb(&objects[object_index]),
-                centroid: T::centroid(&objects[object_index]),
+                aabb: T::aabb(&object),
+                centroid: T::centroid(&object),
             })
-            .collect::<Vec<_>>();
+            .collect();
 
-        let mut nodes = Vec::with_capacity(objects.len() * 2);
-        
-        // Prepare the root node
-        let root = BvhLeaf { first_index: 0, length: objects.len() };
-        let root = create_leaf_node(root, &object_bounds);
-        nodes.push(root);
-
-        subdivide(&mut nodes, 0, &mut object_bounds, objects);
-        nodes.shrink_to_fit();
-
-        Bvh {
-            object_bounds,
-            nodes
-        }
+        build(object_bounds)
     }
 
     pub fn aabb(&self) -> &AABB {
@@ -138,30 +126,42 @@ fn select_longest_axis(extent: &V3) -> Axis {
     axis
 }
 
-fn calculate_subdivision_bounds(leaf: &BvhLeaf, object_bounds: &[BvhObjectBounds]) -> AABB {
-    // Find the AABB bounds which includes all centroids for the given leaf
-    AABB::from_vertices_iter(object_bounds[leaf.range()].iter().map(|o| o.centroid))
+fn build(mut object_bounds: Vec<BvhObjectBounds>) -> Bvh {
+    let mut nodes = Vec::with_capacity(object_bounds.len() * 2);
+        
+    // Prepare the root node
+    let root = BvhLeaf { first_index: 0, length: object_bounds.len() };
+    let root = create_leaf_node(root, &object_bounds);
+    nodes.push(root);
+
+    subdivide(0, &mut nodes, &mut object_bounds);
+    nodes.shrink_to_fit();
+
+    Bvh {
+        object_bounds,
+        nodes
+    }
 }
 
-fn subdivide<T: BvhObject>(nodes: &mut Vec<BvhNode>, node_index: usize, object_bounds: &mut [BvhObjectBounds], objects: &[T]) {
+fn subdivide(node_index: usize, nodes: &mut Vec<BvhNode>, object_bounds: &mut [BvhObjectBounds]) {
 
     let node = &nodes[node_index];
-    let node_data = node.leaf_data();
+    let leaf = node.leaf_data();
 
     // Stop subdividing nodes when we get to a minimum size
-    if node_data.length <= 2 {
+    if leaf.length <= 2 {
         return;
     }
 
-    // Select an axis to subdivide on and a split position
-    let bounds = calculate_subdivision_bounds(node_data, object_bounds);
+    // Select an axis to subdivide on and a position on that axis to split
+    let bounds = AABB::from_vertices_iter(object_bounds[leaf.range()].iter().map(|o| o.centroid));
     let extent = bounds.max - bounds.min;
     let axis = select_longest_axis(&extent);
     let split_pos = axis.value(&bounds.min) + (axis.value(&extent) * 0.5);
 
     // Roughly partition objects in place
-    let mut i = node_data.first_index;
-    let mut j = node_data.first_index + node_data.length - 1;
+    let mut i = leaf.first_index;
+    let mut j = leaf.first_index + leaf.length - 1;
     while i <= j {
         let pos = axis.value(&object_bounds[i].centroid);
         if pos < split_pos {
@@ -169,7 +169,7 @@ fn subdivide<T: BvhObject>(nodes: &mut Vec<BvhNode>, node_index: usize, object_b
             i += 1;
         }
         else if j == 0 {
-            // HACK: Halt if `j` is about to underflow
+            // Halt if `j` is about to underflow
             break;
         }
         else {
@@ -180,10 +180,10 @@ fn subdivide<T: BvhObject>(nodes: &mut Vec<BvhNode>, node_index: usize, object_b
     }
 
     // Create child nodes
-    let left = BvhLeaf { first_index: node_data.first_index, length: i - node_data.first_index };
-    let right = BvhLeaf { first_index: i, length: node_data.length - left.length };
+    let left = BvhLeaf { first_index: leaf.first_index, length: i - leaf.first_index };
+    let right = BvhLeaf { first_index: i, length: leaf.length - left.length };
     
-    // HACK: Stop subdividing if one of the sides is empty
+    // Stop subdividing if one of the sides is empty
     if left.length == 0 || right.length == 0 {
         return;
     }
@@ -197,8 +197,8 @@ fn subdivide<T: BvhObject>(nodes: &mut Vec<BvhNode>, node_index: usize, object_b
     nodes[node_index].data = BvhNodeData::Branch(BvhBranch { left_index, right_index });
     
     // Recurse
-    subdivide(nodes, left_index, object_bounds, objects);
-    subdivide(nodes, right_index, object_bounds, objects);
+    subdivide(left_index, nodes, object_bounds);
+    subdivide(right_index, nodes, object_bounds);
 }
 
 pub struct BvhHitCandidateIter<'a> {
