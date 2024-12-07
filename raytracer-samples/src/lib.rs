@@ -8,6 +8,7 @@ mod samples;
 mod scene_dreadnaught;
 mod scene_dootdoot;
 mod scene_point_cloud;
+mod scene_interceptor_spin;
 
 pub fn make_sample_scene_factories() -> Vec<Arc<dyn SceneFactory + Send + Sync>> {
     vec![
@@ -23,6 +24,7 @@ pub fn make_sample_scene_factories() -> Vec<Arc<dyn SceneFactory + Send + Sync>>
         Arc::new(BasicSceneFactory::new("Mega Cube",      samples::mega_cube)),
         Arc::new(BasicSceneFactory::new("Spaceships",     samples::spaceships)),
         Arc::new(BasicSceneFactory::new("Fleet",          samples::fleet)),
+        Arc::new(scene_interceptor_spin::SceneInterceptorSpin),
         Arc::new(scene_dreadnaught::SceneDreadnaught),
         Arc::new(scene_dootdoot::SceneDootDoot),
     ]

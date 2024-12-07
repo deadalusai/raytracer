@@ -242,13 +242,13 @@ impl<'a> Iterator for BvhHitCandidateIter<'a> {
                 },
                 State::Leaf(node_index, offset) => {
                     let leaf = self.bvh.nodes[node_index].leaf_data();
-                    if offset < leaf.length {
+                    if offset < leaf.length - 1 {
                         // Push the next object to be emitted to the stack
                         self.stack.push(State::Leaf(node_index, offset + 1));
-                        // Emit the current object
-                        let object_index = self.bvh.object_bounds[leaf.offset(offset)].object_index;
-                        return Some(BvhHitCandidate { object_index });
                     }
+                    // Emit the current object
+                    let object_index = self.bvh.object_bounds[leaf.offset(offset)].object_index;
+                    return Some(BvhHitCandidate { object_index });
                 },
                 
             }

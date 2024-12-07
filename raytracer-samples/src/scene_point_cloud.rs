@@ -52,8 +52,8 @@ impl SceneFactory for ScenePointCloud {
         let mut rng = create_rng_from_seed(432789012409);
 
         let x_len = config.get("Cloud Width")?;
-        let z_len = config.get("Cloud Depth")?;
-        let y_len = config.get("Cloud Height")?;
+        let z_len = config.get("Cloud Height")?;
+        let y_len = config.get("Cloud Depth")?;
     
         for _ in 0..(config.get("Cloud Point Count")? as usize) {
     
