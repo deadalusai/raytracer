@@ -39,8 +39,8 @@ impl RenderJob {
         // Poll for completed work
         while let Ok(result) = self.worker_handle.result_receiver.try_recv() {
             match result {
-                Ready(_) => {}, // Worker thread ready to go.
-                FrameUpdated(_, chunk, buf) => {
+                Ready => {}, // Worker thread ready to go.
+                FrameUpdated(chunk, buf) => {
                     // Copy chunk to buffer
                     self.buffer.copy_from_sub_buffer(chunk.left, chunk.top, &buf);
                 },
@@ -51,7 +51,7 @@ impl RenderJob {
                     thread.total_chunks_rendered += 1;
                     self.completed_chunk_count += 1;
                 },
-                Terminated(_) => {}, // Worker halted
+                Terminated => {}, // Worker halted
             }
         }
 
@@ -93,10 +93,10 @@ pub struct RenderWork(pub RenderChunk, pub Arc<(Scene, RenderSettings)>);
 // A message from a worker thread to the master thread
 #[derive(Clone)]
 pub enum RenderThreadMessage {
-    Ready(ThreadId),
-    FrameUpdated(ThreadId, RenderChunk, RgbaBuffer),
+    Ready,
+    FrameUpdated(RenderChunk, RgbaBuffer),
     FrameCompleted(ThreadId, Duration),
-    Terminated(ThreadId)
+    Terminated
 }
 
 type BoxError = Box<dyn std::error::Error + 'static>;
@@ -111,7 +111,7 @@ fn start_render_thread(
     use rand::SeedableRng;
     use rand_xorshift::XorShiftRng;
 
-    result_sender.send(Ready(id))?;
+    result_sender.send(Ready)?;
 
     // Receive messages
     for RenderWork(chunk, args) in work_receiver.into_iter() {
@@ -124,7 +124,7 @@ fn start_render_thread(
         for p in chunk.iter_pixels() {
             buffer.put_pixel(p.chunk_x, p.chunk_y, green);
         }
-        result_sender.send(FrameUpdated(id, chunk.clone(), buffer.clone()))?;
+        result_sender.send(FrameUpdated(chunk.clone(), buffer.clone()))?;
         // Using the same seeded RNG for every frame makes every run repeatable
         let mut rng = XorShiftRng::seed_from_u64(RNG_SEED);
         // Render the scene chunk
@@ -141,7 +141,7 @@ fn start_render_thread(
         }
         let elapsed = time.elapsed();
         // Send final frame and results
-        result_sender.send(FrameUpdated(id, chunk, buffer))?;
+        result_sender.send(FrameUpdated(chunk, buffer))?;
         result_sender.send(FrameCompleted(id, elapsed))?;
     }
 
@@ -181,7 +181,7 @@ pub fn start_background_render_threads(render_thread_count: u32) -> RenderJobWor
                 }
                 // Notify master thread that we've terminated.
                 // NOTE: There may be nobody listening...
-                result_sender.send(RenderThreadMessage::Terminated(id)).ok();
+                result_sender.send(RenderThreadMessage::Terminated).ok();
             };
             let handle = std::thread::Builder::new()
                 .name(format!("Render Thread {id}"))
