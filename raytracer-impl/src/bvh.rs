@@ -89,7 +89,7 @@ impl Bvh {
 
     pub fn hit_candidates<'a>(&'a self, ray: &'a Ray, t_min: f32, t_max: f32) -> BvhHitCandidateIter<'a> {
         let mut stack = ArrayVec::new();
-        stack.push(State::Branch(0));
+        stack.push(State { node_index: 0, offset: 0 });
         BvhHitCandidateIter { bvh: self, stack, ray, t_min, t_max }
     }
 }
@@ -144,7 +144,6 @@ fn build(mut object_bounds: Vec<BvhObjectBounds>) -> Bvh {
 }
 
 fn subdivide(node_index: usize, nodes: &mut Vec<BvhNode>, object_bounds: &mut [BvhObjectBounds]) {
-
     let node = &nodes[node_index];
     let leaf = node.leaf_data();
 
@@ -213,9 +212,9 @@ pub struct BvhHitCandidate {
     pub object_index: usize,
 }
 
-enum State {
-    Branch(usize), // node_index
-    Leaf(usize, usize), // node_index, offset
+struct State {
+    node_index: usize,
+    offset: usize,
 }
 
 /// Iterator over a depth-first search of the bounding volume hierachy
@@ -224,33 +223,25 @@ impl<'a> Iterator for BvhHitCandidateIter<'a> {
 
     fn next(&mut self) -> Option<Self::Item> {
         loop {
-            match self.stack.pop()? {
-                State::Branch(node_index) => {
-                    let node = &self.bvh.nodes[node_index];
-                    if !node.aabb.hit_aabb(self.ray, self.t_min, self.t_max) {
-                        continue;
-                    }
-                    match node.data {
-                        BvhNodeData::Branch(ref branch) => {
-                            self.stack.push(State::Branch(branch.left_index));
-                            self.stack.push(State::Branch(branch.right_index));
-                        },
-                        BvhNodeData::Leaf(_) => {
-                            self.stack.push(State::Leaf(node_index, 0));
-                        }
-                    }
+            let State { node_index, offset } = self.stack.pop()?;
+            let node = &self.bvh.nodes[node_index];
+            if !node.aabb.hit_aabb(self.ray, self.t_min, self.t_max) {
+                continue;
+            }
+            match node.data {
+                BvhNodeData::Branch(ref branch) => {
+                    self.stack.push(State { node_index: branch.left_index, offset: 0 });
+                    self.stack.push(State { node_index: branch.right_index, offset: 0 });
                 },
-                State::Leaf(node_index, offset) => {
-                    let leaf = self.bvh.nodes[node_index].leaf_data();
+                BvhNodeData::Leaf(ref leaf) => {
                     if offset < leaf.length - 1 {
                         // Push the next object to be emitted to the stack
-                        self.stack.push(State::Leaf(node_index, offset + 1));
+                        self.stack.push(State { node_index, offset: offset + 1 });
                     }
                     // Emit the current object
                     let object_index = self.bvh.object_bounds[leaf.offset(offset)].object_index;
                     return Some(BvhHitCandidate { object_index });
-                },
-                
+                }
             }
         }
     }
