@@ -12,6 +12,6 @@ pub enum ObjError {
     IoError(#[from] std::io::Error),
     #[error("Int parse error")]
     IntParseError(#[from] std::num::ParseIntError),
-    #[error("Image read error")]
+    #[error("Image read error: {0:}")]
     BmpParseError(#[from] image::ImageError),
 }

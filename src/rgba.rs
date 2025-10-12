@@ -68,7 +68,7 @@ impl RgbaBuffer {
         self.version += 1;
     }
     
-    pub fn get_raw_rgba_data(&self) -> RgbaRaw {
+    pub fn get_raw_rgba_data(&'_ self) -> RgbaRaw<'_> {
         RgbaRaw {
             width: self.width as usize,
             height: self.height as usize,

@@ -62,7 +62,7 @@ impl<'a> egui::Widget for SettingsWidget<'a> {
                 
                 // Scene
                 ui.label("Scene");
-                egui::ComboBox::from_id_source("scene_combo")
+                egui::ComboBox::from_id_salt("scene_combo")
                     .selected_text(configs[st.scene].name.to_string())
                     .width(120.0)
                     .show_ui(ui, |ui| {
@@ -86,12 +86,12 @@ impl<'a> egui::Widget for SettingsWidget<'a> {
                     match c.control_type {
                         Range(min, max) => {
                             ui.add(egui::DragValue::new(value)
-                                .clamp_range(min..=max));
+                                .range(min..=max));
                         },
 
                         RangeAngleDegrees => {
                             ui.add(egui::DragValue::new(value)
-                                .clamp_range(-360.0..=360.0)
+                                .range(-360.0..=360.0)
                                 .speed(1.0)
                                 .max_decimals(0)
                                 .suffix("°"));
@@ -102,7 +102,7 @@ impl<'a> egui::Widget for SettingsWidget<'a> {
                             if index >= values.len() {
                                 index = 0;
                             }
-                            egui::ComboBox::from_id_source(&c.name)
+                            egui::ComboBox::from_id_salt(&c.name)
                                 .selected_text(&values[index])
                                 .width(120.0)
                                 .show_ui(ui, |ui| {
@@ -124,31 +124,31 @@ impl<'a> egui::Widget for SettingsWidget<'a> {
                 // Render size
                 ui.label("Render size");
                 ui.horizontal(|ui| {
-                    ui.add(egui::DragValue::new(&mut st.width).clamp_range(0..=2048).suffix("px"));
-                    ui.add(egui::DragValue::new(&mut st.height).clamp_range(0..=2048).suffix("px"));
+                    ui.add(egui::DragValue::new(&mut st.width).range(0..=2048).suffix("px"));
+                    ui.add(egui::DragValue::new(&mut st.height).range(0..=2048).suffix("px"));
                 });
                 ui.end_row();
                 
                 // Render threads
                 ui.label("Render threads");
-                ui.add(egui::DragValue::new(&mut st.thread_count).clamp_range(1..=16));
+                ui.add(egui::DragValue::new(&mut st.thread_count).range(1..=16));
                 ui.end_row();
                 
                 // Render chunks
                 ui.label("Render chunks");
-                ui.add(egui::DragValue::new(&mut st.chunk_count).clamp_range(1..=256));
+                ui.add(egui::DragValue::new(&mut st.chunk_count).range(1..=256));
                 ui.end_row();
                 
                 // Samples per pixel
                 ui.label("Samples per pixel");
-                ui.add(egui::DragValue::new(&mut st.samples_per_pixel).clamp_range(1..=1000));
+                ui.add(egui::DragValue::new(&mut st.samples_per_pixel).range(1..=1000));
                 ui.end_row();
                 
                 // Camera aperture
                 ui.label("Camera FOV");
                 ui.horizontal(|ui| {
                     ui.add(egui::DragValue::new(&mut st.camera_fov)
-                        .clamp_range(1.0..=100.0)
+                        .range(1.0..=100.0)
                         .speed(0.05)
                         .max_decimals(2)
                         .suffix("°"));
@@ -159,7 +159,7 @@ impl<'a> egui::Widget for SettingsWidget<'a> {
                 ui.label("Camera lens radius");
                 ui.horizontal(|ui| {
                     ui.add(egui::DragValue::new(&mut st.camera_lens_radius)
-                        .clamp_range(0.0..=1.5)
+                        .range(0.0..=1.5)
                         .speed(0.005)
                         .max_decimals(3));
 
@@ -174,7 +174,7 @@ impl<'a> egui::Widget for SettingsWidget<'a> {
                 ui.label("Camera focus");
                 ui.horizontal(|ui| {
                     ui.add(egui::DragValue::new(&mut st.camera_focus_dist_adjust)
-                        .clamp_range(-10.0..=10.0)
+                        .range(-10.0..=10.0)
                         .speed(0.05)
                         .max_decimals(3));
                 });
@@ -184,13 +184,13 @@ impl<'a> egui::Widget for SettingsWidget<'a> {
                 ui.label("Camera angle");
                 ui.horizontal(|ui| {
                     ui.add(egui::DragValue::new(&mut st.camera_angle_adjust_h)
-                        .clamp_range(-180..=180)
+                        .range(-180..=180)
                         .speed(0.5)
                         .max_decimals(3)
                         .suffix("°"));
 
                     ui.add(egui::DragValue::new(&mut st.camera_angle_adjust_v)
-                        .clamp_range(-90.0..=90.0)
+                        .range(-90.0..=90.0)
                         .speed(0.5)
                         .max_decimals(3)
                         .suffix("°"));
@@ -200,7 +200,7 @@ impl<'a> egui::Widget for SettingsWidget<'a> {
                 // Max reflections
                 ui.label("Max reflections");
                 ui.add(egui::DragValue::new(&mut st.max_reflections)
-                    .clamp_range(1..=25));
+                    .range(1..=25));
                 ui.end_row();
 
                 // Scale to window
