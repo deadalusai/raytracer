@@ -90,17 +90,14 @@ pub fn start_render_job_construction(
             samples_per_pixel: settings.samples_per_pixel,
         };
 
-        // Chunks are popped from this list as they are rendered.
-        // Reverse the list so the top of the image is rendered first.
         let viewport = Viewport::new(settings.width, settings.height);
-        let mut chunks = create_render_chunks(&viewport, settings.chunk_count);
-        chunks.reverse();
+        let chunks = create_render_chunks(&viewport, settings.chunk_count);
 
         Ok(RenderJob {
             render_args: Arc::new((scene, render_settings)),
-            total_chunk_count: chunks.len() as u32,
             completed_chunk_count: 0,
-            pending_chunks: chunks,
+            chunks: chunks,
+            next_chunk_index: 0,
             start_time: Instant::now(),
             render_time_secs: 0_f64,
             buffer: RgbaBuffer::new(settings.width, settings.height),

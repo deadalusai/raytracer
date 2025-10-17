@@ -13,11 +13,11 @@ const RNG_SEED: u64 = 12345;
 
 pub struct RenderJob {
     pub render_args: Arc<(Scene, RenderSettings)>,
-    pub pending_chunks: Vec<RenderChunk>,
+    pub chunks: Vec<RenderChunk>,
+    pub next_chunk_index: usize,
     pub start_time: Instant,
     pub render_time_secs: f64,
-    pub total_chunk_count: u32,
-    pub completed_chunk_count: u32,
+    pub completed_chunk_count: usize,
     pub buffer: RgbaBuffer,
     pub worker_handle: RenderJobWorkerHandle,
 }
@@ -30,7 +30,7 @@ pub enum RenderJobUpdateResult {
 
 impl RenderJob {
     pub fn is_work_completed(&self) -> bool {
-        self.completed_chunk_count >= self.total_chunk_count
+        self.completed_chunk_count >= self.chunks.len()
     }
 
     pub fn update(&mut self) -> RenderJobUpdateResult {
@@ -57,20 +57,21 @@ impl RenderJob {
 
         // Refill the the work queue
         use flume::TrySendError;
-        while let Some(chunk) = self.pending_chunks.pop() {
-            let work = RenderWork(chunk, self.render_args.clone());
+        while self.next_chunk_index < self.chunks.len() {
+            let chunk = &self.chunks[self.next_chunk_index];
+            let work = RenderWork(chunk.clone(), self.render_args.clone());
             if let Err(err) = self.worker_handle.work_sender.try_send(work) {
                 match err {
-                    TrySendError::Full(RenderWork(chunk, _)) => {
+                    TrySendError::Full(_) => {
                         // Queue full, try again later
-                        self.pending_chunks.push(chunk);
+                        break;
                     }
                     TrySendError::Disconnected(_) => {
                         return RenderJobUpdateResult::ErrorRenderThreadsStopped
                     }
                 }
-                break;
             }
+            self.next_chunk_index += 1;
         }
     
         if !self.is_work_completed() {
@@ -79,6 +80,12 @@ impl RenderJob {
         }
 
         RenderJobUpdateResult::Updated
+    }
+
+    #[allow(unused)]
+    fn reset(&mut self) {
+        self.next_chunk_index = 0;
+        self.completed_chunk_count = 0;
     }
 }
 
