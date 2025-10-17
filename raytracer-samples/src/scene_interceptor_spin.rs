@@ -62,7 +62,7 @@ impl SceneFactory for SceneInterceptorSpin {
         let int_mesh_data = load_obj_builder(crate::mesh_path!("Interceptor-T/Heavyinterceptor.obj"))?.build_mesh();
         let int_mat = scene.add_material(MatLambertian::default());
         let int_tex = scene.add_texture(int_mesh_data.texture_set);
-        let int_mesh = MeshObject::new(&int_mesh_data.mesh, int_mat, int_tex)
+        let int_mesh = MeshObject::new(int_mesh_data.mesh, int_mat, int_tex)
             // Interceptor model is facing +Z rotated on its side
             .rotated(V3::POS_Z, -deg_to_rad(90.0))
             // Interceptor model spins as time passes

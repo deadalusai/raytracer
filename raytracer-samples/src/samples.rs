@@ -415,7 +415,7 @@ pub fn triangle_world(config: &CameraConfiguration) -> Result<Scene, CreateScene
             )
         ],
     };
-    scene.add_object(MeshObject::new(&tri_mesh, tri_mat, tri_tex).with_origin(tri_pos));
+    scene.add_object(MeshObject::new(tri_mesh, tri_mat, tri_tex).with_origin(tri_pos));
 
     let tri_pos = position!(Up(1.0));
     let tri_mat = scene.add_material(MatLambertian::default().with_reflectivity(0.0));
@@ -429,7 +429,7 @@ pub fn triangle_world(config: &CameraConfiguration) -> Result<Scene, CreateScene
             )
         ],
     };
-    scene.add_object(MeshObject::new(&tri_mesh, tri_mat, tri_tex).with_origin(tri_pos));
+    scene.add_object(MeshObject::new(tri_mesh, tri_mat, tri_tex).with_origin(tri_pos));
 
     Ok(scene)
 }
@@ -470,7 +470,7 @@ pub fn mesh_demo(config: &CameraConfiguration) -> Result<Scene, CreateSceneError
     let cube_origin = position!(South(1.5), West(1.5));
     let cube_mesh_data = load_obj_builder(crate::mesh_path!("simple/cube.obj"))?.build_mesh();
     scene.add_object(
-        MeshObject::new(&cube_mesh_data.mesh, cube_mat, cube_tex)
+        MeshObject::new(cube_mesh_data.mesh.clone(), cube_mat, cube_tex)
             .with_origin(cube_origin)
             .with_id(1)
             .rotated(V3::POS_Y, PI / 4.0)
@@ -482,7 +482,7 @@ pub fn mesh_demo(config: &CameraConfiguration) -> Result<Scene, CreateSceneError
     let thing_origin = position!(North(1.5), East(1.5));
     let thing_mesh_data = load_obj_builder(crate::mesh_path!("simple/thing.obj"))?.build_mesh();
     scene.add_object(
-        MeshObject::new(&thing_mesh_data.mesh, thing_mat, thing_tex)
+        MeshObject::new(thing_mesh_data.mesh, thing_mat, thing_tex)
             .with_origin(thing_origin)
             .with_id(2)
     );
@@ -493,7 +493,7 @@ pub fn mesh_demo(config: &CameraConfiguration) -> Result<Scene, CreateSceneError
     let suz_origin = position!(Origin);
     let suz_mesh_data = load_obj_builder(crate::mesh_path!("simple/suzanne.obj"))?.build_mesh();
     scene.add_object(
-        MeshObject::new(&suz_mesh_data.mesh, suz_mat, suz_tex)
+        MeshObject::new(suz_mesh_data.mesh, suz_mat, suz_tex)
             .with_origin(suz_origin)
             .with_id(3)
     );
@@ -532,14 +532,14 @@ pub fn spaceships(config: &CameraConfiguration) -> Result<Scene, CreateSceneErro
     let dest_mat = scene.add_material(MatLambertian::default());
     let dest_tex = scene.add_texture(dest_mesh_data.texture_set);
     // NOTE: Destroyer model is facing +Z rotated on its side (X UP)
-    let dest_mesh = MeshObject::new(&dest_mesh_data.mesh, dest_mat, dest_tex).rotated(V3::POS_Z, -deg_to_rad(90.0));
+    let dest_mesh = MeshObject::new(dest_mesh_data.mesh, dest_mat, dest_tex).rotated(V3::POS_Z, -deg_to_rad(90.0));
 
     // Interceptor (facing EAST)
     let int_mesh_data = load_obj_builder(crate::mesh_path!("Interceptor-T/Heavyinterceptor.obj"))?.build_mesh();
     let int_mat = scene.add_material(MatLambertian::default());
     let int_tex = scene.add_texture(int_mesh_data.texture_set);
     // NOTE: Interceptor model is facing +Z rotated on its side (X UP)
-    let int_mesh = MeshObject::new(&int_mesh_data.mesh, int_mat, int_tex).rotated(V3::POS_Z, -deg_to_rad(90.0));
+    let int_mesh = MeshObject::new(int_mesh_data.mesh, int_mat, int_tex).rotated(V3::POS_Z, -deg_to_rad(90.0));
 
     // Spawn a few interceptors across the bow of the Destroyer
     let int_origin = look_to + position!(Up(200.0), East(300.0), South(30.0));
@@ -586,7 +586,7 @@ pub fn capsule(config: &CameraConfiguration) -> Result<Scene, CreateSceneError> 
     let capsule_tex = scene.add_texture(capsule_mesh_data.texture_set);
     let capsule_origin = position!(Up(4.0));
     scene.add_object(
-        MeshObject::new(&capsule_mesh_data.mesh, capsule_mat, capsule_tex)
+        MeshObject::new(capsule_mesh_data.mesh, capsule_mat, capsule_tex)
             .with_origin(capsule_origin)
     );
 
@@ -613,7 +613,7 @@ pub fn mesh_plane(config: &CameraConfiguration) -> Result<Scene, CreateSceneErro
     let plane_origin = look_to;
     let plane_mesh_data = load_obj_builder(crate::mesh_path!("simple/plane.obj"))?.build_mesh();
     scene.add_object(
-        MeshObject::new(&plane_mesh_data.mesh, plane_mat, plane_tex)
+        MeshObject::new(plane_mesh_data.mesh, plane_mat, plane_tex)
             .with_origin(plane_origin)
             .with_id(1)
     );
@@ -673,7 +673,7 @@ pub fn fleet(config: &CameraConfiguration) -> Result<Scene, CreateSceneError> {
     let int_mesh_data = load_obj_builder(crate::mesh_path!("Interceptor-T/Heavyinterceptor.obj"))?.build_mesh();
     let int_mat = scene.add_material(MatLambertian::default());
     let int_tex = scene.add_texture(int_mesh_data.texture_set);
-    let int_mesh = MeshObject::new(&int_mesh_data.mesh, int_mat, int_tex)
+    let int_mesh = MeshObject::new(int_mesh_data.mesh, int_mat, int_tex)
         // Interceptor model is facing +Z rotated on its side (X UP?)
         .rotated(V3::POS_Z, -deg_to_rad(90.0));
 

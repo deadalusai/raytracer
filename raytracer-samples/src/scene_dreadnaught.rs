@@ -55,7 +55,7 @@ impl SceneFactory for SceneDreadnaught {
         let mesh_data = load_obj_builder(crate::mesh_path!("Dreadnaught/Dreadnaught.obj"))?.build_mesh();
         let tex = scene.add_texture(mesh_data.texture_set);
         scene.add_object(
-            MeshObject::new(&mesh_data.mesh, mat, tex)
+            MeshObject::new(mesh_data.mesh, mat, tex)
                 .rotated(V3::POS_Z, deg_to_rad(config.get("Dreadnaught Roll")?))
                 .rotated(V3::POS_X, deg_to_rad(config.get("Dreadnaught Pitch")?))
                 .rotated(V3::POS_Y, deg_to_rad(config.get("Dreadnaught Yaw")?))

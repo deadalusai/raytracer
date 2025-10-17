@@ -54,7 +54,7 @@ impl SceneFactory for SceneDootDoot {
         let mesh_data = load_obj_builder(crate::mesh_path!("skeleton/SKELETON.obj"))?.build_mesh();
         let tex = scene.add_texture(mesh_data.texture_set);
         
-        let mesh = MeshObject::new(&mesh_data.mesh, mat, tex)
+        let mesh = MeshObject::new(mesh_data.mesh, mat, tex)
             .rotated(V3::POS_Z, deg_to_rad(config.get("Doot Doot Roll")?))
             .rotated(V3::POS_X, deg_to_rad(config.get("Doot Doot Pitch")?))
             .rotated(V3::POS_Y, deg_to_rad(config.get("Doot Doot Yaw")?));

@@ -213,7 +213,9 @@ pub struct BvhHitCandidate {
 }
 
 struct State {
+    // The index of the node being evaluated (Leaf or Branch)
     node_index: usize,
+    // The offset of the object within the Leaf Node
     offset: usize,
 }
 
@@ -245,4 +247,4 @@ impl<'a> Iterator for BvhHitCandidateIter<'a> {
             }
         }
     }
-}
+}   

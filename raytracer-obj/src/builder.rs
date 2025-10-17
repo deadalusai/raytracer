@@ -9,8 +9,8 @@ use crate::ObjError;
 use std::path::Path;
 
 pub struct MeshAndTextureData {
-    pub mesh: Mesh,
-    pub texture_set: MeshTextureSet,
+    pub mesh: Arc<Mesh>,
+    pub texture_set: Arc<MeshTextureSet>,
 }
 
 #[derive(Default)]
@@ -98,8 +98,8 @@ impl ObjMeshBuilder {
         }
 
         MeshAndTextureData {
-            mesh: Mesh { tris },
-            texture_set: MeshTextureSet { textures },
+            mesh: Arc::new(Mesh { tris }),
+            texture_set: Arc::new(MeshTextureSet { textures }),
         }
     }
 }

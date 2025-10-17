@@ -213,14 +213,22 @@ pub trait IntoArc<T: ?Sized> {
     fn into_arc(self) -> std::sync::Arc<T>;
 }
 
+/// Implement IntoArc<T> for all Arc<T> types
+impl<T> IntoArc<T> for std::sync::Arc<T> {
+    fn into_arc(self) -> std::sync::Arc<T> {
+        self
+    }
+}
+
+/// Derives IntoArc<dyn T> for any type implementing trait T
 macro_rules! derive_into_arc {
     ($type:ident) => {
-        impl<T: 'static> IntoArc<dyn $type> for T where T: $type {
+        impl<T: 'static> $crate::types::IntoArc<dyn $type> for T where T: $type {
             fn into_arc(self) -> std::sync::Arc<dyn $type> {
                 std::sync::Arc::new(self)
             }
         }
-        impl<T: 'static> IntoArc<dyn $type> for std::sync::Arc<T> where T: $type {
+        impl<T: 'static> $crate::types::IntoArc<dyn $type> for std::sync::Arc<T> where T: $type {
             fn into_arc(self) -> std::sync::Arc<dyn $type> {
                 self
             }

@@ -1,7 +1,7 @@
 use std::sync::Arc;
 
 use crate::bvh::{Bvh, BvhObject};
-use crate::types::{ V2, V3, Ray, IntoArc };
+use crate::types::{ IntoArc, Ray, V2, V3 };
 use crate::viewport::Viewport;
 
 use rand::{ RngCore, Rng };
@@ -140,7 +140,7 @@ pub trait Material: Send + Sync {
     fn scatter(&self, ray: &Ray, hit_record: &HitRecord, rng: &mut dyn RngCore) -> MatRecord;
 }
 
-super::types::derive_into_arc!(Material);
+crate::types::derive_into_arc!(Material);
 
 // Textures
 
@@ -151,7 +151,7 @@ pub trait Texture: Send + Sync {
     fn value(&self, hit_record: &HitRecord) -> V3;
 }
 
-super::types::derive_into_arc!(Texture);
+crate::types::derive_into_arc!(Texture);
 
 // Hitables
 
@@ -174,7 +174,7 @@ pub trait Hitable: Send + Sync {
     fn aabb(&self) -> Option<AABB>;
 }
 
-super::types::derive_into_arc!(Hitable);
+crate::types::derive_into_arc!(Hitable);
 
 // Light sources
 
@@ -189,7 +189,7 @@ pub trait LightSource: Send + Sync {
     fn get_direction_and_intensity(&self, p: V3) -> Option<LightRecord>;
 }
 
-super::types::derive_into_arc!(LightSource);
+crate::types::derive_into_arc!(LightSource);
 
 // Scene
 

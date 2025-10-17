@@ -1,7 +1,7 @@
 use std::sync::Arc;
 
-use crate::bvh::{Bvh, BvhObject};
-use crate::types::{ V3, V2, Ray };
+use crate::bvh::{ Bvh, BvhObject };
+use crate::types::{ IntoArc, Ray, V2, V3 };
 use crate::implementation::{ Hitable, HitRecord, AABB, MatId, TexId };
 
 // Triangle Mesh BVH
@@ -55,10 +55,12 @@ fn try_hit_tri(ray: &Ray, t_min: f32, t_max: f32, tri: &MeshTri) -> Option<MeshT
         // P is to the right of edge ca
         return None;
     }
-    
-    // TODO(benf): Only need to calculate UV if there is a {mtl_index} set?
-    // Could refactor this to skip the uv calculations if we don't need to do them.
 
+    // Only need to calculate UV if there is a {tex_key} set
+    if tri.tex_key.is_none() {
+        return Some(MeshTriHit { p, normal: normal.unit(), t, uv: V2::ZERO, tex_key: None });
+    }
+    
     // Calculate uv/barycentric coordinates.
     // Given a triangle ABC and point P:
     //                  C  
@@ -80,20 +82,22 @@ fn try_hit_tri(ray: &Ray, t_min: f32, t_max: f32, tri: &MeshTri) -> Option<MeshT
 
 struct MeshBvhRoot {
     bvh: Bvh,
-    tris: Vec<MeshTri>,
+    mesh: Arc<Mesh>,
 }
 
 impl MeshBvhRoot {
-    fn new(tris: Vec<MeshTri>) -> MeshBvhRoot {
+    fn new(mesh: impl IntoArc<Mesh>) -> MeshBvhRoot {
+        let mesh = mesh.into_arc();
         MeshBvhRoot {
-            bvh: Bvh::from(&tris),
-            tris,
+            bvh: Bvh::from(&mesh.tris),
+            mesh,
         }
     }
 
     fn try_hit(&self, ray: &Ray, t_min: f32, t_max: f32) -> Option<MeshTriHit> {
+        let tris = &self.mesh.tris;
         self.bvh.hit_candidates(ray, t_min, t_max)
-            .filter_map(|candidate| try_hit_tri(ray, t_min, t_max, &self.tris[candidate.object_index]))
+            .filter_map(|candidate| try_hit_tri(ray, t_min, t_max, &tris[candidate.object_index]))
             .reduce(|closest, next| {
                 if next.t < closest.t { next } else { closest }
             })
@@ -104,6 +108,12 @@ impl MeshBvhRoot {
 
 pub struct Mesh {
     pub tris: Vec<MeshTri>,
+}
+
+impl IntoArc<Mesh> for Mesh {
+    fn into_arc(self) -> std::sync::Arc<Mesh> {
+        std::sync::Arc::new(self)   
+    }
 }
 
 #[derive(Clone, Default)]
@@ -140,18 +150,18 @@ pub struct MeshObject {
     object_id: Option<u32>,
     origin: V3,
     // NOTE: Store the root node in an Arc so that all
-    // clones of this MeshObject will share their internal mesh representation.
+    // clones of this MeshObject will share their internal mesh and BVH representations.
     root: Arc<MeshBvhRoot>,
     mat_id: MatId,
     tex_id: TexId,
 }
 
 impl MeshObject {
-    pub fn new(mesh: &Mesh, mat_id: MatId, tex_id: TexId) -> Self {
+    pub fn new(mesh: impl IntoArc<Mesh>, mat_id: MatId, tex_id: TexId) -> Self {
         MeshObject {
             object_id: None,
             origin: V3::ZERO,
-            root: Arc::new(MeshBvhRoot::new(mesh.tris.clone())),
+            root: Arc::new(MeshBvhRoot::new(mesh)),
             mat_id,
             tex_id,
         }
