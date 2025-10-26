@@ -1,11 +1,10 @@
 use std::f32::consts::PI;
 use std::time::SystemTime;
-use raytracer_impl::implementation::{Scene, SceneSky};
+use raytracer_impl::implementation::{ Entity, Scene, SceneSky };
 use raytracer_impl::lights::*;
 use raytracer_impl::materials::*;
 use raytracer_impl::types::*;
 use raytracer_impl::shapes::*;
-use raytracer_impl::transform::*;
 use raytracer_obj::load_obj_builder;
 use crate::util::*;
 use crate::scene::*;
@@ -62,13 +61,13 @@ impl SceneFactory for SceneInterceptorSpin {
         let int_mesh_data = load_obj_builder(crate::mesh_path!("Interceptor-T/Heavyinterceptor.obj"))?.build_mesh();
         let int_mat = scene.add_material(MatLambertian::default());
         let int_tex = scene.add_texture(int_mesh_data.texture_set);
-        let int_mesh = MeshObject::new(int_mesh_data.mesh, int_mat, int_tex)
-            // Interceptor model is facing +Z rotated on its side
-            .rotated(V3::POS_Z, -deg_to_rad(90.0))
+        let int_mesh = Entity::new(MeshObject::new(int_mesh_data.mesh, int_mat, int_tex))
             // Interceptor model spins as time passes
-            .rotated(V3::POS_Y, rot_rads);
-        
-        scene.add_object(int_mesh);
+            .rotate(V3::POS_Y, rot_rads)
+            // Interceptor model is facing +Z rotated on its side
+            .rotate(V3::POS_Z, -deg_to_rad(90.0));
+
+        scene.add_entity(int_mesh);
 
         Ok(scene)
     }

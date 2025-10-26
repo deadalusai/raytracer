@@ -9,7 +9,6 @@ use raytracer_impl::texture::{ ColorTexture, CheckerTexture, UvTestTexture, XyzT
 use raytracer_impl::types::{ V3, Ray };
 use raytracer_impl::materials::{ MatLambertian, MatDielectric, MatSpecular };
 use raytracer_impl::shapes::{ Sphere, Plane, MeshObject, MeshTri, Mesh, mesh };
-use raytracer_impl::transform::{ Translatable, Rotatable };
 use raytracer_impl::viewport::{ Viewport };
 use raytracer_impl::lights::{ PointLight, DirectionalLight, LampLight };
 use raytracer_impl::implementation::{ Scene, SceneSky, Camera, Material, MatId, TexId };

@@ -6,8 +6,7 @@ use crate::implementation::AABB;
 use crate::types::{Ray, V3};
 
 pub trait BvhObject {
-    fn aabb(&self) -> AABB;
-    fn centroid(&self) -> V3;
+    fn calculate_centroid_aabb(&self) -> (V3, AABB);
 }
 
 struct BvhNode {
@@ -68,26 +67,25 @@ pub struct Bvh {
 
 impl Bvh {
     // BVH algorithm adapted
-    // from https://jacco.ompf2.com/2022/04/13/how-to-build-a-bvh-part-1-basics/    
+    // from https://jacco.ompf2.com/2022/04/13/how-to-build-a-bvh-part-1-basics/
     pub fn from<T: BvhObject>(objects: &[T]) -> Bvh {
         // Precalculate the object bounds map
         let object_bounds = objects.iter()
             .enumerate()
-            .map(|(object_index, object)| BvhObjectBounds {
-                object_index,
-                aabb: T::aabb(&object),
-                centroid: T::centroid(&object),
+            .map(|(object_index, object)| {
+                let (centroid, aabb) = T::calculate_centroid_aabb(&object);
+                BvhObjectBounds { object_index, aabb, centroid }
             })
             .collect();
 
         build(object_bounds)
     }
 
-    pub fn aabb(&self) -> &AABB {
-        &self.nodes[0].aabb
+    pub fn aabb(&self) -> AABB {
+        self.nodes[0].aabb.clone()
     }
 
-    pub fn hit_candidates<'a>(&'a self, ray: &'a Ray, t_min: f32, t_max: f32) -> BvhHitCandidateIter<'a> {
+    pub fn hit_candidates<'a>(&'a self, ray: Ray, t_min: f32, t_max: f32) -> BvhHitCandidateIter<'a> {
         let mut stack = ArrayVec::new();
         stack.push(State { node_index: 0, offset: 0 });
         BvhHitCandidateIter { bvh: self, stack, ray, t_min, t_max }
@@ -128,7 +126,7 @@ fn select_longest_axis(extent: &V3) -> Axis {
 
 fn build(mut object_bounds: Vec<BvhObjectBounds>) -> Bvh {
     let mut nodes = Vec::with_capacity(object_bounds.len() * 2);
-        
+
     // Prepare the root node
     let root = BvhLeaf { first_index: 0, length: object_bounds.len() };
     let root = create_leaf_node(root, &object_bounds);
@@ -181,7 +179,7 @@ fn subdivide(node_index: usize, nodes: &mut Vec<BvhNode>, object_bounds: &mut [B
     // Create child nodes
     let left = BvhLeaf { first_index: leaf.first_index, length: i - leaf.first_index };
     let right = BvhLeaf { first_index: i, length: leaf.length - left.length };
-    
+
     // Stop subdividing if one of the sides is empty
     if left.length == 0 || right.length == 0 {
         return;
@@ -194,7 +192,7 @@ fn subdivide(node_index: usize, nodes: &mut Vec<BvhNode>, object_bounds: &mut [B
 
     // Convert current node into a branch
     nodes[node_index].data = BvhNodeData::Branch(BvhBranch { left_index, right_index });
-    
+
     // Recurse
     subdivide(left_index, nodes, object_bounds);
     subdivide(right_index, nodes, object_bounds);
@@ -203,7 +201,7 @@ fn subdivide(node_index: usize, nodes: &mut Vec<BvhNode>, object_bounds: &mut [B
 pub struct BvhHitCandidateIter<'a> {
     bvh: &'a Bvh,
     stack: ArrayVec<State, 30>,
-    ray: &'a Ray,
+    ray: Ray,
     t_min: f32,
     t_max: f32
 }
@@ -247,4 +245,4 @@ impl<'a> Iterator for BvhHitCandidateIter<'a> {
             }
         }
     }
-}   
+}

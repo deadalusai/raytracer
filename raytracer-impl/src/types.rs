@@ -1,5 +1,6 @@
 #![allow(unused)]
 
+use std::f32::INFINITY;
 use std::ops::{ Add, Sub, Mul, Div, Neg };
 use std::default::{ Default };
 
@@ -19,15 +20,16 @@ impl V3 {
     pub const NEG_Z: V3 = V3(0.0, 0.0, -1.0);
     pub const ZERO: V3  = V3(0.0, 0.0, 0.0);
     pub const ONE: V3   = V3(1.0, 1.0, 1.0);
+    pub const INFINITY: V3 = V3(INFINITY, INFINITY, INFINITY);
 
     pub fn x(&self) -> f32 {
         self.0
     }
-    
+
     pub fn y(&self) -> f32 {
         self.1
     }
-    
+
     pub fn z(&self) -> f32 {
         self.2
     }
@@ -41,7 +43,7 @@ impl V3 {
         if len == 0.0 { self } else { self / len }
     }
 
-    pub fn clamp(self) -> V3 {  
+    pub fn clamp(self) -> V3 {
         V3(self.0.min(1.0).max(-1.0),
            self.1.min(1.0).max(-1.0),
            self.2.min(1.0).max(-1.0))
@@ -58,7 +60,7 @@ impl V3 {
     pub fn dot(a: V3, b: V3) -> f32 {
         a.0 * b.0 + a.1 * b.1 + a.2 * b.2
     }
-    
+
     pub fn cross(a: V3, b: V3) -> V3 {
         V3((a.1 * b.2 - a.2 * b.1),
           -(a.0 * b.2 - a.2 * b.0),
@@ -164,7 +166,7 @@ impl Default for V3 {
 // Ray
 //
 
-#[derive(Debug)]
+#[derive(Debug, Copy, Clone)]
 pub struct Ray {
     pub origin: V3,
     pub direction: V3
@@ -190,7 +192,7 @@ impl V3 {
         // See: https://en.wikipedia.org/wiki/Rodrigues%27_rotation_formula
         // If P is a vector in ℝ3 and K is a unit vector describing an axis of rotation
         // about which P rotates by an angle θ according to the right hand rule,
-        // the Rodrigues formula for the rotated vector Prot is: 
+        // the Rodrigues formula for the rotated vector Prot is:
         //
         //      Prot = P cosθ + (K × P) sinθ + K (K · P) (1 - cosθ)
 
@@ -222,7 +224,7 @@ impl<T> IntoArc<T> for std::sync::Arc<T> {
 
 /// Derives IntoArc<dyn T> for any type implementing trait T
 macro_rules! derive_into_arc {
-    ($type:ident) => {
+    (trait $type:ident) => {
         impl<T: 'static> $crate::types::IntoArc<dyn $type> for T where T: $type {
             fn into_arc(self) -> std::sync::Arc<dyn $type> {
                 std::sync::Arc::new(self)
@@ -231,6 +233,13 @@ macro_rules! derive_into_arc {
         impl<T: 'static> $crate::types::IntoArc<dyn $type> for std::sync::Arc<T> where T: $type {
             fn into_arc(self) -> std::sync::Arc<dyn $type> {
                 self
+            }
+        }
+    };
+    (struct $type:ident) => {
+        impl $crate::types::IntoArc<$type> for $type {
+            fn into_arc(self) -> std::sync::Arc<$type> {
+                std::sync::Arc::new(self)
             }
         }
     };
@@ -248,11 +257,11 @@ pub struct V2(pub f32, pub f32); // x, y
 impl V2 {
     pub const ZERO: V2 = V2(0.0, 0.0);
     pub const ONE: V2  = V2(1.0, 1.0);
-    
+
     pub fn x(&self) -> f32 {
         self.0
     }
-    
+
     pub fn y(&self) -> f32 {
         self.1
     }

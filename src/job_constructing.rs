@@ -61,7 +61,7 @@ pub fn start_render_job_construction(
     scene_factory: Arc<dyn SceneFactory + Send + Sync>
 ) -> RenderJobConstructingState {
     let work = move || {
-    
+
         // Create render work arguments
         let camera_config = CameraConfiguration {
             width: settings.width as f32,
@@ -81,10 +81,10 @@ pub fn start_render_job_construction(
 
         let start = Instant::now();
 
-        scene.reorganize_objects_into_bvh();
+        scene.build_bvh();
 
         println!("Constructed Bounding Volume Hierachy in {}ms", start.elapsed().as_millis());
-        
+
         let render_settings = RenderSettings {
             max_reflections: settings.max_reflections,
             samples_per_pixel: settings.samples_per_pixel,

@@ -15,7 +15,7 @@ struct MeshTriHit {
     tex_key: Option<usize>,
 }
 
-fn try_hit_tri(ray: &Ray, t_min: f32, t_max: f32, tri: &MeshTri) -> Option<MeshTriHit> {
+fn try_hit_tri(ray: Ray, t_min: f32, t_max: f32, tri: &MeshTri) -> Option<MeshTriHit> {
 
     // compute normal of and area of the triangle
     // NOTE: not normalized! Used for area calculations
@@ -60,10 +60,10 @@ fn try_hit_tri(ray: &Ray, t_min: f32, t_max: f32, tri: &MeshTri) -> Option<MeshT
     if tri.tex_key.is_none() {
         return Some(MeshTriHit { p, normal: normal.unit(), t, uv: V2::ZERO, tex_key: None });
     }
-    
+
     // Calculate uv/barycentric coordinates.
     // Given a triangle ABC and point P:
-    //                  C  
+    //                  C
     //                u P w
     //               A  v  B
     // u = {area of CAP} / {area of ABC}
@@ -94,7 +94,7 @@ impl MeshBvhRoot {
         }
     }
 
-    fn try_hit(&self, ray: &Ray, t_min: f32, t_max: f32) -> Option<MeshTriHit> {
+    fn try_hit(&self, ray: Ray, t_min: f32, t_max: f32) -> Option<MeshTriHit> {
         let tris = &self.mesh.tris;
         self.bvh.hit_candidates(ray, t_min, t_max)
             .filter_map(|candidate| try_hit_tri(ray, t_min, t_max, &tris[candidate.object_index]))
@@ -112,7 +112,7 @@ pub struct Mesh {
 
 impl IntoArc<Mesh> for Mesh {
     fn into_arc(self) -> std::sync::Arc<Mesh> {
-        std::sync::Arc::new(self)   
+        std::sync::Arc::new(self)
     }
 }
 
@@ -130,12 +130,10 @@ pub struct MeshTri {
 // Allow MeshTri to be used with the Bvh algorithm
 
 impl BvhObject for MeshTri {
-    fn aabb(&self) -> AABB {
-        AABB::from_vertices(&[self.a, self.b, self.c])
-    }
-
-    fn centroid(&self) -> V3 {
-        (self.a + self.b + self.c) * 0.33333
+    fn calculate_centroid_aabb(&self) -> (V3, AABB) {
+        let aabb = AABB::from_vertices(&[self.a, self.b, self.c]);
+        let centroid = (self.a + self.b + self.c) * 0.33333;
+        (centroid, aabb)
     }
 }
 
@@ -147,8 +145,6 @@ impl MeshTri {
 
 #[derive(Clone)]
 pub struct MeshObject {
-    object_id: Option<u32>,
-    origin: V3,
     // NOTE: Store the root node in an Arc so that all
     // clones of this MeshObject will share their internal mesh and BVH representations.
     root: Arc<MeshBvhRoot>,
@@ -159,37 +155,23 @@ pub struct MeshObject {
 impl MeshObject {
     pub fn new(mesh: impl IntoArc<Mesh>, mat_id: MatId, tex_id: TexId) -> Self {
         MeshObject {
-            object_id: None,
-            origin: V3::ZERO,
             root: Arc::new(MeshBvhRoot::new(mesh)),
             mat_id,
             tex_id,
         }
     }
-
-    #[allow(unused)]
-    pub fn with_origin(mut self, origin: V3) -> Self {
-        self.origin = origin;
-        self
-    }
-
-    #[allow(unused)]
-    pub fn with_id(mut self, id: u32) -> Self {
-        self.object_id = Some(id);
-        self
-    }
 }
 
 impl Hitable for MeshObject {
-    fn hit(&self, ray: &Ray, t_min: f32, t_max: f32) -> Option<HitRecord> {
+    fn hit(&self, ray: Ray, t_min: f32, t_max: f32) -> Option<HitRecord> {
         // Shift the ray into mesh space
-        let mesh_ray = Ray::new(ray.origin - self.origin, ray.direction);
-        let mesh_hit = self.root.try_hit(&mesh_ray, t_min, t_max)?;
+        let mesh_ray = Ray::new(ray.origin, ray.direction);
+        let mesh_hit = self.root.try_hit(mesh_ray, t_min, t_max)?;
         Some(HitRecord {
-            object_id: self.object_id,
+            entity_id: None,
             // Shift the hit back into world space
             t: mesh_hit.t,
-            p: mesh_hit.p + self.origin,
+            p: mesh_hit.p,
             normal: mesh_hit.normal,
             uv: mesh_hit.uv,
             mat_id: self.mat_id,
@@ -198,16 +180,7 @@ impl Hitable for MeshObject {
         })
     }
 
-    fn origin(&self) -> V3 {
-        self.origin.clone()
-    }
-
-    fn aabb(&self) -> Option<AABB> {
-        // Shift the mesh bounding box into world space
-        let aabb = self.root.bvh.aabb();
-        Some(AABB {
-            min: self.origin + aabb.min,
-            max: self.origin + aabb.max,
-        })
+    fn aabb(&self) -> AABB {
+        self.root.bvh.aabb()
     }
 }

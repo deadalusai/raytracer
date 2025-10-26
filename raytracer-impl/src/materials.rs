@@ -14,7 +14,7 @@ macro_rules! assert_in_range {
     ($v:ident) => {
         if ($v < 0.0 || $v > 1.0) {
             panic!("{} must be within the range of 0.0 to 1.0", stringify!($v));
-        } 
+        }
     };
 }
 
@@ -42,7 +42,7 @@ impl MatLambertian {
 }
 
 impl Material for MatLambertian {
-    fn scatter(&self, _r: &Ray, hit_record: &HitRecord, rng: &mut dyn RngCore) -> MatRecord {
+    fn scatter(&self, _r: Ray, hit_record: &HitRecord, rng: &mut dyn RngCore) -> MatRecord {
         let direction = random_normal_reflection_angle(hit_record.normal, rng);
         let ray = Ray::new(hit_record.p.clone(), direction);
         MatRecord {
@@ -87,7 +87,7 @@ fn reflect(incident_direction: V3, surface_normal: V3) -> V3 {
 }
 
 impl Material for MatSpecular {
-    fn scatter(&self, ray: &Ray, hit_record: &HitRecord, rng: &mut dyn RngCore) -> MatRecord {
+    fn scatter(&self, ray: Ray, hit_record: &HitRecord, rng: &mut dyn RngCore) -> MatRecord {
         let reflected = reflect(ray.direction, hit_record.normal);
         let scattered =
             if self.fuzz == 0.0 {
@@ -165,7 +165,7 @@ fn schlick_reflect_prob (cosine: f32, ref_idx: f32) -> f32 {
 }
 
 impl Material for MatDielectric {
-    fn scatter (&self, ray: &Ray, hit_record: &HitRecord, rng: &mut dyn RngCore) -> MatRecord {
+    fn scatter (&self, ray: Ray, hit_record: &HitRecord, rng: &mut dyn RngCore) -> MatRecord {
         let dot = V3::dot(ray.direction, hit_record.normal);
         let (outward_normal, ni_over_nt, cosine) =
             if dot > 0.0 {

@@ -1,6 +1,6 @@
 use std::sync::Arc;
 
-use crate::bvh::{Bvh, BvhObject};
+use crate::bvh::{ Bvh, BvhObject };
 use crate::types::{ IntoArc, Ray, V2, V3 };
 use crate::viewport::Viewport;
 
@@ -17,7 +17,7 @@ const HALF_PI: f32 = PI / 2.0;
 pub fn random_normal_reflection_angle(normal: V3, rng: &mut dyn RngCore) -> V3 {
     let theta1 = rng.gen::<f32>() * HALF_PI; // First angle, deflection from normal 0-90 deg
     let theta2 = rng.gen::<f32>() * TWO_PI; // Second angle, rotation around normal 0-360 deg
-    
+
     fn arbitrary_perpendicular_vector(v: V3) -> V3 {
         // Pick another arbitrary vector {k} which is not parallel to the input vector {v}
         //
@@ -80,7 +80,7 @@ impl AABB {
         AABB::from_min_max(min, max)
     }
 
-    pub fn hit_aabb(&self, ray: &Ray, mut t_min: f32, mut t_max: f32) -> bool {
+    pub fn hit_aabb(&self, ray: Ray, mut t_min: f32, mut t_max: f32) -> bool {
         // Algorithm from "Ray Tracing - The Next Weekend"
         // Attempt to determine if this ray intersects with this AABB in all three dimensions
         let ray_origin = ray.origin.xyz();
@@ -137,10 +137,10 @@ pub struct MatRecord {
 }
 
 pub trait Material: Send + Sync {
-    fn scatter(&self, ray: &Ray, hit_record: &HitRecord, rng: &mut dyn RngCore) -> MatRecord;
+    fn scatter(&self, ray: Ray, hit_record: &HitRecord, rng: &mut dyn RngCore) -> MatRecord;
 }
 
-crate::types::derive_into_arc!(Material);
+crate::types::derive_into_arc!(trait Material);
 
 // Textures
 
@@ -151,12 +151,12 @@ pub trait Texture: Send + Sync {
     fn value(&self, hit_record: &HitRecord) -> V3;
 }
 
-crate::types::derive_into_arc!(Texture);
+crate::types::derive_into_arc!(trait Texture);
 
 // Hitables
 
 pub struct HitRecord {
-    pub object_id: Option<u32>,
+    pub entity_id: Option<u32>,
     pub t: f32,
     pub p: V3,
     pub normal: V3,
@@ -167,14 +167,13 @@ pub struct HitRecord {
 }
 
 pub trait Hitable: Send + Sync {
-    fn hit(&self, ray: &Ray, t_min: f32, t_max: f32) -> Option<HitRecord>;
-    /// Returns the origin of this hitable in worldspace coordinates
-    fn origin(&self) -> V3;
-    /// Returns the AABB bounding box of this hitable in worldspace coordinates
-    fn aabb(&self) -> Option<AABB>;
+    fn hit(&self, ray: Ray, t_min: f32, t_max: f32) -> Option<HitRecord>;
+    /// Returns the AABB bounding box of this hitable in worldspace coordinates.
+    /// The worldspace origin is assumed to be 0,0,0
+    fn aabb(&self) -> AABB;
 }
 
-crate::types::derive_into_arc!(Hitable);
+crate::types::derive_into_arc!(trait Hitable);
 
 // Light sources
 
@@ -189,23 +188,123 @@ pub trait LightSource: Send + Sync {
     fn get_direction_and_intensity(&self, p: V3) -> Option<LightRecord>;
 }
 
-crate::types::derive_into_arc!(LightSource);
+crate::types::derive_into_arc!(trait LightSource);
 
 // Scene
 
-pub enum SceneSky { 
+pub enum SceneSky {
     Day,
     #[allow(unused)]
-    Black
+    Black,
 }
+
+#[derive(Clone, Copy)]
+pub struct Translation {
+    pub offset: V3,
+}
+
+#[derive(Clone, Copy)]
+pub struct Rotation {
+    pub axis: V3,
+    pub theta: f32,
+}
+
+#[derive(Clone)]
+pub struct Entity {
+    id: Option<u32>,
+    hitable: Arc<dyn Hitable>,
+    translations: Vec<Translation>,
+    rotations: Vec<Rotation>,
+}
+
+impl Entity {
+
+    pub fn new(hitable: impl IntoArc<dyn Hitable>) -> Self {
+        Self {
+            id: None,
+            hitable: hitable.into_arc(),
+            translations: vec![],
+            rotations: vec![],
+        }
+    }
+
+    pub fn id(mut self, id: u32) -> Self {
+        self.id = Some(id);
+        self
+    }
+
+    pub fn translate(mut self, offset: V3) -> Self {
+        self.translations.push(Translation { offset });
+        self
+    }
+
+    pub fn rotate(mut self, axis: V3, theta: f32) -> Self {
+        self.rotations.push(Rotation { axis, theta });
+        self
+    }
+
+    fn calculate_origin_aabb(&self) -> (V3, AABB) {
+        // HACK: rotate the bounding box directly and find the new min/max.
+        // NOTE: this may leave an AABB with lots of extra empty space
+        let mut aabb = self.hitable.aabb();
+        let mut corners = aabb.corners();
+        for t in self.rotations.iter() {
+            // Rotates about 0,0,0
+            for c in corners.iter_mut() {
+                *c = (*c).rotate_about_axis(t.axis, t.theta);
+            }
+        }
+
+        let mut origin = V3::ZERO;
+        for t in self.translations.iter() {
+            for c in corners.iter_mut() {
+                *c = *c + t.offset;
+            }
+            origin = origin + t.offset;
+        }
+
+        aabb = AABB::from_vertices(&corners);
+        (origin, aabb)
+    }
+
+    fn hit(&self, mut ray: Ray, t_min: f32, t_max: f32) -> Option<HitRecord> {
+        // Transform ray into entity frame of reference
+        for t in self.rotations.iter() {
+            ray.origin = ray.origin.rotate_about_axis(t.axis, t.theta);
+            ray.direction = ray.direction.rotate_about_axis(t.axis, t.theta);
+        }
+        for t in self.translations.iter() {
+            ray.origin = ray.origin - t.offset;
+        }
+
+        // Hit entity
+        let mut hit = self.hitable.hit(ray, t_min, t_max)?;
+
+        // Reverse transforms on result
+        for t in self.translations.iter().rev() {
+            hit.p = hit.p + t.offset;
+        }
+        for t in self.rotations.iter().rev() {
+            hit.p = hit.p.rotate_about_axis(t.axis, -t.theta);
+            hit.normal = hit.normal.rotate_about_axis(t.axis, -t.theta);
+        }
+
+        hit.entity_id = self.id;
+        Some(hit)
+    }
+}
+
+crate::types::derive_into_arc!(struct Entity);
 
 pub struct Scene {
     camera: Camera,
     sky: SceneSky,
+    entities: Vec<Arc<Entity>>,
     lights: Vec<Arc<dyn LightSource>>,
-    hitables: Vec<Arc<dyn Hitable>>,
     materials: Vec<Arc<dyn Material>>,
     textures: Vec<Arc<dyn Texture>>,
+    // Constructed from scene entities before raytracing begins (see build_bvh)
+    bvh_root: Option<EntityBvhRoot>,
 }
 
 #[derive(Clone, Copy)]
@@ -224,15 +323,16 @@ impl Scene {
         Scene {
             camera: camera,
             sky: sky,
-            lights: vec!(),
-            hitables: vec!(),
-            materials: vec!(),
-            textures: vec!(),
+            entities: vec![],
+            lights: vec![],
+            materials: vec![],
+            textures: vec![],
+            bvh_root: None,
         }
     }
 
-    pub fn add_object(&mut self, hitable: impl IntoArc<dyn Hitable>) {
-        self.hitables.push(hitable.into_arc());
+    pub fn add_entity(&mut self, entity: impl IntoArc<Entity>) {
+        self.entities.push(entity.into_arc());
     }
 
     pub fn add_material(&mut self, material: impl IntoArc<dyn Material>) -> MatId {
@@ -251,36 +351,17 @@ impl Scene {
         self.lights.push(light.into_arc());
     }
 
-    fn hit_closest(&self, ray: &Ray, t_min: f32, t_max: f32) -> Option<HitRecord> {
-        let mut closest_hit_record = None;
-        let mut closest_so_far = t_max;
-        for hitable in self.hitables.iter() {
-            if let Some(record) = hitable.hit(ray, t_min, closest_so_far) {
-                closest_so_far = record.t;
-                closest_hit_record = Some(record);
-            }
-        }
-        closest_hit_record
+    fn hit_closest(&self, ray: Ray, t_min: f32, t_max: f32) -> Option<HitRecord> {
+        let root = self.bvh_root.as_ref().expect("Scene bounding volume hierachy not constructed");
+        root.try_hit(ray, t_min, t_max)
     }
 
-    pub fn reorganize_objects_into_bvh(&mut self) {
+    pub fn build_bvh(&mut self) {
+        let bvh_entities = self.entities.iter()
+            .map(|e| EntityBvh(e.clone()))
+            .collect();
 
-        let mut hitables = Vec::new();
-        let mut bounded = Vec::new();
-
-        for hitable in self.hitables.iter() {
-            if hitable.aabb().is_some() {
-                bounded.push(HitableBvhObject(hitable.clone()));
-            }
-            else {
-                // Non-bounded objects stay at the top of the object list
-                hitables.push(hitable.clone());
-            }
-        }
-
-        hitables.push(Arc::new(HitableBvhRoot::new(bounded)));
-
-        self.hitables = hitables;
+        self.bvh_root = Some(EntityBvhRoot::new(bvh_entities));
     }
 
     fn get_mat(&self, mat_id: MatId) -> &dyn Material {
@@ -293,60 +374,50 @@ impl Scene {
 }
 
 //
-// Adapt Hitable objects into BVH
+// Adapt Entities into BVH
 //
 
-struct HitableBvhRoot {
+pub struct EntityBvhRoot {
     bvh: Bvh,
-    hitables: Vec<HitableBvhObject>,
+    entities: Vec<EntityBvh>,
 }
 
-impl HitableBvhRoot {
-    fn new(hitables: Vec<HitableBvhObject>) -> HitableBvhRoot {
-        HitableBvhRoot {
-            bvh: Bvh::from(&hitables),
-            hitables,
+impl EntityBvhRoot {
+    fn new(entities: Vec<EntityBvh>) -> Self {
+        Self {
+            bvh: Bvh::from(&entities),
+            entities,
         }
     }
 
-    fn try_hit(&self, ray: &Ray, t_min: f32, t_max: f32) -> Option<HitRecord> {
-        self.bvh.hit_candidates(ray, t_min, t_max)
-            .filter_map(|candidate| self.hitables[candidate.object_index].0.hit(ray, t_min, t_max))
-            .reduce(|closest, next| {
-                if next.t < closest.t { next } else { closest }
-            })
+    pub fn try_hit(&self, ray: Ray, t_min: f32, t_max: f32) -> Option<HitRecord> {
+        self.bvh
+            .hit_candidates(ray, t_min, t_max)
+            .filter_map(|candidate| self.entities[candidate.object_index].0.hit(ray, t_min, t_max))
+            .reduce(|closest, next| if next.t < closest.t { next } else { closest })
     }
 }
 
-impl Hitable for HitableBvhRoot {
-    fn hit(&self, ray: &Ray, t_min: f32, t_max: f32) -> Option<HitRecord> {
+impl Hitable for EntityBvhRoot {
+    fn hit(&self, ray: Ray, t_min: f32, t_max: f32) -> Option<HitRecord> {
         self.try_hit(ray, t_min, t_max)
     }
 
-    fn origin(&self) -> V3 {
-        // BVH trees are always anchored at 0,0,0
-        V3::ZERO
-    }
-
-    fn aabb(&self) -> Option<AABB> {
-        Some(self.bvh.aabb().clone())
-    }
-}
-
-// Allow any Arc<dyn Hitable> to be wrapped and used with the Bvh algorithm
-
-struct HitableBvhObject(Arc<dyn Hitable>);
-
-impl BvhObject for HitableBvhObject {
     fn aabb(&self) -> AABB {
-        self.0.aabb().expect("Any Hitable being organised into a BVH must support aabb")
-    }
-
-    fn centroid(&self) -> V3 {
-        self.0.origin() // TODO(benf): Good enough?
+        self.bvh.aabb()
     }
 }
 
+// Allow any Entity to be wrapped and used with the Bvh algorithm
+
+struct EntityBvh(Arc<Entity>);
+
+impl BvhObject for EntityBvh {
+    fn calculate_centroid_aabb(&self) -> (V3, AABB) {
+        // HACK: Use the entity's origin as its centroid
+        self.0.calculate_origin_aabb()
+    }
+}
 
 //
 // Camera
@@ -374,7 +445,7 @@ impl Camera {
         let theta = v_fov * PI / 180.0;
         let half_height = (theta / 2.0).tan();
         let half_width = aspect_ratio * half_height;
-        let w = (look_from - look_at).unit(); // Vector from target to camera origin 
+        let w = (look_from - look_at).unit(); // Vector from target to camera origin
         let u = V3::cross(v_up, w).unit();    // Vector from camera origin to camera right
         let v = V3::cross(w, u);              // Vector from camera origin to camera top
         Camera {
@@ -408,11 +479,11 @@ const BIAS: f32 = 0.004;
 
 // Sky
 
-fn color_sky_black () -> V3 {
+fn color_sky_black() -> V3 {
     V3::ZERO
 }
 
-fn color_sky_day (ray: &Ray) -> V3 {
+fn color_sky_day(ray: Ray) -> V3 {
     let unit_direction = ray.direction.unit();
     let t = 0.5 * (unit_direction.y() + 1.0);
     let white = V3(1.0, 1.0, 1.0);
@@ -420,7 +491,7 @@ fn color_sky_day (ray: &Ray) -> V3 {
     white * (1.0 - t) + (sky_blue * t)
 }
 
-fn color_sky (ray: &Ray, scene: &Scene) -> V3 {
+fn color_sky(ray: Ray, scene: &Scene) -> V3 {
     match scene.sky {
         SceneSky::Day => color_sky_day(ray),
         SceneSky::Black => color_sky_black(),
@@ -441,9 +512,9 @@ fn cast_light_ray_to_lamp(hit_point: V3, light_record: &LightRecord, scene: &Sce
     let mut closest_so_far = BIAS;
 
     // Perform hit tests until we escape
-    while let Some(shadow_hit) = scene.hit_closest(&light_ray, closest_so_far, t_max) {
+    while let Some(shadow_hit) = scene.hit_closest(light_ray, closest_so_far, t_max) {
 
-        let shadow_mat = scene.get_mat(shadow_hit.mat_id).scatter(&light_ray, &shadow_hit, rng);
+        let shadow_mat = scene.get_mat(shadow_hit.mat_id).scatter(light_ray, &shadow_hit, rng);
         if let Some(shadow_refraction) = shadow_mat.refraction {
             // Hit transparent object
             // Hack: simulate colored shadows by taking the albedo of transparent materials.
@@ -456,16 +527,16 @@ fn cast_light_ray_to_lamp(hit_point: V3, light_record: &LightRecord, scene: &Sce
         // Hit opaque object (in shadow)
         return V3::ZERO;
     }
-    
+
     // Escaped.
     return light_color;
 }
 
 /// Determines the color which the given ray resolves to.
-fn cast_ray(ray: &Ray, scene: &Scene, rng: &mut dyn RngCore, max_reflections: u32) -> V3 {
-    
+fn cast_ray(ray: Ray, scene: &Scene, rng: &mut dyn RngCore, max_reflections: u32) -> V3 {
+
     // Internal implementation
-    fn cast_ray_recursive(ray: &Ray, scene: &Scene, rng: &mut dyn RngCore, recurse_limit: u32) -> V3 {
+    fn cast_ray_recursive(ray: Ray, scene: &Scene, rng: &mut dyn RngCore, recurse_limit: u32) -> V3 {
 
         // Exceeded our recusion limit?
         if recurse_limit == 0 {
@@ -500,7 +571,7 @@ fn cast_ray(ray: &Ray, scene: &Scene, rng: &mut dyn RngCore, max_reflections: u3
                 // Determine color from material reflection.
                 let (color_from_reflection, reflection_intensity) = match mat_record.reflection {
                     Some(ref reflect) if reflect.intensity > 0.0 => {
-                        (cast_ray_recursive(&reflect.ray, scene, rng, reflect_limit), reflect.intensity)
+                        (cast_ray_recursive(reflect.ray, scene, rng, reflect_limit), reflect.intensity)
                     },
                     _ => Default::default(),
                 };
@@ -508,7 +579,7 @@ fn cast_ray(ray: &Ray, scene: &Scene, rng: &mut dyn RngCore, max_reflections: u3
                 // Determine color from material refraction.
                 let (color_from_refraction, refraction_intensity) = match mat_record.refraction {
                     Some(ref refract) if refract.intensity > 0.0 => {
-                        (cast_ray_recursive(&refract.ray, scene, rng, refract_limit), refract.intensity)
+                        (cast_ray_recursive(refract.ray, scene, rng, refract_limit), refract.intensity)
                     },
                     _ => Default::default(),
                 };
@@ -549,7 +620,7 @@ pub fn cast_rays_into_scene(settings: &RenderSettings, scene: &Scene, viewport: 
     // Implement anti-aliasing by taking the average color of ofsett rays cast around these x, y coordinates.
     for _ in 0..settings.samples_per_pixel {
         // NOTE:
-        // View coordinates are from upper left corner, but World coordinates are from lower left corner. 
+        // View coordinates are from upper left corner, but World coordinates are from lower left corner.
         // Need to convert coordinate systems with (height - y)
         let u = x as f32 / viewport.width as f32;
         let v = (viewport.height - y) as f32 / viewport.height as f32;
@@ -562,7 +633,7 @@ pub fn cast_rays_into_scene(settings: &RenderSettings, scene: &Scene, viewport: 
         };
         // Cast a ray, and determine the color
         let ray = scene.camera.get_ray(u, v, lens_deflection);
-        col = col + cast_ray(&ray, scene, rng, settings.max_reflections);
+        col = col + cast_ray(ray, scene, rng, settings.max_reflections);
     }
     // Find the average
     col = col / settings.samples_per_pixel as f32;

@@ -1,7 +1,7 @@
 use std::collections::HashMap;
 
-use raytracer_impl::types::V3;
-use raytracer_impl::implementation::Camera;
+use raytracer_impl::types::{ V3 };
+use raytracer_impl::implementation::{ Camera };
 
 use crate::util::deg_to_rad;
 
@@ -33,9 +33,9 @@ impl CameraConfiguration {
             // The vertical axis (to rotate about horizontally)
             let v_axis = V3::POS_Y;
             let p = p.rotate_about_axis(v_axis, deg_to_rad(self.angle_adjust_h));
-            
+
             // The horizontal axis (to rotate about vertically)
-            let w = (V3::ZERO - p).unit();             // Vector to origin 
+            let w = (V3::ZERO - p).unit();             // Vector to origin
             let h_axis = V3::cross(v_axis, w).unit();  // Vector to camera right
             let p = p.rotate_about_axis(h_axis, deg_to_rad(self.angle_adjust_v));
 
@@ -43,7 +43,7 @@ impl CameraConfiguration {
             p + look_to
         };
         let dist_to_focus = (look_from - look_to).length() + self.focus_dist_adjust;
-        
+
         Camera::new(look_from, look_to, self.fov, self.aspect_ratio(), self.lens_radius, dist_to_focus)
     }
 }
@@ -61,7 +61,6 @@ impl From<raytracer_obj::ObjError> for CreateSceneError {
         CreateSceneError(format!("{}", value))
     }
 }
-
 
 //
 // Scene Configuration Controls
@@ -89,7 +88,7 @@ pub struct SceneControlCollection {
 
 impl SceneControlCollection {
     pub fn collect_configuration(&self) -> SceneConfiguration {
-        SceneConfiguration { 
+        SceneConfiguration {
             values: self.controls.iter().map(|c| (c.name.clone(), c.value)).collect()
         }
     }
@@ -190,4 +189,3 @@ impl SceneFactory for BasicSceneFactory {
         (self.factory)(camera_config)
     }
 }
-
