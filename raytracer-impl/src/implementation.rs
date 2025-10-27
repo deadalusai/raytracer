@@ -50,6 +50,12 @@ impl AABB {
         AABB { min, max }
     }
 
+    /// Creates an infinite bounding box.
+    /// Warning: bounding boxes which are partially infinite probably won't work.
+    pub fn infinite() -> AABB {
+        AABB { min: -V3::INFINITY, max: V3::INFINITY }
+    }
+
     /// Finds the axis-aligned bounding box which fully contains the given list of vertices
     pub fn from_vertices(vertices: &[V3]) -> AABB {
         AABB::from_vertices_iter(vertices.iter().cloned())
@@ -80,7 +86,14 @@ impl AABB {
         AABB::from_min_max(min, max)
     }
 
+    pub fn is_infinite(&self) -> bool {
+        self.min == -V3::INFINITY && self.max == V3::INFINITY
+    }
+
     pub fn hit_aabb(&self, ray: Ray, mut t_min: f32, mut t_max: f32) -> bool {
+        if self.is_infinite() {
+            return true;
+        }
         // Algorithm from "Ray Tracing - The Next Weekend"
         // Attempt to determine if this ray intersects with this AABB in all three dimensions
         let ray_origin = ray.origin.xyz();
@@ -248,10 +261,13 @@ impl Entity {
         // NOTE: this may leave an AABB with lots of extra empty space
         let mut aabb = self.hitable.aabb();
         let mut corners = aabb.corners();
-        for t in self.rotations.iter() {
-            // Rotates about 0,0,0
-            for c in corners.iter_mut() {
-                *c = (*c).rotate_about_axis(t.axis, t.theta);
+        // HACK: don't try to rotate infinite bounds.
+        if !aabb.is_infinite() {
+            for t in self.rotations.iter() {
+                // Rotates about 0,0,0
+                for c in corners.iter_mut() {
+                    *c = (*c).rotate_about_axis(t.axis, t.theta);
+                }
             }
         }
 
@@ -268,25 +284,26 @@ impl Entity {
     }
 
     fn hit(&self, mut ray: Ray, t_min: f32, t_max: f32) -> Option<HitRecord> {
-        // Transform ray into entity frame of reference
+        // Rays are assumed to be scene-relative.
+        // Transform the ray into entity frame of reference, placing the entity at 0,0,0 for this hit check
+        for t in self.translations.iter() {
+            ray.origin = ray.origin - t.offset;
+        }
         for t in self.rotations.iter() {
             ray.origin = ray.origin.rotate_about_axis(t.axis, t.theta);
             ray.direction = ray.direction.rotate_about_axis(t.axis, t.theta);
-        }
-        for t in self.translations.iter() {
-            ray.origin = ray.origin - t.offset;
         }
 
         // Hit entity
         let mut hit = self.hitable.hit(ray, t_min, t_max)?;
 
         // Reverse transforms on result
-        for t in self.translations.iter().rev() {
-            hit.p = hit.p + t.offset;
-        }
         for t in self.rotations.iter().rev() {
             hit.p = hit.p.rotate_about_axis(t.axis, -t.theta);
             hit.normal = hit.normal.rotate_about_axis(t.axis, -t.theta);
+        }
+        for t in self.translations.iter().rev() {
+            hit.p = hit.p + t.offset;
         }
 
         hit.entity_id = self.id;
@@ -500,7 +517,7 @@ fn color_sky(ray: Ray, scene: &Scene) -> V3 {
 
 // Lights and shadows
 
-// Casts a ray *back* towards a lamp, testing for possibly shadowing objects
+/// Casts a ray *back* towards a lamp, testing for possibly shadowing objects
 fn cast_light_ray_to_lamp(hit_point: V3, light_record: &LightRecord, scene: &Scene, rng: &mut dyn RngCore) -> V3 {
 
     // Test to see if there is any shape blocking light from this lamp by casting a ray from the shadow back to the light source

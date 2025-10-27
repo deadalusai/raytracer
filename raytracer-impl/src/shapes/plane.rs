@@ -90,7 +90,7 @@ impl Hitable for Plane {
     }
 
     fn aabb(&self) -> AABB {
-        // No bounding box for an infinite plane, unless it's perfectly aligned on two axis?
-        AABB::from_min_max(-V3::INFINITY, V3::INFINITY)
+        // No bounding box for an infinite plane, unless it's perfectly aligned on two axes?
+        AABB::infinite()
     }
 }
