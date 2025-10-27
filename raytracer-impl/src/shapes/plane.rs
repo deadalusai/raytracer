@@ -18,6 +18,8 @@ pub fn intersect_plane(ray: Ray, origin: V3, normal: V3) -> Option<f32> {
 
 pub struct Plane {
     normal: V3,
+    u_basis: V3,
+    v_basis: V3,
     radius: Option<f32>,
     mat_id: MatId,
     tex_id: TexId,
@@ -25,8 +27,20 @@ pub struct Plane {
 
 impl Plane {
     pub fn new(normal: V3, material: MatId, texture: TexId) -> Self {
+        let normal = normal.unit();
+        // Calculate a basis for UV mapping on the plane.
+        // See: https://gamedev.stackexchange.com/a/172357
+        // TODO: pick a more meaningful u_basis?
+        let u_basis = match V3::cross(normal, V3::POS_X).unit() {
+            // e1 and normal are parallel, pick a new random point
+            V3::ZERO => V3::cross(normal, V3::POS_Y).unit(),
+            otherwise => otherwise
+        };
+        let v_basis = V3::cross(normal, u_basis).unit();
         Plane {
-            normal: normal.unit(),
+            normal,
+            u_basis,
+            v_basis,
             radius: None,
             mat_id: material,
             tex_id: texture,
@@ -57,13 +71,18 @@ impl Hitable for Plane {
         // If this plane is facing away from the ray we want to flip the reported normal
         // so that reflections work in both directions.
         let normal = if V3::dot(ray.direction, self.normal) > 0.0 { -self.normal } else { self.normal };
+        // Calculate the uv of this hit, from the origin at 0,0,0
+        let uv = {
+            let u = V3::dot(self.u_basis, p);
+            let v = V3::dot(self.v_basis, p);
+            V2(u, v)
+        };
         return Some(HitRecord {
             entity_id: None,
             t,
             p,
             normal,
-            // TODO(benf): UV mapping for plane
-            uv: V2::ZERO,
+            uv,
             mat_id: self.mat_id,
             tex_id: self.tex_id,
             tex_key: None,

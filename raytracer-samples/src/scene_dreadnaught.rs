@@ -1,9 +1,8 @@
-use raytracer_impl::implementation::{Scene, SceneSky};
+use raytracer_impl::implementation::{Entity, Scene, SceneSky};
 use raytracer_impl::lights::*;
 use raytracer_impl::materials::*;
 use raytracer_impl::types::*;
 use raytracer_impl::shapes::*;
-use raytracer_impl::transform::*;
 use raytracer_obj::load_obj_builder;
 use crate::util::*;
 use crate::scene::*;
@@ -50,15 +49,15 @@ impl SceneFactory for SceneDreadnaught {
                 .with_intensity(config.get("Spotlight Intensity")?)
                 .with_angle(config.get("Spotlight Beam Angle")?)
         });
-        
+
         let mat = scene.add_material(MatLambertian::default());
         let mesh_data = load_obj_builder(crate::mesh_path!("Dreadnaught/Dreadnaught.obj"))?.build_mesh();
         let tex = scene.add_texture(mesh_data.texture_set);
-        scene.add_object(
-            MeshObject::new(mesh_data.mesh, mat, tex)
-                .rotated(V3::POS_Z, deg_to_rad(config.get("Dreadnaught Roll")?))
-                .rotated(V3::POS_X, deg_to_rad(config.get("Dreadnaught Pitch")?))
-                .rotated(V3::POS_Y, deg_to_rad(config.get("Dreadnaught Yaw")?))
+        scene.add_entity(
+            Entity::new(MeshObject::new(mesh_data.mesh, mat, tex))
+                .rotate(V3::POS_Z, deg_to_rad(config.get("Dreadnaught Roll")?))
+                .rotate(V3::POS_X, deg_to_rad(config.get("Dreadnaught Pitch")?))
+                .rotate(V3::POS_Y, deg_to_rad(config.get("Dreadnaught Yaw")?))
         );
 
         Ok(scene)

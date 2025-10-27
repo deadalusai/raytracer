@@ -35,7 +35,6 @@ impl ObjMeshBuilder {
     }
 
     /// Build Mesh and Texture data.
-    /// If {group_name} is specified, filter mesh and texture data for that group only.
     fn inner_build_mesh(&self, group_filter: &dyn Fn(&ObjGroup) -> bool) -> MeshAndTextureData {
 
         let groups = self.groups.iter().filter(|g| group_filter(g));

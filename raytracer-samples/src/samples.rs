@@ -595,34 +595,6 @@ pub fn capsule(config: &CameraConfiguration) -> Result<Scene, CreateSceneError> 
     Ok(scene)
 }
 
-pub fn mesh_plane(config: &CameraConfiguration) -> Result<Scene, CreateSceneError> {
-    // Camera
-    let look_from = position!(East(2.0));
-    let look_to =   position!(Origin);
-    let camera = config.make_camera(look_to, look_from);
-
-    // Scene
-    let mut scene = Scene::new(camera, SceneSky::Black);
-
-    // Lights
-    let lamp_pos = look_from;
-    let lamp_direction = look_to - lamp_pos;
-    scene.add_light(DirectionalLight::with_direction(lamp_direction).with_intensity(1.0));
-
-    // Plane
-    let plane_tex = scene.add_texture(load_color_map(crate::mesh_path!("simple/test.bmp"))?);
-    let plane_mat = scene.add_material(MatLambertian::default());
-    let plane_origin = look_to;
-    let plane_mesh_data = load_obj_builder(crate::mesh_path!("simple/plane.obj"))?.build_mesh();
-    scene.add_entity(
-        Entity::new(MeshObject::new(plane_mesh_data.mesh, plane_mat, plane_tex))
-            .translate(plane_origin)
-            .id(1)
-    );
-
-    Ok(scene)
-}
-
 pub fn mega_cube(config: &CameraConfiguration) -> Result<Scene, CreateSceneError> {
     // Camera
     let look_dist = 300.0;
