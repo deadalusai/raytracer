@@ -1,5 +1,5 @@
 use rand::Rng;
-use raytracer_impl::implementation::{Scene, SceneSky};
+use raytracer_impl::implementation::{ Entity, Scene, SceneSky };
 use raytracer_impl::lights::*;
 use raytracer_impl::materials::*;
 use raytracer_impl::types::*;
@@ -33,10 +33,10 @@ impl SceneFactory for ScenePointCloud {
         let look_from = V3::ZERO + (V3::ONE * dist);
         let look_to   = V3::ZERO;
         let camera    = camera_config.make_camera(look_to, look_from);
-    
+
         // Scene
         let mut scene = Scene::new(camera, SceneSky::Black);
-    
+
         // Lights
         let lamp_pos = look_from.rotate_about_axis(V3::POS_Y, deg_to_rad(15.0));
         let lamp_direction = look_to - lamp_pos;
@@ -45,30 +45,33 @@ impl SceneFactory for ScenePointCloud {
                 .with_intensity(config.get("Spotlight Intensity")?)
                 .with_angle(config.get("Spotlight Beam Angle")?)
         );
-    
+
         let point_mat = scene.add_material(MatLambertian::default());
         let point_radius = config.get("Cloud Point Diameter")?;
-    
+
         let mut rng = create_rng_from_seed(432789012409);
 
         let x_len = config.get("Cloud Width")?;
         let z_len = config.get("Cloud Height")?;
         let y_len = config.get("Cloud Depth")?;
-    
+
         for _ in 0..(config.get("Cloud Point Count")? as usize) {
-    
+
             let a = rng.gen::<f32>();
             let b = rng.gen::<f32>();
             let c = rng.gen::<f32>();
-    
+
             let x = (a * x_len) - (x_len / 2.0);
             let y = (b * z_len) - (z_len / 2.0);
             let z = (c * y_len) - (y_len / 2.0);
-    
+
             let point_tex = scene.add_texture(ColorTexture(V3(a, b, c)));
-            scene.add_object(Sphere::new(point_radius, point_mat, point_tex).with_origin(V3(x, y, z)))
+            scene.add_entity(
+                Entity::new(Sphere::new(point_radius, point_mat, point_tex))
+                    .translate(V3(x, y, z))
+            );
         }
-    
+
         Ok(scene)
     }
 }

@@ -1,11 +1,10 @@
 use std::f32::consts::PI;
 
-use raytracer_impl::implementation::{Scene, SceneSky};
+use raytracer_impl::implementation::{ Entity, Scene, SceneSky };
 use raytracer_impl::lights::*;
 use raytracer_impl::materials::*;
 use raytracer_impl::types::*;
 use raytracer_impl::shapes::*;
-use raytracer_impl::transform::*;
 use raytracer_obj::load_obj_builder;
 use crate::util::*;
 use crate::scene::*;
@@ -49,16 +48,16 @@ impl SceneFactory for SceneDootDoot {
             PointLight::with_origin(global_from)
                 .with_intensity(config.get("Global Light Intensity")?)
         });
-        
+
         let mat = scene.add_material(MatLambertian::default());
         let mesh_data = load_obj_builder(crate::mesh_path!("skeleton/SKELETON.obj"))?.build_mesh();
         let tex = scene.add_texture(mesh_data.texture_set);
-        
-        let mesh = MeshObject::new(mesh_data.mesh, mat, tex)
-            .rotated(V3::POS_Z, deg_to_rad(config.get("Doot Doot Roll")?))
-            .rotated(V3::POS_X, deg_to_rad(config.get("Doot Doot Pitch")?))
-            .rotated(V3::POS_Y, deg_to_rad(config.get("Doot Doot Yaw")?));
-        
+
+        let mesh = Entity::new(MeshObject::new(mesh_data.mesh, mat, tex))
+            .rotate(V3::POS_Z, deg_to_rad(config.get("Doot Doot Roll")?))
+            .rotate(V3::POS_X, deg_to_rad(config.get("Doot Doot Pitch")?))
+            .rotate(V3::POS_Y, deg_to_rad(config.get("Doot Doot Yaw")?));
+
         let spacing = config.get("Spacing")?;
         let count = config.get("Count")? as usize;
         let half_w = count as f32 * spacing / 2.0;
@@ -71,10 +70,10 @@ impl SceneFactory for SceneDootDoot {
                 let x = (x as f32 * spacing) - half_w;
                 let z = (z as f32 * spacing) - half_w;
                 let rot = if spin { rand.gen_range(0.0..2.0) * PI } else { 0.0 };
-                scene.add_object(
+                scene.add_entity(
                     mesh.clone()
-                        .rotated(V3::POS_Y, rot)
-                        .translated(V3(x, 0.0, z))
+                        .rotate(V3::POS_Y, rot)
+                        .translate(V3(x, 0.0, z))
                 );
             }
         }

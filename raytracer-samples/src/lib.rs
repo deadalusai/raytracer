@@ -8,10 +8,10 @@ use scene::{
 use std::sync::Arc;
 
 mod samples;
-// mod scene_dootdoot;
+mod scene_dootdoot;
 mod scene_dreadnaught;
 mod scene_interceptor_spin;
-// mod scene_point_cloud;
+mod scene_point_cloud;
 mod scene_entity_transform_test;
 mod scene_uv_test;
 
@@ -24,13 +24,13 @@ pub fn make_sample_scene_factories() -> Vec<Arc<dyn SceneFactory + Send + Sync>>
         Arc::new(BasicSceneFactory::new("Triangles",      samples::triangle_world)),
         Arc::new(BasicSceneFactory::new("Mesh",           samples::mesh_demo)),
         Arc::new(BasicSceneFactory::new("Capsule",        samples::capsule)),
-        // Arc::new(scene_point_cloud::ScenePointCloud),
+        Arc::new(scene_point_cloud::ScenePointCloud),
         Arc::new(BasicSceneFactory::new("Mega Cube",      samples::mega_cube)),
         Arc::new(BasicSceneFactory::new("Spaceships",     samples::spaceships)),
         Arc::new(BasicSceneFactory::new("Fleet",          samples::fleet)),
         Arc::new(scene_interceptor_spin::SceneInterceptorSpin),
         Arc::new(scene_dreadnaught::SceneDreadnaught),
-        // Arc::new(scene_dootdoot::SceneDootDoot),
+        Arc::new(scene_dootdoot::SceneDootDoot),
         Arc::new(scene_entity_transform_test::EntityTransformTest),
         Arc::new(scene_uv_test::SceneUvTest),
     ]
