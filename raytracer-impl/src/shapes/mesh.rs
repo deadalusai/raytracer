@@ -56,11 +56,6 @@ fn try_hit_tri(ray: Ray, t_min: f32, t_max: f32, tri: &MeshTri) -> Option<MeshTr
         return None;
     }
 
-    // Only need to calculate UV if there is a {tex_key} set
-    if tri.tex_key.is_none() {
-        return Some(MeshTriHit { p, normal: normal.unit(), t, uv: V2::ZERO, tex_key: None });
-    }
-
     // Calculate uv/barycentric coordinates.
     // Given a triangle ABC and point P:
     //                  C
