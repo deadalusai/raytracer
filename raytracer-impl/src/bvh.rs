@@ -23,25 +23,21 @@ struct BvhNode {
 #[derive(Clone)]
 struct BvhBranch {
     // Index of left/right nodes in Node collection
-    left_index: usize,
-    right_index: usize,
+    left_offset: usize,
+    right_offset: usize,
 }
 
 #[derive(Clone)]
 struct BvhLeaf {
     // Index of object in Object collection
-    first_index: usize,
+    offset: usize,
     // Number of objects in object collection which this node includes
     length: usize,
 }
 
 impl BvhLeaf {
     fn range(&self) -> Range<usize> {
-        self.first_index..(self.first_index + self.length)
-    }
-
-    fn offset(&self, offset: usize) -> usize {
-        self.first_index + offset
+        self.offset..(self.offset + self.length)
     }
 }
 
@@ -109,19 +105,20 @@ impl Axis {
     }
 }
 
-fn create_leaf_node(leaf: BvhLeaf, object_bounds: &[BvhObjectBounds]) -> BvhNode {
+/// Create a leaf node representing the given object_bounds.
+fn create_leaf(offset: usize, object_bounds: &[BvhObjectBounds]) -> BvhNode {
     BvhNode {
         aabb: AABB::from_vertices_iter(
-            object_bounds[leaf.range()].iter().flat_map(|b| [b.bounds.aabb.min, b.bounds.aabb.max])
+            object_bounds.iter().flat_map(|b| [b.bounds.aabb.min, b.bounds.aabb.max])
         ),
-        data: BvhNodeData::Leaf(leaf),
+        data: BvhNodeData::Leaf(BvhLeaf { offset, length: object_bounds.len() })
     }
 }
 
 fn select_longest_axis(extent: &V3) -> Axis {
-    let (mut axis, mut len) = (Axis::X, extent.x());
+    let (mut axis, mut len) = (Axis::X, extent.x().abs());
     if extent.y() > len {
-        (axis, len) = (Axis::Y, extent.y());
+        (axis, len) = (Axis::Y, extent.y().abs());
     }
     if extent.z() > len {
         axis = Axis::Z;
@@ -133,9 +130,7 @@ fn build(mut object_bounds: Vec<BvhObjectBounds>) -> Bvh {
     let mut nodes = Vec::with_capacity(object_bounds.len() * 2);
 
     // Prepare the root node
-    let root = BvhLeaf { first_index: 0, length: object_bounds.len() };
-    let root = create_leaf_node(root, &object_bounds);
-    nodes.push(root);
+    nodes.push(create_leaf(0, &object_bounds));
 
     subdivide(0, &mut nodes, &mut object_bounds);
     nodes.shrink_to_fit();
@@ -146,8 +141,8 @@ fn build(mut object_bounds: Vec<BvhObjectBounds>) -> Bvh {
     }
 }
 
-fn subdivide(node_index: usize, nodes: &mut Vec<BvhNode>, object_bounds: &mut [BvhObjectBounds]) {
-    let node = &nodes[node_index];
+fn subdivide(offset: usize, nodes: &mut Vec<BvhNode>, object_bounds: &mut [BvhObjectBounds]) {
+    let node = &nodes[offset];
     let leaf = node.leaf_data();
 
     // Stop subdividing nodes when we get to a minimum size
@@ -168,28 +163,28 @@ fn subdivide(node_index: usize, nodes: &mut Vec<BvhNode>, object_bounds: &mut [B
     let split_on = centroids.map(|c| axis.value(&c)).sum::<f32>() / leaf.length as f32;
 
     // Partition objects in place
-    let (len_left, len_right) = partition_by_key(&mut object_bounds[leaf.range()], split_on, |o| axis.value(&o.bounds.centroid));
+    let (left, right) = partition_by_key(&mut object_bounds[leaf.range()], split_on, |o| axis.value(&o.bounds.centroid));
 
-    // Create child nodes
-    let left = BvhLeaf { first_index: leaf.first_index, length: len_left };
-    let right = BvhLeaf { first_index: len_left, length: len_right };
-
-    // Stop subdividing if one of the sides is empty
-    if left.length == 0 || right.length == 0 {
+    // Stop subdividing if one of the partitions is empty
+    if left.len() == 0 || right.len() == 0 {
         return;
     }
 
-    let left_index = nodes.len();
-    nodes.push(create_leaf_node(left, object_bounds));
-    let right_index = nodes.len();
-    nodes.push(create_leaf_node(right, object_bounds));
+    // Create child nodes
+    let l1 = create_leaf(leaf.offset, left);
+    let l2 = create_leaf(leaf.offset + left.len(), right);
+
+    let left_offset = nodes.len();
+    nodes.push(l1);
+    let right_offset = nodes.len();
+    nodes.push(l2);
 
     // Convert current node into a branch
-    nodes[node_index].data = BvhNodeData::Branch(BvhBranch { left_index, right_index });
+    nodes[offset].data = BvhNodeData::Branch(BvhBranch { left_offset, right_offset });
 
     // Recurse
-    subdivide(left_index, nodes, object_bounds);
-    subdivide(right_index, nodes, object_bounds);
+    subdivide(left_offset, nodes, object_bounds);
+    subdivide(right_offset, nodes, object_bounds);
 }
 
 pub struct BvhHitCandidateIter<'a> {
@@ -224,8 +219,8 @@ impl<'a> Iterator for BvhHitCandidateIter<'a> {
             }
             match node.data {
                 BvhNodeData::Branch(ref branch) => {
-                    self.stack.push(State { node_index: branch.left_index, offset: 0 });
-                    self.stack.push(State { node_index: branch.right_index, offset: 0 });
+                    self.stack.push(State { node_index: branch.left_offset, offset: 0 });
+                    self.stack.push(State { node_index: branch.right_offset, offset: 0 });
                 },
                 BvhNodeData::Leaf(ref leaf) => {
                     if offset < leaf.length - 1 {
@@ -233,7 +228,7 @@ impl<'a> Iterator for BvhHitCandidateIter<'a> {
                         self.stack.push(State { node_index, offset: offset + 1 });
                     }
                     // Emit the current object
-                    let object_index = self.bvh.object_bounds[leaf.offset(offset)].object_index;
+                    let object_index = self.bvh.object_bounds[leaf.offset + offset].object_index;
                     return Some(BvhHitCandidate { object_index });
                 }
             }
