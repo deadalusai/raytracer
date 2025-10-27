@@ -32,9 +32,8 @@ impl<T1: Texture, T2: Texture> CheckerTexture<T1, T2> {
 impl<T1: Texture, T2: Texture> Texture for CheckerTexture<T1, T2> {
     fn value(&self, hit_record: &HitRecord) -> V3 {
         let sines =
-            (self.size * hit_record.p.x()).sin() *
-            (self.size * hit_record.p.y()).sin() *
-            (self.size * hit_record.p.z()).sin();
+            (self.size * hit_record.uv.x()).sin() *
+            (self.size * hit_record.uv.y()).sin();
 
         if sines < 0.0 {
             self.odd.value(hit_record)
@@ -95,7 +94,7 @@ impl Texture for ColorMap {
         let y = map_to_rank(hit_record.uv.1, self.height);
         // NOTE: Color maps encode (0,0) in the top left, but in texture lookups it is in the bottom left.
         let offset = (self.height - y) * self.width + x;
-        self.pixels.get(offset).cloned().unwrap_or_default()
+        self.pixels.get(offset).cloned().unwrap_or(NOT_FOUND_COLOR)
     }
 }
 
