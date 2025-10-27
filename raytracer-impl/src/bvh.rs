@@ -4,9 +4,15 @@ use arrayvec::ArrayVec;
 
 use crate::implementation::AABB;
 use crate::types::{Ray, V3};
+use crate::util::{partition_by_key};
+
+pub struct BvhBounds {
+    pub centroid: V3,
+    pub aabb: AABB,
+}
 
 pub trait BvhObject {
-    fn calculate_centroid_aabb(&self) -> (V3, AABB);
+    fn calculate_bounds(&self) -> BvhBounds;
 }
 
 struct BvhNode {
@@ -56,8 +62,7 @@ impl BvhNode {
 
 struct BvhObjectBounds {
     object_index: usize,
-    aabb: AABB,
-    centroid: V3,
+    bounds: BvhBounds,
 }
 
 pub struct Bvh {
@@ -73,8 +78,8 @@ impl Bvh {
         let object_bounds = objects.iter()
             .enumerate()
             .map(|(object_index, object)| {
-                let (centroid, aabb) = T::calculate_centroid_aabb(&object);
-                BvhObjectBounds { object_index, aabb, centroid }
+                let bounds = T::calculate_bounds(&object);
+                BvhObjectBounds { object_index, bounds }
             })
             .collect();
 
@@ -107,7 +112,7 @@ impl Axis {
 fn create_leaf_node(leaf: BvhLeaf, object_bounds: &[BvhObjectBounds]) -> BvhNode {
     BvhNode {
         aabb: AABB::from_vertices_iter(
-            object_bounds[leaf.range()].iter().flat_map(|b| [b.aabb.min, b.aabb.max])
+            object_bounds[leaf.range()].iter().flat_map(|b| [b.bounds.aabb.min, b.bounds.aabb.max])
         ),
         data: BvhNodeData::Leaf(leaf),
     }
@@ -150,35 +155,24 @@ fn subdivide(node_index: usize, nodes: &mut Vec<BvhNode>, object_bounds: &mut [B
         return;
     }
 
-    // Select an axis to subdivide on and a position on that axis to split
-    let bounds = AABB::from_vertices_iter(object_bounds[leaf.range()].iter().map(|o| o.centroid));
+    // See: https://fileadmin.cs.lth.se/cs/Education/EDAN35/projects/2022/Sanden-BVH.pdf
+    // This is rough implementation of Select Longest Axis & Mean Partitioning
+    let centroids = object_bounds[leaf.range()].iter().map(|o| o.bounds.centroid);
+
+    // Select the longest axis to subdivide on
+    let bounds = AABB::from_vertices_iter(centroids.clone());
     let extent = bounds.max - bounds.min;
     let axis = select_longest_axis(&extent);
-    let split_pos = axis.value(&bounds.min) + (axis.value(&extent) * 0.5);
 
-    // Roughly partition objects in place
-    let mut i = leaf.first_index;
-    let mut j = leaf.first_index + leaf.length - 1;
-    while i <= j {
-        let pos = axis.value(&object_bounds[i].centroid);
-        if pos < split_pos {
-            // Count object into left partition
-            i += 1;
-        }
-        else if j == 0 {
-            // Halt if `j` is about to underflow
-            break;
-        }
-        else {
-            // Swap object to the end of the right partition
-            object_bounds.swap(i, j);
-            j -= 1;
-        }
-    }
+    // Find a split point (find the mean position on this axis)
+    let split_on = centroids.map(|c| axis.value(&c)).sum::<f32>() / leaf.length as f32;
+
+    // Partition objects in place
+    let (len_left, len_right) = partition_by_key(&mut object_bounds[leaf.range()], split_on, |o| axis.value(&o.bounds.centroid));
 
     // Create child nodes
-    let left = BvhLeaf { first_index: leaf.first_index, length: i - leaf.first_index };
-    let right = BvhLeaf { first_index: i, length: leaf.length - left.length };
+    let left = BvhLeaf { first_index: leaf.first_index, length: len_left };
+    let right = BvhLeaf { first_index: len_left, length: len_right };
 
     // Stop subdividing if one of the sides is empty
     if left.length == 0 || right.length == 0 {

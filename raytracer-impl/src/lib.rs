@@ -8,3 +8,4 @@ pub mod lights;
 pub mod implementation;
 pub mod viewport;
 pub mod bvh;
+pub mod util;

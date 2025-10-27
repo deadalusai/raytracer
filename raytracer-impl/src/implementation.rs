@@ -1,6 +1,6 @@
 use std::sync::Arc;
 
-use crate::bvh::{ Bvh, BvhObject };
+use crate::bvh::{ Bvh, BvhBounds, BvhObject };
 use crate::types::{ IntoArc, Ray, V2, V3 };
 use crate::viewport::Viewport;
 
@@ -430,9 +430,11 @@ impl Hitable for EntityBvhRoot {
 struct EntityBvh(Arc<Entity>);
 
 impl BvhObject for EntityBvh {
-    fn calculate_centroid_aabb(&self) -> (V3, AABB) {
-        // HACK: Use the entity's origin as its centroid
-        self.0.calculate_origin_aabb()
+    fn calculate_bounds(&self) -> BvhBounds {
+        // HACK: Use the middle of the AABB as the centroid
+        let (origin, aabb) = self.0.calculate_origin_aabb();
+        let centroid = if aabb.is_infinite() { origin } else { aabb.min * 0.5 + aabb.max * 0.5 };
+        BvhBounds { centroid, aabb }
     }
 }
 

@@ -1,6 +1,6 @@
 use std::sync::Arc;
 
-use crate::bvh::{ Bvh, BvhObject };
+use crate::bvh::{ Bvh, BvhBounds, BvhObject };
 use crate::types::{ IntoArc, Ray, V2, V3 };
 use crate::implementation::{ Hitable, HitRecord, AABB, MatId, TexId };
 
@@ -125,10 +125,10 @@ pub struct MeshTri {
 // Allow MeshTri to be used with the Bvh algorithm
 
 impl BvhObject for MeshTri {
-    fn calculate_centroid_aabb(&self) -> (V3, AABB) {
+    fn calculate_bounds(&self) -> BvhBounds {
         let aabb = AABB::from_vertices(&[self.a, self.b, self.c]);
         let centroid = (self.a + self.b + self.c) * 0.33333;
-        (centroid, aabb)
+        BvhBounds { centroid, aabb }
     }
 }
 
