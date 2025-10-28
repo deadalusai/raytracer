@@ -16,13 +16,11 @@ pub struct RgbaBuffer {
     width: usize,
     height: usize,
     data: Vec<u8>,
-    version: usize,
 }
 
 pub struct RgbaRaw<'a> {
-    pub width: usize,
-    pub height: usize,
-    pub data: &'a [u8],
+    pub size: [usize; 2],
+    pub rgba: &'a [u8],
 }
 
 impl RgbaBuffer {
@@ -31,12 +29,7 @@ impl RgbaBuffer {
             width,
             height,
             data: vec![0; (width * height * 4) as usize],
-            version: 0,
         }
-    }
-
-    pub fn version(&self) -> usize {
-        self.version
     }
 
     fn index(&self, x: usize, y: usize) -> usize {
@@ -50,29 +43,12 @@ impl RgbaBuffer {
         self.data[i + 1] = rgba[1];
         self.data[i + 2] = rgba[2];
         self.data[i + 3] = rgba[3];
-        self.version += 1;
     }
 
-    pub fn copy_from_sub_buffer(&mut self, off_x: usize, off_y: usize, sub_buffer: &RgbaBuffer) {
-        // Copy one row at a time
-        for y in 0..sub_buffer.height {
-            let t_start = self.index(off_x, off_y + y);
-            let s_start = sub_buffer.index(0, y);
-            let len = (sub_buffer.width * 4) as usize;
-            
-            let target = &mut self.data[t_start..t_start + len];
-            let source = &sub_buffer.data[s_start..s_start + len];
-
-            target.copy_from_slice(source);
-        }
-        self.version += 1;
-    }
-    
     pub fn get_raw_rgba_data(&'_ self) -> RgbaRaw<'_> {
         RgbaRaw {
-            width: self.width as usize,
-            height: self.height as usize,
-            data: self.data.as_ref(),
+            size: [self.width, self.height],
+            rgba: self.data.as_ref(),
         }
     }
 }

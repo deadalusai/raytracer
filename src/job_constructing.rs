@@ -10,7 +10,6 @@ use raytracer_samples::scene::{ CameraConfiguration, SceneFactory, SceneConfigur
 use crate::app::{AppStateUpdateResult, AppState};
 use crate::job_running::RenderJobRunningState;
 use crate::render::{RenderJob, start_background_render_threads};
-use crate::rgba::RgbaBuffer;
 use crate::settings::Settings;
 
 pub struct RenderJobConstructingState {
@@ -61,7 +60,6 @@ pub fn start_render_job_construction(
     scene_factory: Arc<dyn SceneFactory + Send + Sync>
 ) -> RenderJobConstructingState {
     let work = move || {
-
         // Create render work arguments
         let camera_config = CameraConfiguration {
             width: settings.width as f32,
@@ -100,7 +98,7 @@ pub fn start_render_job_construction(
             next_chunk_index: 0,
             start_time: Instant::now(),
             render_time_secs: 0_f64,
-            buffer: RgbaBuffer::new(settings.width, settings.height),
+            updates: vec![],
             worker_handle: start_background_render_threads(settings.thread_count),
         })
     };

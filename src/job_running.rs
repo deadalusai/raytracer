@@ -1,3 +1,5 @@
+use eframe::egui::{Color32, ColorImage, TextureOptions};
+
 use crate::app::AppStateUpdateResult;
 use crate::render::{RenderJob, RenderJobUpdateResult};
 
@@ -13,23 +15,26 @@ impl RenderJobRunningState {
 
     pub fn update(&mut self, ctx: &eframe::egui::Context) -> AppStateUpdateResult {
 
-        let v1 = self.job.buffer.version();
-        let result = self.job.update();
-        let v2 = self.job.buffer.version();
-
-        if result == RenderJobUpdateResult::ErrorRenderThreadsStopped {
-            return AppStateUpdateResult::TransitionToNewState(crate::app::AppState::Error("All render threads stopped".into()));
+        if self.output_tex.is_none() {
+            // Initialise the output texture
+            let settings = &self.job.render_args.1;
+            let img = ColorImage::filled([settings.width, settings.height], Color32::BLACK);
+            self.output_tex = Some(ctx.load_texture("output_tex", img, TextureOptions::LINEAR));
         }
-    
-        if v1 != v2 {
-            // Update the working texture
-            let rgba = self.job.buffer.get_raw_rgba_data();
-            let tex_id = ctx.load_texture(
-                "output_tex",
-                eframe::egui::ColorImage::from_rgba_unmultiplied([rgba.width, rgba.height], rgba.data),
-                eframe::egui::TextureOptions::LINEAR
+
+        let result = self.job.update();
+        if result == RenderJobUpdateResult::ErrorRenderThreadsStopped {
+            return AppStateUpdateResult::TransitionToNewState(
+                crate::app::AppState::Error("All render threads stopped".into())
             );
-            self.output_tex = Some(tex_id);
+        }
+
+        // Update the output texture
+        let tex = self.output_tex.as_mut().unwrap();
+        for (pos, buf) in self.job.updates.drain(..) {
+            let raw = buf.get_raw_rgba_data();
+            let img = ColorImage::from_rgba_unmultiplied(raw.size, raw.rgba);
+            tex.set_partial(pos, img, TextureOptions::LINEAR);
         }
 
         if self.job.is_work_completed() {

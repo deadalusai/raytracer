@@ -18,7 +18,7 @@ pub struct RenderJob {
     pub start_time: Instant,
     pub render_time_secs: f64,
     pub completed_chunk_count: usize,
-    pub buffer: RgbaBuffer,
+    pub updates: Vec<([usize; 2], RgbaBuffer)>,
     pub worker_handle: RenderJobWorkerHandle,
 }
 
@@ -41,8 +41,8 @@ impl RenderJob {
             match result {
                 Ready => {}, // Worker thread ready to go.
                 FrameUpdated(chunk, buf) => {
-                    // Copy chunk to buffer
-                    self.buffer.copy_from_sub_buffer(chunk.left, chunk.top, &buf);
+                    // Chunk ready to blit to texture
+                    self.updates.push(([chunk.left, chunk.top], buf));
                 },
                 FrameCompleted(id, elapsed) => {
                     // Update stats
