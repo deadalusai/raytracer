@@ -2,6 +2,8 @@ use std::sync::Arc;
 use std::thread::JoinHandle;
 use std::time::{Instant, Duration};
 
+use log::info;
+
 use cancellation::{CancellationToken, CancellationTokenSource};
 use flume::{Receiver, Sender};
 use raytracer_impl::implementation::{RenderSettings, Scene};
@@ -73,7 +75,7 @@ impl RenderJob {
             }
             self.next_chunk_index += 1;
         }
-    
+
         if !self.is_work_completed() {
             // Update timer
             self.render_time_secs = duration_total_secs(self.start_time.elapsed());
@@ -184,7 +186,7 @@ pub fn start_background_render_threads(render_thread_count: u32) -> RenderJobWor
             let result_sender = result_sender.clone();
             let work = move || {
                 if let Err(err) = start_render_thread(id, &cancellation_token, &work_receiver, &result_sender) {
-                    println!("Thread {id} terminated due to error: {err}");
+                    info!("Thread {id} terminated due to error: {err}");
                 }
                 // Notify master thread that we've terminated.
                 // NOTE: There may be nobody listening...

@@ -1,12 +1,13 @@
 use std::collections::{HashMap, HashSet};
 use std::sync::Arc;
+use std::path::Path;
+
+use log::info;
 
 use raytracer_impl::shapes::{Mesh, MeshTri};
 use raytracer_impl::texture::{MeshTexture, MeshTextureSet, ColorMap};
 use super::format::{ObjGroup, ObjMaterial, MtlFile, ObjFile};
 use crate::ObjError;
-
-use std::path::Path;
 
 pub struct MeshAndTextureData {
     pub mesh: Arc<Mesh>,
@@ -38,7 +39,7 @@ impl ObjMeshBuilder {
     fn inner_build_mesh(&self, group_filter: &dyn Fn(&ObjGroup) -> bool) -> MeshAndTextureData {
 
         let groups = self.groups.iter().filter(|g| group_filter(g));
-        
+
         // Prepare materials as "texture" lookups
         let material_names = groups.clone()
             .flat_map(|g| g.faces.iter())
@@ -50,7 +51,7 @@ impl ObjMeshBuilder {
             let mtl = match self.materials.get(name) {
                 Some(mtl) => mtl,
                 None => {
-                    println!("WARNING: Unable to find material {}", name);
+                    info!("WARNING: Unable to find material {}", name);
                     continue;
                 },
             };
@@ -59,7 +60,7 @@ impl ObjMeshBuilder {
                 Some(name) => match self.color_maps.get(name) {
                     Some(map) => Some(map.clone()),
                     None => {
-                        println!("WARNING: Unable to find color map {}", name);
+                        info!("WARNING: Unable to find color map {}", name);
                         None
                     },
                 }
@@ -125,7 +126,7 @@ pub fn load_obj_builder(path: impl AsRef<Path>) -> Result<ObjMeshBuilder, ObjErr
                 let data = load_color_map(&path)?;
                 builder.color_maps.insert(colormap.clone(), Arc::new(data));
             }
-            
+
             builder.materials.insert(mtl.name.clone(), mtl);
         }
     }
@@ -138,7 +139,7 @@ pub fn load_obj(path: impl AsRef<Path>) -> Result<ObjFile, ObjError> {
     if !path.exists() {
         return Err(ObjError::General(format!("load_obj: expected obj file at path {}", path.display())));
     }
-
+    info!("Loading objects from {:?}", path);
     let mut file = std::fs::File::open(path)?;
     let obj_file = super::format::parse_obj_file(&mut file)?;
     Ok(obj_file)
@@ -149,7 +150,7 @@ pub fn load_mtl(path: impl AsRef<Path>) -> Result<MtlFile, ObjError> {
     if !path.exists() {
         return Err(ObjError::General(format!("load_mtl: expected mtl file at path {}", path.display())));
     }
-
+    info!("Loading materials from {:?}", path);
     let mut file = std::fs::File::open(path)?;
     let mtl_file = super::format::parse_mtl_file(&mut file)?;
     Ok(mtl_file)
@@ -160,7 +161,7 @@ pub fn load_color_map(path: impl AsRef<Path>) -> Result<ColorMap, ObjError> {
     if !path.exists() {
         return Err(ObjError::General(format!("load_color_map: expected file at path {}", path.display())));
     }
-
+    info!("Loading color map from {:?}", path);
     let format = match path.extension().and_then(image::ImageFormat::from_extension) {
         Some(ext) => ext,
         None      => Err(ObjError::General(format!("load_color_map: Color map type unknown")))?,

@@ -3,6 +3,8 @@ use std::sync::Arc;
 use std::thread::JoinHandle;
 use std::time::Instant;
 
+use log::info;
+
 use raytracer_impl::implementation::RenderSettings;
 use raytracer_impl::viewport::{ create_render_chunks };
 use raytracer_samples::scene::{ CameraConfiguration, SceneFactory, SceneConfiguration, CreateSceneError };
@@ -75,13 +77,13 @@ pub fn start_render_job_construction(
 
         let mut scene = scene_factory.create_scene(&camera_config, &scene_config)?;
 
-        println!("Constructed Scene in {}ms", start.elapsed().as_millis());
+        info!("Constructed Scene in {}ms", start.elapsed().as_millis());
 
         let start = Instant::now();
 
         scene.build_bvh();
 
-        println!("Constructed Bounding Volume Hierachy in {}ms", start.elapsed().as_millis());
+        info!("Constructed Bounding Volume Hierachy in {}ms", start.elapsed().as_millis());
 
         let render_settings = RenderSettings {
             width: settings.width,

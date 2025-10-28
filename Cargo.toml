@@ -13,6 +13,7 @@ flume = "0.10.13" # mpmc / cross thread work queues
 rand = "0.8"
 rand_xorshift = "0.3"
 cancellation = "0.1"
+log = "0.4"
 
 [features]
 default = ["eframe/persistence"]

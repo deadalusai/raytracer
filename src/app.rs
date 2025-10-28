@@ -6,6 +6,7 @@ use raytracer_samples::scene::{ SceneFactory, SceneControlCollection };
 use crate::frame_history::FrameHistory;
 use crate::job_constructing::{RenderJobConstructingState, start_render_job_construction};
 use crate::job_running::RenderJobRunningState;
+use crate::logger_view::{logger_view};
 use crate::thread_stats::ThreadStats;
 use crate::settings::{ SettingsWidget, Settings };
 
@@ -15,6 +16,9 @@ pub struct App {
     // Configuration
     scene_factories: Vec<Arc<dyn SceneFactory + Send + Sync>>,
     scene_configs: Vec<SceneControlCollection>,
+    // Panel state
+    settings_open: bool,
+    logs_open: bool,
     // Temporal state
     frame_history: FrameHistory,
     state: AppState,
@@ -50,6 +54,9 @@ impl App {
             // Configuration
             scene_factories,
             scene_configs,
+            // Panel state:
+            settings_open: true,
+            logs_open: true,
             // Temporal state
             frame_history: FrameHistory::default(),
             state: AppState::None,
@@ -107,47 +114,35 @@ impl eframe::App for App {
 
         self.frame_history.on_new_frame(ctx.input(|s| s.time), frame.info().cpu_usage);
 
-        egui::CentralPanel::default().show(ctx, |ui| {
-            ui.centered_and_justified(|ui| {
-                match &self.state {
-                    AppState::None => {
-                        ui.label("Press 'Start render' to start");
-                    },
-                    AppState::RenderJobConstructing(_) => {
-                        ui.add(Spinner::new());
-                    },
-                    AppState::RenderJobRunning(state) => {
-                        match state.output_tex.as_ref() {
-                            Some(output_texture) => {
-                                ui.add(
-                                    if self.settings.scale_render_to_window {
-                                        egui::Image::new(output_texture).fit_to_fraction(egui::vec2(1.0, 1.0))
-                                    }
-                                    else {
-                                        egui::Image::new(output_texture).fit_to_original_size(1.0)
-                                    }
-                                );
-                            }
-                            None => {
-                                ui.spinner();
-                            }
-                        }
-                    },
-                    AppState::Error(error) => {
-                        ui.label(error);
-                    },
-                }
-            });
-        });
-
-        // Settings UI
-        egui::Window::new("Settings")
-            .resizable(false)
-            .default_width(200.0)
+        egui::TopBottomPanel::top("top bar")
+            .frame(egui::Frame::new().inner_margin(4))
             .show(ctx, |ui| {
-                ui.add(SettingsWidget::new(&mut self.settings, &mut self.scene_configs));
-                ui.separator();
+                ui.horizontal_wrapped(|ui| {
+                    ui.visuals_mut().button_frame = false;
+                    ui.toggle_value(&mut self.settings_open, "⚙ Settings");
+                    ui.toggle_value(&mut self.logs_open, "🗎 Logs");
+                });
+            });
 
+        egui::TopBottomPanel::bottom("logs")
+            .resizable(true)
+            .frame(egui::Frame::new().inner_margin(4).outer_margin(4))
+            .show_animated(ctx, self.logs_open, |ui| {
+                logger_view(ui);
+            });
+
+        egui::SidePanel::left("settings")
+            .resizable(true)
+            .show_animated(ctx, self.settings_open, |ui| {
+                ui.add_space(4.0);
+                ui.vertical_centered(|ui| {
+                    ui.heading("Settings");
+                });
+
+                ui.separator();
+                ui.add(SettingsWidget::new(&mut self.settings, &mut self.scene_configs));
+
+                ui.separator();
                 ui.with_layout(egui::Layout::top_down_justified(egui::Align::Center), |ui| {
                     if ui.button("Start render").clicked() {
                         self.start_new_job();
@@ -155,6 +150,7 @@ impl eframe::App for App {
                 });
 
                 if let AppState::RenderJobRunning(state) = &self.state {
+                    ui.separator();
                     for thread in state.job.worker_handle.thread_handles.iter() {
                         ui.add(ThreadStats {
                             id: thread.id,
@@ -164,7 +160,42 @@ impl eframe::App for App {
                     }
                 }
 
+                ui.separator();
                 self.frame_history.ui(ui);
+            });
+
+        egui::CentralPanel::default()
+            .show(ctx, |ui| {
+                ui.centered_and_justified(|ui| {
+                    match &self.state {
+                        AppState::None => {
+                            ui.label("Press 'Start render' to start");
+                        },
+                        AppState::RenderJobConstructing(_) => {
+                            ui.add(Spinner::new());
+                        },
+                        AppState::RenderJobRunning(state) => {
+                            match state.output_tex.as_ref() {
+                                Some(output_texture) => {
+                                    ui.add(
+                                        if self.settings.scale_render_to_window {
+                                            egui::Image::new(output_texture).fit_to_fraction(egui::vec2(1.0, 1.0))
+                                        }
+                                        else {
+                                            egui::Image::new(output_texture).fit_to_original_size(1.0)
+                                        }
+                                    );
+                                }
+                                None => {
+                                    ui.spinner();
+                                }
+                            }
+                        },
+                        AppState::Error(error) => {
+                            ui.label(error);
+                        },
+                    }
+                });
             });
     }
 }

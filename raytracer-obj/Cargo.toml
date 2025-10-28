@@ -8,3 +8,4 @@ edition = "2021"
 raytracer-impl = { path = "../raytracer-impl" }
 thiserror = "1.0"
 image = "0.24.7"
+log = "0.4"
