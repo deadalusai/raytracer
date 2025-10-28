@@ -1,9 +1,10 @@
 use std::sync::Arc;
 
-use eframe::egui::{self, Spinner};
+use eframe::egui::{self, Spinner, TextureHandle};
 use raytracer_samples::scene::{ SceneFactory, SceneControlCollection };
 
 use crate::frame_history::FrameHistory;
+use crate::job_complete::RenderJobCompleteState;
 use crate::job_constructing::{RenderJobConstructingState, start_render_job_construction};
 use crate::job_running::RenderJobRunningState;
 use crate::logger_view::{logger_view};
@@ -28,11 +29,12 @@ pub enum AppState {
     None,
     RenderJobConstructing(RenderJobConstructingState),
     RenderJobRunning(RenderJobRunningState),
+    RenderJobComplete(RenderJobCompleteState),
     Error(String),
 }
 
 pub enum AppStateUpdateResult {
-    Done,
+    None,
     RequestRefresh,
     TransitionToNewState(AppState),
 }
@@ -83,11 +85,11 @@ impl App {
         let result = match &mut self.state {
             AppState::RenderJobConstructing(state) => state.update(),
             AppState::RenderJobRunning(state) => state.update(ctx),
-            _ => AppStateUpdateResult::Done
+            _ => AppStateUpdateResult::None
         };
 
         match result {
-            AppStateUpdateResult::Done => {},
+            AppStateUpdateResult::None => {},
             AppStateUpdateResult::RequestRefresh => {
                 ctx.request_repaint();
             },
@@ -95,6 +97,15 @@ impl App {
                 self.state = state;
                 ctx.request_repaint();
             },
+        }
+    }
+
+    fn output_image(&self, tex: &TextureHandle) -> egui::Image<'_> {
+        if self.settings.scale_render_to_window {
+            egui::Image::new(tex).fit_to_fraction(egui::vec2(1.0, 1.0))
+        }
+        else {
+            egui::Image::new(tex).fit_to_original_size(1.0)
         }
     }
 }
@@ -169,30 +180,22 @@ impl eframe::App for App {
                 ui.centered_and_justified(|ui| {
                     match &self.state {
                         AppState::None => {
-                            ui.label("Press 'Start render' to start");
+                            ui.label("Press 'Start render' to start")
                         },
                         AppState::RenderJobConstructing(_) => {
-                            ui.add(Spinner::new());
+                            ui.add(Spinner::new())
                         },
                         AppState::RenderJobRunning(state) => {
                             match state.output_tex.as_ref() {
-                                Some(output_texture) => {
-                                    ui.add(
-                                        if self.settings.scale_render_to_window {
-                                            egui::Image::new(output_texture).fit_to_fraction(egui::vec2(1.0, 1.0))
-                                        }
-                                        else {
-                                            egui::Image::new(output_texture).fit_to_original_size(1.0)
-                                        }
-                                    );
-                                }
-                                None => {
-                                    ui.spinner();
-                                }
+                                Some(tex) => ui.add(self.output_image(tex)),
+                                None => ui.spinner(),
                             }
                         },
+                        AppState::RenderJobComplete(state) => {
+                            ui.add(self.output_image(&state.output_tex))
+                        },
                         AppState::Error(error) => {
-                            ui.label(error);
+                            ui.label(error)
                         },
                     }
                 });

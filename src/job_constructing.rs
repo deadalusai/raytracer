@@ -3,7 +3,7 @@ use std::sync::Arc;
 use std::thread::JoinHandle;
 use std::time::Instant;
 
-use log::info;
+use log::{error, info};
 
 use raytracer_impl::implementation::RenderSettings;
 use raytracer_impl::viewport::{ create_render_chunks };
@@ -38,13 +38,17 @@ impl RenderJobConstructingState {
         let handle = self.handle.take().unwrap();
         AppStateUpdateResult::TransitionToNewState(match handle.join() {
             Ok(Ok(job)) => {
+                info!("Scene ready");
                 AppState::RenderJobRunning(RenderJobRunningState::new(job))
             },
             Ok(Err(CreateSceneError(err))) => {
+                error!("Scene construction failed: {}", err);
                 AppState::Error(err)
             },
             Err(panic) => {
-                AppState::Error(try_extract_panic_argument(&panic).unwrap_or("Unknown error").to_string())
+                let error = try_extract_panic_argument(&panic).unwrap_or("Unknown error");
+                error!("Scene construction panicked: {}", error);
+                AppState::Error(error.to_string())
             },
         })
     }

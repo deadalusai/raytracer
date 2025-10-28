@@ -1,6 +1,8 @@
 use eframe::egui::{Color32, ColorImage, TextureOptions};
+use log::info;
 
 use crate::app::AppStateUpdateResult;
+use crate::job_complete::RenderJobCompleteState;
 use crate::render::{RenderJob, RenderJobUpdateResult};
 
 pub struct RenderJobRunningState {
@@ -38,11 +40,13 @@ impl RenderJobRunningState {
         }
 
         if self.job.is_work_completed() {
-            AppStateUpdateResult::Done
+            info!("Render complete");
+            return AppStateUpdateResult::TransitionToNewState(
+                crate::app::AppState::RenderJobComplete(RenderJobCompleteState::new(self.output_tex.take().unwrap()))
+            );
         }
-        else {
-            AppStateUpdateResult::RequestRefresh
-        }
+
+        AppStateUpdateResult::RequestRefresh
     }
 
     pub fn stop(&self) {

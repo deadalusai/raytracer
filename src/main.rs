@@ -3,6 +3,7 @@ mod logger;
 mod logger_view;
 mod job_constructing;
 mod job_running;
+mod job_complete;
 mod render;
 mod rgba;
 mod frame_history;
