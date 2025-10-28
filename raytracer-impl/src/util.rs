@@ -13,8 +13,12 @@ pub fn partition_by_key<T, K>(slice: &mut [T], split_on: K, selector: impl Fn(&T
     let (mut i, mut j) = (0, len - 1);
     while i < j {
         match selector(&slice[i]) {
-            v if v <= split_on => i += 1,
+            v if v <= split_on => {
+                // Count into left partition
+                i += 1;
+            },
             _ => {
+                // Swap into right partition
                 slice.swap(i, j);
                 j -= 1;
             }
