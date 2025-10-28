@@ -1,3 +1,4 @@
+use std::any::Any;
 use std::sync::Arc;
 use std::thread::JoinHandle;
 use std::time::Instant;
@@ -49,10 +50,9 @@ impl RenderJobConstructingState {
 }
 
 /// Tries to get the value passed to [panic!]
-fn try_extract_panic_argument(panic: &dyn std::any::Any) -> Option<&str> {
+fn try_extract_panic_argument(panic: &Box<dyn Any + Send>) -> Option<&str> {
     panic.downcast_ref::<String>().map(|s| s.as_ref())
-        .ok_or_else(|| panic.downcast_ref::<&str>())
-        .ok()
+        .or_else(|| panic.downcast_ref::<&'static str>().map(|s| s.as_ref()))
 }
 
 pub fn start_render_job_construction(
