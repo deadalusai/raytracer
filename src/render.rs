@@ -5,7 +5,7 @@ use std::time::{Instant, Duration};
 use cancellation::{CancellationToken, CancellationTokenSource};
 use flume::{Receiver, Sender};
 use raytracer_impl::implementation::{RenderSettings, Scene};
-use raytracer_impl::viewport::RenderChunk;
+use raytracer_impl::viewport::{RenderChunk};
 
 use crate::rgba::{RgbaBuffer, v3_to_rgba};
 
@@ -129,7 +129,7 @@ fn start_render_thread(
         let mut buffer = RgbaBuffer::new(chunk.width, chunk.height);
         let green = v3_to_rgba(raytracer_impl::types::V3(0.0, 0.58, 0.0));
         for p in chunk.iter_pixels() {
-            buffer.put_pixel(p.chunk_x, p.chunk_y, green);
+            buffer.put_pixel(p.chunk_pos, green);
         }
         result_sender.send(FrameUpdated(chunk.clone(), buffer.clone()))?;
         // Using the same seeded RNG for every frame makes every run repeatable
@@ -143,8 +143,8 @@ fn start_render_thread(
                 return Ok(());
             }
             // Convert to view-relative coordinates
-            let color = raytracer_impl::implementation::cast_rays_into_scene(render_settings, scene, &chunk.viewport, p.viewport_x, p.viewport_y, &mut rng);
-            buffer.put_pixel(p.chunk_x, p.chunk_y, v3_to_rgba(color));
+            let color = raytracer_impl::implementation::cast_rays_into_scene(scene, render_settings, p.view_pos, &mut rng);
+            buffer.put_pixel(p.chunk_pos, v3_to_rgba(color));
         }
         let elapsed = time.elapsed();
         // Send final frame and results

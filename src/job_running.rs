@@ -38,7 +38,7 @@ impl RenderJobRunningState {
         }
 
         if self.job.is_work_completed() {
-            AppStateUpdateResult::None
+            AppStateUpdateResult::Done
         }
         else {
             AppStateUpdateResult::RequestRefresh

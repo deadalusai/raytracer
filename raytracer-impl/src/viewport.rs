@@ -1,24 +1,11 @@
 
 //
-// View tracking and chunk primitives
+// Chunk primitives
 //
-
-#[derive(Debug, Clone)]
-pub struct Viewport {
-    pub width: usize,
-    pub height: usize,
-}
-
-impl Viewport {
-    pub fn new (width: usize, height: usize) -> Viewport {
-        Viewport { width: width, height: height }
-    }
-}
 
 #[derive(Clone)]
 pub struct RenderChunk {
     pub id: usize,
-    pub viewport: Viewport,
     pub top: usize,
     pub left: usize,
     pub width: usize,
@@ -26,10 +13,8 @@ pub struct RenderChunk {
 }
 
 pub struct ViewChunkCoords {
-    pub chunk_x: usize,
-    pub chunk_y: usize,
-    pub viewport_x: usize,
-    pub viewport_y: usize,
+    pub chunk_pos: [usize; 2],
+    pub view_pos: [usize; 2],
 }
 
 impl RenderChunk {
@@ -38,27 +23,24 @@ impl RenderChunk {
         (0..self.height)
             .flat_map(move |y| (0..self.width)
                 .map(move |x| ViewChunkCoords {
-                    chunk_x: x,
-                    chunk_y: y,
-                    viewport_x: self.left + x,
-                    viewport_y: self.top + y
+                    chunk_pos: [x, y],
+                    view_pos: [self.left + x, self.top + y],
                 }))
     }
 }
 
-pub fn create_render_chunks(viewport: &Viewport, chunk_count: u32) -> Vec<RenderChunk> {
+pub fn create_render_chunks(chunk_count: u32, width: usize, height: usize) -> Vec<RenderChunk> {
     let divisions = (chunk_count as f32).sqrt();
     let h_divisions = divisions.ceil() as usize;
     let v_divisions = divisions.floor() as usize;
-    let chunk_width = viewport.width / h_divisions;
-    let chunk_height = viewport.height / v_divisions;
+    let chunk_width = width / h_divisions;
+    let chunk_height = height / v_divisions;
     (0..v_divisions)
         .flat_map(|y| (0..h_divisions).map(move |x| (x, y)))
         .enumerate()
         .map(|(id, (x, y))| {
             RenderChunk {
                 id,
-                viewport: viewport.clone(),
                 top: y * chunk_height,
                 left: x * chunk_width,
                 width: chunk_width,

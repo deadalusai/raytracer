@@ -37,7 +37,7 @@ impl RgbaBuffer {
         i as usize
     }
 
-    pub fn put_pixel(&mut self, x: usize, y: usize, rgba: Rgba) {
+    pub fn put_pixel(&mut self, [x, y]: [usize; 2], rgba: Rgba) {
         let i = self.index(x, y);
         self.data[i + 0] = rgba[0];
         self.data[i + 1] = rgba[1];

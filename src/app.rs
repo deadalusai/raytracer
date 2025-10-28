@@ -28,14 +28,14 @@ pub enum AppState {
 }
 
 pub enum AppStateUpdateResult {
-    None,
+    Done,
     RequestRefresh,
     TransitionToNewState(AppState),
 }
 
 impl App {
     pub fn new(cc: &eframe::CreationContext<'_>) -> Self {
-        
+
         // Persistent state
         let settings = match cc.storage {
             None => Settings::default(),
@@ -76,11 +76,11 @@ impl App {
         let result = match &mut self.state {
             AppState::RenderJobConstructing(state) => state.update(),
             AppState::RenderJobRunning(state) => state.update(ctx),
-            _ => AppStateUpdateResult::None
+            _ => AppStateUpdateResult::Done
         };
-        
+
         match result {
-            AppStateUpdateResult::None => {},
+            AppStateUpdateResult::Done => {},
             AppStateUpdateResult::RequestRefresh => {
                 ctx.request_repaint();
             },
@@ -102,7 +102,7 @@ impl eframe::App for App {
     fn update(&mut self, ctx: &egui::Context, frame: &mut eframe::Frame) {
 
         self.update_state(ctx);
-        
+
         ctx.set_visuals(egui::Visuals::dark());
 
         self.frame_history.on_new_frame(ctx.input(|s| s.time), frame.info().cpu_usage);

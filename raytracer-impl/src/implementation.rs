@@ -2,7 +2,6 @@ use std::sync::Arc;
 
 use crate::bvh::{ Bvh, BvhBounds, BvhObject };
 use crate::types::{ IntoArc, Ray, V2, V3 };
-use crate::viewport::Viewport;
 
 use rand::{ RngCore, Rng };
 
@@ -331,6 +330,8 @@ pub struct MatId(usize);
 pub struct TexId(usize);
 
 pub struct RenderSettings {
+    pub width: usize,
+    pub height: usize,
     pub max_reflections: u32,
     pub samples_per_pixel: u32,
 }
@@ -634,15 +635,15 @@ fn cast_ray(ray: Ray, scene: &Scene, rng: &mut dyn RngCore, max_reflections: u32
     cast_ray_recursive(ray, scene, rng, max_reflections).clamp()
 }
 
-pub fn cast_rays_into_scene(settings: &RenderSettings, scene: &Scene, viewport: &Viewport, x: usize, y: usize, rng: &mut dyn RngCore) -> V3 {
+pub fn cast_rays_into_scene(scene: &Scene, settings: &RenderSettings, [x, y]: [usize; 2], rng: &mut dyn RngCore) -> V3 {
     let mut col = V3(0.0, 0.0, 0.0);
     // Implement anti-aliasing by taking the average color of ofsett rays cast around these x, y coordinates.
     for _ in 0..settings.samples_per_pixel {
         // NOTE:
         // View coordinates are from upper left corner, but World coordinates are from lower left corner.
         // Need to convert coordinate systems with (height - y)
-        let u = x as f32 / viewport.width as f32;
-        let v = (viewport.height - y) as f32 / viewport.height as f32;
+        let u = x as f32 / settings.width as f32;
+        let v = (settings.height - y) as f32 / settings.height as f32;
         // Apply lens deflection for focus blur
         let lens_deflection = if settings.samples_per_pixel > 1 {
             V2(rng.gen::<f32>() * 2.0 - 1.0,

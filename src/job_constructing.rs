@@ -4,7 +4,7 @@ use std::thread::JoinHandle;
 use std::time::Instant;
 
 use raytracer_impl::implementation::RenderSettings;
-use raytracer_impl::viewport::{ Viewport, create_render_chunks };
+use raytracer_impl::viewport::{ create_render_chunks };
 use raytracer_samples::scene::{ CameraConfiguration, SceneFactory, SceneConfiguration, CreateSceneError };
 
 use crate::app::{AppStateUpdateResult, AppState};
@@ -84,12 +84,13 @@ pub fn start_render_job_construction(
         println!("Constructed Bounding Volume Hierachy in {}ms", start.elapsed().as_millis());
 
         let render_settings = RenderSettings {
+            width: settings.width,
+            height: settings.height,
             max_reflections: settings.max_reflections,
             samples_per_pixel: settings.samples_per_pixel,
         };
 
-        let viewport = Viewport::new(settings.width, settings.height);
-        let chunks = create_render_chunks(&viewport, settings.chunk_count);
+        let chunks = create_render_chunks(settings.chunk_count, settings.width, settings.height);
 
         Ok(RenderJob {
             render_args: Arc::new((scene, render_settings)),
