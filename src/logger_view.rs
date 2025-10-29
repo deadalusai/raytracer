@@ -22,6 +22,7 @@ pub fn logger_view(ui: &mut egui::Ui) {
         .stick_to_bottom(true)
         .max_width(ui.available_width())
         .max_height(ui.available_height())
+        .auto_shrink(false)
         .show(ui, |ui| {
             let Some(entry) = sink.entries.iter().last() else {
                 return;
