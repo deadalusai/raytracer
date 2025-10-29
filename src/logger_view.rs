@@ -1,10 +1,7 @@
-
-use std::time::Instant;
-
 use eframe::egui::{self, Align, Color32, FontSelection, RichText, Style};
 use eframe::egui::text::LayoutJob;
 
-use crate::logger::{LogEntry, LogSink};
+use crate::logger::LogEntry;
 
 pub fn logger_view(ui: &mut egui::Ui) {
     let mut sink = crate::logger::LOG_SINK.lock();
@@ -17,42 +14,40 @@ pub fn logger_view(ui: &mut egui::Ui) {
         }
     });
 
+    let row_height = ui.text_style_height(&egui::TextStyle::Monospace);
+    let row_count = sink.entries.len();
+
     ui.separator();
     egui::ScrollArea::vertical()
         .stick_to_bottom(true)
         .max_width(ui.available_width())
         .max_height(ui.available_height())
         .auto_shrink(false)
-        .show(ui, |ui| {
-            let Some(entry) = sink.entries.iter().last() else {
-                return;
-            };
-            let time_width = format_instant(sink.start, entry.instant).len();
-            for entry in sink.entries.iter() {
-                ui.label(format_record(&sink, entry, time_width));
+        .show_rows(ui, row_height, row_count, |ui, range| {
+            for entry in sink.entries[range].iter() {
+                ui.label(format_record(entry));
             }
         });
+}
+
+fn format_timestamp(entry: &LogEntry) -> String {
+    let format = time_format::DateFormat::Custom("%H:%M:%S.{ms}");
+    time_format::format_common_ms_local(entry.time, format).unwrap_or_else(|_| "???".to_string())
 }
 
 const WARN: Color32 = Color32::YELLOW;
 const ERROR: Color32 = Color32::RED;
 const HIGHLIGHT: Color32 = Color32::LIGHT_GRAY;
 
-fn format_record(sink: &LogSink, entry: &LogEntry, time_width: usize) -> LayoutJob {
+fn format_record(entry: &LogEntry) -> LayoutJob {
     let mut layout_job = LayoutJob::default();
     let style = Style::default();
 
-    let timestamp = format_instant(sink.start, entry.instant);
-    let timestamp = format!("{: >width$} ", timestamp, width = time_width);
+    let timestamp = format_timestamp(entry);
     let timestamp = RichText::new(timestamp).monospace();
-    let timestamp = match entry.level {
-        log::Level::Warn => timestamp.color(WARN),
-        log::Level::Error => timestamp.color(ERROR),
-        _ => timestamp
-    };
     timestamp.append_to(&mut layout_job, &style, FontSelection::Default, Align::LEFT);
 
-    let prefix = format!("[{:5}] {: <width$}: ", entry.level, entry.target, width = 20);
+    let prefix = format!(" [{:5}] {: <width$}: ", entry.level, entry.target, width = 20);
     let prefix = RichText::new(prefix).monospace();
     let prefix = match entry.level {
         log::Level::Warn => prefix.color(WARN),
@@ -70,17 +65,4 @@ fn format_record(sink: &LogSink, entry: &LogEntry, time_width: usize) -> LayoutJ
     message.append_to(&mut layout_job, &style, FontSelection::Default, Align::LEFT);
 
     layout_job
-}
-
-fn format_instant(start: Instant, instant: Instant) -> String {
-    let millis = instant.duration_since(start).as_millis();
-    let h = millis / 1000 / 3600 % 24;
-    let m = millis / 1000 / 60 % 60;
-    let s = millis / 1000 % 60;
-    let ms = millis % 1000;
-    match (h, m, s, ms) {
-        (0, 0, s, ms) => format!("{s}s {ms}ms"),
-        (0, m, s, ms) => format!("{m}m {s}s {ms}ms"),
-        (h, m, s, ms) => format!("{h}h {m}m {s}s {ms}ms"),
-    }
 }
