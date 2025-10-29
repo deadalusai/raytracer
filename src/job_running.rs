@@ -42,7 +42,10 @@ impl RenderJobRunningState {
         if self.job.is_work_completed() {
             info!("Render complete");
             return AppStateUpdateResult::TransitionToNewState(
-                crate::app::AppState::RenderJobComplete(RenderJobCompleteState::new(self.output_tex.take().unwrap()))
+                crate::app::AppState::RenderJobComplete(RenderJobCompleteState {
+                    output_tex: self.output_tex.take().unwrap(),
+                    thread_stats: self.job.thread_stats().collect(),
+                })
             );
         }
 

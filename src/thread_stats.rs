@@ -1,5 +1,6 @@
 use eframe::{ egui };
 
+#[derive(Clone)]
 pub struct ThreadStats {
     pub id: u32,
     pub total_time_secs: f64,

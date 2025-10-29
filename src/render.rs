@@ -10,6 +10,7 @@ use raytracer_impl::implementation::{RenderSettings, Scene};
 use raytracer_impl::viewport::{RenderChunk};
 
 use crate::rgba::{RgbaBuffer, v3_to_rgba};
+use crate::thread_stats::ThreadStats;
 
 const RNG_SEED: u64 = 12345;
 
@@ -88,6 +89,15 @@ impl RenderJob {
     fn reset(&mut self) {
         self.next_chunk_index = 0;
         self.completed_chunk_count = 0;
+    }
+
+    pub fn thread_stats(&self) -> impl Iterator<Item=ThreadStats> {
+        self.worker_handle.thread_handles.iter()
+            .map(|thread| ThreadStats {
+                id: thread.id,
+                total_chunks_rendered: thread.total_chunks_rendered,
+                total_time_secs: thread.total_time_secs,
+            })
     }
 }
 

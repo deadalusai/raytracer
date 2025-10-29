@@ -108,6 +108,14 @@ impl App {
             egui::Image::new(tex).fit_to_original_size(1.0)
         }
     }
+
+    fn resolve_thread_stats(&self) -> Option<Box<dyn Iterator<Item = ThreadStats> + '_>> {
+        match &self.state {
+            AppState::RenderJobRunning(state) => Some(Box::new(state.job.thread_stats())),
+            AppState::RenderJobComplete(state) => Some(Box::new(state.thread_stats.iter().cloned())),
+            _ => None
+        }
+    }
 }
 
 impl eframe::App for App {
@@ -160,14 +168,10 @@ impl eframe::App for App {
                     }
                 });
 
-                if let AppState::RenderJobRunning(state) = &self.state {
+                if let Some(thread_stats) = self.resolve_thread_stats() {
                     ui.separator();
-                    for thread in state.job.worker_handle.thread_handles.iter() {
-                        ui.add(ThreadStats {
-                            id: thread.id,
-                            total_chunks_rendered: thread.total_chunks_rendered,
-                            total_time_secs: thread.total_time_secs,
-                        });
+                    for stats in thread_stats {
+                        ui.add(stats);
                     }
                 }
 

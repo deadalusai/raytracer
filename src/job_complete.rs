@@ -1,11 +1,8 @@
 use eframe::egui::{TextureHandle};
 
+use crate::thread_stats::ThreadStats;
+
 pub struct RenderJobCompleteState {
     pub output_tex: TextureHandle,
-}
-
-impl RenderJobCompleteState {
-    pub fn new(output_tex: TextureHandle) -> Self {
-        Self { output_tex }
-    }
+    pub thread_stats: Vec<ThreadStats>,
 }
