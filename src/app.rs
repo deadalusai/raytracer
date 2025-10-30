@@ -159,24 +159,26 @@ impl eframe::App for App {
                 });
 
                 ui.separator();
-                ui.add(SettingsWidget::new(&mut self.settings, &mut self.scene_configs));
-
-                ui.separator();
-                ui.with_layout(egui::Layout::top_down_justified(egui::Align::Center), |ui| {
-                    if ui.button("Start render").clicked() {
-                        self.start_new_job();
-                    }
-                });
-
-                if let Some(thread_stats) = self.resolve_thread_stats() {
-                    ui.separator();
-                    for stats in thread_stats {
-                        ui.add(stats);
-                    }
-                }
-
-                ui.separator();
-                self.frame_history.ui(ui);
+                egui::ScrollArea::vertical()
+                    .animated(false)
+                    .auto_shrink(false)
+                    .show(ui, |ui| {
+                        ui.add(SettingsWidget::new(&mut self.settings, &mut self.scene_configs));
+                        ui.separator();
+                        ui.with_layout(egui::Layout::top_down_justified(egui::Align::Center), |ui| {
+                            if ui.button("Start render").clicked() {
+                                self.start_new_job();
+                            }
+                        });
+                        if let Some(thread_stats) = self.resolve_thread_stats() {
+                            ui.separator();
+                            for stats in thread_stats {
+                                ui.add(stats);
+                            }
+                        }
+                        ui.separator();
+                        self.frame_history.ui(ui);
+                    });
             });
 
         egui::CentralPanel::default()
