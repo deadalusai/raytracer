@@ -2,6 +2,7 @@ use eframe::egui::{Color32, ColorImage, TextureOptions};
 use log::info;
 
 use crate::app::AppStateUpdateResult;
+use crate::format::FormattedDuration;
 use crate::job_complete::RenderJobCompleteState;
 use crate::render::{RenderJob, RenderJobUpdateResult};
 
@@ -40,7 +41,7 @@ impl RenderJobRunningState {
         }
 
         if self.job.is_work_completed() {
-            info!("Render complete");
+            info!("Render completed in {}", FormattedDuration(self.job.started.elapsed()));
             return AppStateUpdateResult::TransitionToNewState(
                 crate::app::AppState::RenderJobComplete(RenderJobCompleteState {
                     output_tex: self.output_tex.take().unwrap(),
@@ -56,7 +57,6 @@ impl RenderJobRunningState {
         self.job.worker_handle.cts.cancel();
     }
 }
-
 
 impl Drop for RenderJobRunningState {
     fn drop(&mut self) {

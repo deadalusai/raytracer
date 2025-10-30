@@ -18,8 +18,7 @@ pub struct RenderJob {
     pub render_args: Arc<(Scene, RenderSettings)>,
     pub chunks: Vec<RenderChunk>,
     pub next_chunk_index: usize,
-    pub start_time: Instant,
-    pub render_time_secs: f64,
+    pub started: Instant,
     pub completed_chunk_count: usize,
     pub updates: Vec<([usize; 2], RgbaBuffer)>,
     pub worker_handle: RenderJobWorkerHandle,
@@ -50,7 +49,7 @@ impl RenderJob {
                 FrameCompleted(id, elapsed) => {
                     // Update stats
                     let thread = &mut self.worker_handle.thread_handles[id as usize];
-                    thread.total_time_secs += duration_total_secs(elapsed);
+                    thread.total_time += elapsed;
                     thread.total_chunks_rendered += 1;
                     self.completed_chunk_count += 1;
                 },
@@ -77,11 +76,6 @@ impl RenderJob {
             self.next_chunk_index += 1;
         }
 
-        if !self.is_work_completed() {
-            // Update timer
-            self.render_time_secs = duration_total_secs(self.start_time.elapsed());
-        }
-
         RenderJobUpdateResult::Updated
     }
 
@@ -96,13 +90,9 @@ impl RenderJob {
             .map(|thread| ThreadStats {
                 id: thread.id,
                 total_chunks_rendered: thread.total_chunks_rendered,
-                total_time_secs: thread.total_time_secs,
+                total_time: thread.total_time,
             })
     }
-}
-
-fn duration_total_secs(elapsed: Duration) -> f64 {
-    elapsed.as_secs() as f64 + elapsed.subsec_nanos() as f64 * 1e-9
 }
 
 // A message from the master thread to a worker
@@ -173,7 +163,7 @@ type ThreadId = u32;
 pub struct RenderThread {
     pub id: ThreadId,
     pub handle: JoinHandle<()>,
-    pub total_time_secs: f64,
+    pub total_time: Duration,
     pub total_chunks_rendered: u32,
 }
 
@@ -210,7 +200,7 @@ pub fn start_background_render_threads(render_thread_count: u32) -> RenderJobWor
             RenderThread {
                 id,
                 handle,
-                total_time_secs: 0.0,
+                total_time: Duration::ZERO,
                 total_chunks_rendered: 0,
             }
         })

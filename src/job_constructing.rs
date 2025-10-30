@@ -103,8 +103,7 @@ pub fn start_render_job_construction(
             completed_chunk_count: 0,
             chunks: chunks,
             next_chunk_index: 0,
-            start_time: Instant::now(),
-            render_time_secs: 0_f64,
+            started: Instant::now(),
             updates: vec![],
             worker_handle: start_background_render_threads(settings.thread_count),
         })
