@@ -11,13 +11,18 @@ impl Display for FormattedDuration {
         let d = h / 24;
         let ms = self.0.subsec_millis();
         match (d, h % 24, m % 60, s % 60) {
-            (0, 0, 0, s) => write!(f, "{s}.{ms}s"),
-            (0, 0, m, s) => write!(f, "{m}m {s}.{ms}s"),
-            (0, h, m, s) => write!(f, "{h}h {m}m {s}.{ms}s"),
-            (d, h, m, s) => write!(f, "{d}d {h}h {m}m {s}.{ms}s"),
+            (0, 0, 0, 0) => write!(f, "{ms}ms"),
+            (0, 0, 0, s) => write!(f, "{}s", secs(s, ms)),
+            (0, 0, m, s) => write!(f, "{m}m {}s", secs(s, ms)),
+            (0, h, m, s) => write!(f, "{h}h {m}m {}s", secs(s, ms)),
+            (d, h, m, s) => write!(f, "{d}d {h}h {m}m {}s", secs(s, ms)),
         }?;
         Ok(())
     }
+}
+
+fn secs(seconds: u64, millis: u32) -> f32 {
+    seconds as f32 + (millis as f32 / 1000.0)
 }
 
 #[cfg(test)]
@@ -30,19 +35,36 @@ mod test_formatted_duration {
         assert_eq!(actual, expected);
     }
 
-    #[test] fn seconds() {
-        test(15.555, "15.555s");
+    #[test]
+    fn millis() {
+        test(0.015, "15ms");
+        test(0.115, "115ms");
+        test(0.915, "915ms");
     }
 
-    #[test] fn minutes() {
-        test(915.555, "15m 15.555s");
+    #[test]
+    fn seconds() {
+        test(1.0, "1s");
+        test(1.015, "1.015s");
+        test(2.115, "2.115s");
+        test(15.915, "15.915s");
     }
 
-    #[test] fn hours() {
-        test(54915.555, "15h 15m 15.555s");
+    #[test]
+    fn minutes() {
+        test(600.0, "10m 0s");
+        test(915.015, "15m 15.015s");
     }
 
-    #[test] fn days() {
-        test(1350915.555, "15d 15h 15m 15.555s");
+    #[test]
+    fn hours() {
+        test(3600.0, "1h 0m 0s");
+        test(54915.015, "15h 15m 15.015s");
+    }
+
+    #[test]
+    fn days() {
+        test(86400.0, "1d 0h 0m 0s");
+        test(1350915.015, "15d 15h 15m 15.015s");
     }
 }

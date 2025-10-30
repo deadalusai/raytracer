@@ -10,6 +10,7 @@ use raytracer_impl::viewport::{ create_render_chunks };
 use raytracer_samples::scene::{ CameraConfiguration, SceneFactory, SceneConfiguration, CreateSceneError };
 
 use crate::app::{AppStateUpdateResult, AppState};
+use crate::format::FormattedDuration;
 use crate::job_running::RenderJobRunningState;
 use crate::render::{RenderJob, start_background_render_threads};
 use crate::settings::Settings;
@@ -84,13 +85,13 @@ pub fn start_render_job_construction(
 
         let mut scene = scene_factory.create_scene(&camera_config, &scene_config)?;
 
-        info!("Constructed Scene in {}ms", start.elapsed().as_millis());
+        info!("Constructed Scene in {}", FormattedDuration(start.elapsed()));
 
         let start = Instant::now();
 
         scene.build_bvh();
 
-        info!("Constructed Bounding Volume Hierachy in {}ms", start.elapsed().as_millis());
+        info!("Constructed Bounding Volume Hierachy in {}", FormattedDuration(start.elapsed()));
 
         let render_settings = RenderSettings {
             width: settings.width,
