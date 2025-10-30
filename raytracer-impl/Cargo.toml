@@ -2,9 +2,9 @@
 name = "raytracer-impl"
 version = "0.1.0"
 authors = ["Benjamin Fox <deadalus.ai@gmail.com>"]
-edition = "2021"
+edition = "2024"
 
 [dependencies]
-rand = "0.8"
+rand = "0.9"
 arrayvec = "0.7.4"
 log = "0.4"

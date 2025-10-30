@@ -10,8 +10,8 @@ raytracer-samples = { path = "./raytracer-samples" }
 eframe = "0.33.0" # egui, epi and web+native backends
 serde = { version = "1", features = ["derive"] } # state serialization
 flume = "0.10.13" # mpmc / cross thread work queues
-rand = "0.8"
-rand_xorshift = "0.3"
+rand = "0.9"
+rand_xorshift = "0.4"
 cancellation = "0.1"
 log = "0.4"
 time-format = "1.2.2"

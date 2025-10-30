@@ -2,10 +2,10 @@
 name = "raytracer-samples"
 version = "0.1.0"
 authors = ["Benjamin Fox <deadalus.ai@gmail.com>"]
-edition = "2021"
+edition = "2024"
 
 [dependencies]
-rand = "0.8"
-rand_xorshift = "0.3"
+rand = "0.9"
+rand_xorshift = "0.4"
 raytracer-impl = { path = "../raytracer-impl" }
 raytracer-obj = { path = "../raytracer-obj" }

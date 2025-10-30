@@ -65,8 +65,8 @@ impl SceneFactory for EntityTransformTest {
         let mut rng = create_rng_from_seed(138219031);
 
         for _ in 0..1000 {
-            let dist = rng.gen::<f32>();
-            let angle = rng.gen::<f32>();
+            let dist = rng.random::<f32>();
+            let angle = rng.random::<f32>();
 
             let translation = (V3::POS_X * dist * 50.0).rotate_about_axis(V3::POS_Y, (angle * 2.0 * PI) + deg_to_rad(additional_rot));
 

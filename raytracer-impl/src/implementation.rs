@@ -14,8 +14,8 @@ const HALF_PI: f32 = PI / 2.0;
 /// Given a {normal}, pick a random deflection from that normal of
 /// between 0 and 90 degrees, at any angle around the normal
 pub fn random_normal_reflection_angle(normal: V3, rng: &mut dyn RngCore) -> V3 {
-    let theta1 = rng.gen::<f32>() * HALF_PI; // First angle, deflection from normal 0-90 deg
-    let theta2 = rng.gen::<f32>() * TWO_PI; // Second angle, rotation around normal 0-360 deg
+    let theta1 = rng.random::<f32>() * HALF_PI; // First angle, deflection from normal 0-90 deg
+    let theta2 = rng.random::<f32>() * TWO_PI; // Second angle, rotation around normal 0-360 deg
 
     fn arbitrary_perpendicular_vector(v: V3) -> V3 {
         // Pick another arbitrary vector {k} which is not parallel to the input vector {v}
@@ -646,8 +646,8 @@ pub fn cast_rays_into_scene(scene: &Scene, settings: &RenderSettings, [x, y]: [u
         let v = (settings.height - y) as f32 / settings.height as f32;
         // Apply lens deflection for focus blur
         let lens_deflection = if settings.samples_per_pixel > 1 {
-            V2(rng.gen::<f32>() * 2.0 - 1.0,
-               rng.gen::<f32>() * 2.0 - 1.0)
+            V2(rng.random::<f32>() * 2.0 - 1.0,
+               rng.random::<f32>() * 2.0 - 1.0)
         } else {
             V2::ZERO
         };

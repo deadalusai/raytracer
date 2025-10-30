@@ -69,9 +69,9 @@ fn rgb(r: u8, g: u8, b: u8) -> V3 {
 
 fn make_matte(scene: &mut Scene, rng: &mut impl Rng) -> (MatId, TexId) {
     let albedo = V3(
-        /* r */ rng.gen::<f32>() * rng.gen::<f32>(),
-        /* g */ rng.gen::<f32>() * rng.gen::<f32>(),
-        /* b */ rng.gen::<f32>() * rng.gen::<f32>()
+        /* r */ rng.random::<f32>() * rng.random::<f32>(),
+        /* g */ rng.random::<f32>() * rng.random::<f32>(),
+        /* b */ rng.random::<f32>() * rng.random::<f32>()
     );
     (
         scene.add_material(MatLambertian::default()),
@@ -81,11 +81,11 @@ fn make_matte(scene: &mut Scene, rng: &mut impl Rng) -> (MatId, TexId) {
 
 fn make_metal(scene: &mut Scene, rng: &mut impl Rng) -> (MatId, TexId) {
     let color = V3(
-        /* r */ 0.5 * (1.0 + rng.gen::<f32>()),
-        /* g */ 0.5 * (1.0 + rng.gen::<f32>()),
-        /* b */ 0.5 * (1.0 + rng.gen::<f32>())
+        /* r */ 0.5 * (1.0 + rng.random::<f32>()),
+        /* g */ 0.5 * (1.0 + rng.random::<f32>()),
+        /* b */ 0.5 * (1.0 + rng.random::<f32>())
     );
-    let fuzz = 0.5 * rng.gen::<f32>();
+    let fuzz = 0.5 * rng.random::<f32>();
     (
         scene.add_material(MatSpecular::default().with_fuzz(fuzz)),
         scene.add_texture(ColorTexture(color))
@@ -95,9 +95,9 @@ fn make_metal(scene: &mut Scene, rng: &mut impl Rng) -> (MatId, TexId) {
 fn make_glass(scene: &mut Scene, rng: &mut impl Rng) -> (MatId, TexId) {
     let refractive_index = 1.5;
     let color = V3(
-        /* r */ 0.5 * (1.0 + rng.gen::<f32>()),
-        /* g */ 0.5 * (1.0 + rng.gen::<f32>()),
-        /* b */ 0.5 * (1.0 + rng.gen::<f32>())
+        /* r */ 0.5 * (1.0 + rng.random::<f32>()),
+        /* g */ 0.5 * (1.0 + rng.random::<f32>()),
+        /* b */ 0.5 * (1.0 + rng.random::<f32>())
     );
     (
         scene.add_material(MatDielectric::default().with_ref_index(refractive_index)),
@@ -157,9 +157,9 @@ pub fn random_sphere_scene(config: &CameraConfiguration) -> Result<Scene, Create
     for a in -11..11 {
         for b in -11..11 {
             let center = V3(
-                /* x */ a as f32 + 0.9 * rng.gen::<f32>(),
+                /* x */ a as f32 + 0.9 * rng.random::<f32>(),
                 /* y */ 0.2,
-                /* z */ b as f32 + 0.9 * rng.gen::<f32>()
+                /* z */ b as f32 + 0.9 * rng.random::<f32>()
             );
 
             // Only include the sphere if it's not too close to the three large spheres..
@@ -169,7 +169,7 @@ pub fn random_sphere_scene(config: &CameraConfiguration) -> Result<Scene, Create
 
             // Select a material
             let (mat, tex) =
-                match rng.gen::<f32>() {
+                match rng.random::<f32>() {
                     v if v < 0.8  => make_matte(&mut scene, &mut rng),
                     v if v < 0.95 => make_metal(&mut scene, &mut rng),
                     _             => make_glass(&mut scene, &mut rng),

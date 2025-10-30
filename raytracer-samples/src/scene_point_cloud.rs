@@ -57,9 +57,9 @@ impl SceneFactory for ScenePointCloud {
 
         for _ in 0..(config.get("Cloud Point Count")? as usize) {
 
-            let a = rng.gen::<f32>();
-            let b = rng.gen::<f32>();
-            let c = rng.gen::<f32>();
+            let a = rng.random::<f32>();
+            let b = rng.random::<f32>();
+            let c = rng.random::<f32>();
 
             let x = (a * x_len) - (x_len / 2.0);
             let y = (b * z_len) - (z_len / 2.0);
