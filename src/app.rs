@@ -152,6 +152,7 @@ impl eframe::App for App {
 
         egui::SidePanel::left("settings")
             .resizable(true)
+            .min_width(300.0)
             .show_animated(ctx, self.settings_open, |ui| {
                 ui.add_space(4.0);
                 ui.vertical_centered(|ui| {
