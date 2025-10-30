@@ -4,7 +4,9 @@ use eframe::egui::text::LayoutJob;
 use crate::logger::LogEntry;
 
 pub fn logger_view(ui: &mut egui::Ui) {
-    let mut sink = crate::logger::LOG_SINK.lock();
+    let Ok(mut sink) = crate::logger::LOG_SINK.lock() else {
+        return;
+    };
 
     ui.horizontal(|ui| {
         ui.label("Logs");
@@ -47,7 +49,7 @@ fn format_record(entry: &LogEntry) -> LayoutJob {
     let timestamp = RichText::new(timestamp).monospace();
     timestamp.append_to(&mut layout_job, &style, FontSelection::Default, Align::LEFT);
 
-    let prefix = format!(" [{:5}] {: <width$}: ", entry.level, entry.target, width = 20);
+    let prefix = format!(" [{:5}] {}: ", entry.level, entry.target);
     let prefix = RichText::new(prefix).monospace();
     let prefix = match entry.level {
         log::Level::Warn => prefix.color(WARN),

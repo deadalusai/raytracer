@@ -1,6 +1,5 @@
-use std::sync::LazyLock;
+use std::sync::{LazyLock, Mutex};
 
-use eframe::egui::mutex::Mutex;
 use time_format::TimeStampMs;
 
 pub struct LogSink {
@@ -37,7 +36,7 @@ impl log::Log for Logger {
             message: record.args().to_string(),
             target: record.target().to_string(),
         };
-        LOG_SINK.lock().entries.push(entry);
+        LOG_SINK.lock().unwrap().entries.push(entry);
     }
 
     fn flush(&self) {
