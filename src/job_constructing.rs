@@ -66,6 +66,9 @@ pub fn start_render_job_construction(
     scene_factory: Arc<dyn SceneFactory + Send + Sync>
 ) -> RenderJobConstructingState {
     let work = move || {
+
+        info!("Constructing scene {}", scene_factory.name());
+
         // Create render work arguments
         let camera_config = CameraConfiguration {
             width: settings.width as f32,

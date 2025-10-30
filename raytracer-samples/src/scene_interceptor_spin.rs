@@ -12,9 +12,13 @@ use crate::scene::*;
 pub struct SceneInterceptorSpin;
 
 impl SceneFactory for SceneInterceptorSpin {
+    fn name(&self) -> &str {
+        "Interceptor Spin"
+    }
+
     fn create_controls(&self) -> SceneControlCollection {
         SceneControlCollection {
-            name: "Interceptor Spin".into(),
+            name: self.name().into(),
             controls: vec![
                 SceneControl::range("Camera Distance", 1.0, 1500.0).with_default(100.0),
                 SceneControl::range("Seconds Per Rotation",  1.0, 1000.0).with_default(10.0),

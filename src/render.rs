@@ -11,6 +11,7 @@ use raytracer_impl::viewport::{RenderChunk};
 
 use crate::rgba::{RgbaBuffer, v3_to_rgba};
 use crate::thread_stats::ThreadStats;
+use crate::timer::Timer;
 
 const RNG_SEED: u64 = 12345;
 
@@ -127,18 +128,19 @@ fn start_render_thread(
         if cancellation_token.is_canceled() {
             return Ok(());
         }
-        // Paint in-progress chunks green
         let mut buffer = RgbaBuffer::new(chunk.width, chunk.height);
-        let green = v3_to_rgba(raytracer_impl::types::V3(0.0, 0.58, 0.0));
+        // Paint the chunk black to start
+        let black = v3_to_rgba(raytracer_impl::types::V3(0.0, 0.0, 0.0));
         for p in chunk.iter_pixels() {
-            buffer.put_pixel(p.chunk_pos, green);
+            buffer.put_pixel(p.chunk_pos, black);
         }
         result_sender.send(FrameUpdated(chunk.clone(), buffer.clone()))?;
         // Using the same seeded RNG for every frame makes every run repeatable
         let mut rng = XorShiftRng::seed_from_u64(RNG_SEED);
         // Render the scene chunk
         let (scene, render_settings) = args.as_ref();
-        let time = Instant::now();
+        let frame_time = Instant::now();
+        let mut timer = Timer::new(Duration::from_millis(800));
         // For each x, y coordinate in this view chunk, cast a ray.
         for p in chunk.iter_pixels() {
             if cancellation_token.is_canceled() {
@@ -147,8 +149,12 @@ fn start_render_thread(
             // Convert to view-relative coordinates
             let color = raytracer_impl::implementation::cast_rays_into_scene(scene, render_settings, p.view_pos, &mut rng);
             buffer.put_pixel(p.chunk_pos, v3_to_rgba(color));
+            // Report progress periodically
+            if timer.tick() {
+                result_sender.send(FrameUpdated(chunk.clone(), buffer.clone()))?;
+            }
         }
-        let elapsed = time.elapsed();
+        let elapsed = frame_time.elapsed();
         // Send final frame and results
         result_sender.send(FrameUpdated(chunk, buffer))?;
         result_sender.send(FrameCompleted(id, elapsed))?;

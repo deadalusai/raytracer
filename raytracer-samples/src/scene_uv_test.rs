@@ -11,9 +11,13 @@ use crate::scene::*;
 pub struct SceneUvTest;
 
 impl SceneFactory for SceneUvTest {
+    fn name(&self) -> &str {
+        "UV Test"
+    }
+
     fn create_controls(&self) -> SceneControlCollection {
         SceneControlCollection {
-            name: "UV Test".into(),
+            name: self.name().into(),
             controls: vec![
                 SceneControl::range("Mesh Rotation X Deg", -180.0, 180.0).with_default(0.0),
                 SceneControl::range("Mesh Rotation Y Deg", -180.0, 180.0).with_default(0.0),

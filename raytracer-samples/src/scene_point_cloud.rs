@@ -11,17 +11,21 @@ use crate::scene::*;
 pub struct ScenePointCloud;
 
 impl SceneFactory for ScenePointCloud {
+    fn name(&self) -> &str {
+        "Point Cloud"
+    }
+
     fn create_controls(&self) -> SceneControlCollection {
         SceneControlCollection {
-            name: "Point Cloud".into(),
+            name: self.name().into(),
             controls: vec![
                 SceneControl::range("Camera Distance", 1.0, 1500.0).with_default(100.0),
-                SceneControl::range("Cloud Width",  1.0, 1000.0).with_default(50.0),
-                SceneControl::range("Cloud Depth",  1.0, 1000.0).with_default(50.0),
-                SceneControl::range("Cloud Height", 1.0, 1000.0).with_default(50.0),
-                SceneControl::range("Cloud Point Count", 1.0, 10_000_000.0).with_default(1_000_000.0),
-                SceneControl::range("Cloud Point Diameter", 0.05, 100.0).with_default(0.05),
-                SceneControl::range("Spotlight Intensity", 0.0, 2000.0).with_default(700.0),
+                SceneControl::range("Cloud Width",  1.0, 1000.0).with_default(100.0),
+                SceneControl::range("Cloud Depth",  1.0, 1000.0).with_default(100.0),
+                SceneControl::range("Cloud Height", 1.0, 1000.0).with_default(100.0),
+                SceneControl::range("Cloud Point Count", 1.0, 10_000_000.0).with_default(1_00_000.0),
+                SceneControl::range("Cloud Point Diameter", 0.05, 100.0).with_default(0.5),
+                SceneControl::range("Spotlight Intensity", 0.0, 2000.0).with_default(1300.0),
                 SceneControl::range("Spotlight Beam Angle", 1.0, 90.0).with_default(60.0),
             ],
         }

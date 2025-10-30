@@ -12,9 +12,13 @@ use crate::scene::*;
 pub struct SceneDootDoot;
 
 impl SceneFactory for SceneDootDoot {
+    fn name(&self) -> &str {
+        "Doot Doot"
+    }
+
     fn create_controls(&self) -> SceneControlCollection {
         SceneControlCollection {
-            name: "Doot Doot".into(),
+            name: self.name().into(),
             controls: vec![
                 SceneControl::select_list("Sky", vec!["Black".into(), "Day".into()]),
                 SceneControl::range("Camera Distance", 0.1, 200.0).with_default(70.0),

@@ -10,6 +10,7 @@ mod frame_history;
 mod settings;
 mod thread_stats;
 mod format;
+mod timer;
 
 use app::App;
 

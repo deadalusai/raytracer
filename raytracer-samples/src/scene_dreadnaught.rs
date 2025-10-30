@@ -10,9 +10,13 @@ use crate::scene::*;
 pub struct SceneDreadnaught;
 
 impl SceneFactory for SceneDreadnaught {
+    fn name(&self) -> &str {
+        "Dreadnaught"
+    }
+
     fn create_controls(&self) -> SceneControlCollection {
         SceneControlCollection {
-            name: "Dreadnaught".into(),
+            name: self.name().into(),
             controls: vec![
                 SceneControl::range("Camera Distance", 50.0, 1500.0).with_default(800.0),
                 SceneControl::range("Global Light Intensity", 1.0, 200.0).with_default(20.0),

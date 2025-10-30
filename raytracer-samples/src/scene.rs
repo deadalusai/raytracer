@@ -67,6 +67,7 @@ impl From<raytracer_obj::ObjError> for CreateSceneError {
 //
 
 pub trait SceneFactory {
+    fn name(&self) -> &str;
     fn create_controls(&self) -> SceneControlCollection;
     fn create_scene(&self, camera_config: &CameraConfiguration, config: &SceneConfiguration) -> Result<raytracer_impl::implementation::Scene, CreateSceneError>;
 }
@@ -178,6 +179,10 @@ impl BasicSceneFactory {
 }
 
 impl SceneFactory for BasicSceneFactory {
+    fn name(&self) -> &str {
+        &self.name
+    }
+
     fn create_controls(&self) -> SceneControlCollection {
         SceneControlCollection {
             name: self.name.clone(),

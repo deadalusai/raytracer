@@ -49,7 +49,7 @@ fn format_record(entry: &LogEntry) -> LayoutJob {
     let timestamp = RichText::new(timestamp).monospace();
     timestamp.append_to(&mut layout_job, &style, FontSelection::Default, Align::LEFT);
 
-    let prefix = format!(" [{:5}] {}: ", entry.level, entry.target);
+    let prefix = format!(" [{:5}] {} ", entry.level, entry.target);
     let prefix = RichText::new(prefix).monospace();
     let prefix = match entry.level {
         log::Level::Warn => prefix.color(WARN),

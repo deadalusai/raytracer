@@ -13,9 +13,13 @@ use crate::scene::*;
 pub struct EntityTransformTest;
 
 impl SceneFactory for EntityTransformTest {
+    fn name(&self) -> &str {
+        "Entity Transforms Test"
+    }
+
     fn create_controls(&self) -> SceneControlCollection {
         SceneControlCollection {
-            name: "Entity Transforms Test".into(),
+            name: self.name().into(),
             controls: vec![
                 SceneControl::range("Lamp Height",        0.0, 300.0).with_default(10.0),
                 SceneControl::range("Lamp Intensity",     0.0, 1500.0).with_default(400.0),
