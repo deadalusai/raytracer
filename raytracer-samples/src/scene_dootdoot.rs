@@ -34,7 +34,7 @@ impl SceneFactory for SceneDootDoot {
     }
 
     fn create_scene(&self, camera_config: &CameraConfiguration, config: &SceneConfiguration) -> Result<Scene, CreateSceneError> {
-        use rand::{ rng, Rng };
+        use rand::{ Rng };
 
         // Camera
         let dist = config.get("Camera Distance")?;
@@ -67,7 +67,7 @@ impl SceneFactory for SceneDootDoot {
         let half_w = count as f32 * spacing / 2.0;
         let spin = config.get("Spin em round")? != 0.0;
 
-        let mut rand = rng();
+        let mut rand = create_rng_from_seed(3178901564);
 
         for x in 0..count {
             for z in 0..count {

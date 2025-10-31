@@ -1,12 +1,20 @@
 use eframe::egui::{self, WidgetText};
 use raytracer_samples::scene::SceneControlCollection;
 
+struct ChunkRatio { label: &'static str, ratio: [usize; 2] }
+const CHUNK_RATIO_OPTIONS: [ChunkRatio; 4] = [
+    ChunkRatio { label: "One chunk", ratio: [1, 1] },
+    ChunkRatio { label: "16 chunks", ratio: [4, 4] },
+    ChunkRatio { label: "256 chunks", ratio: [16, 16] },
+    ChunkRatio { label: "1024 chunks", ratio: [32, 32] },
+];
+
 #[derive(Debug, Clone, serde::Deserialize, serde::Serialize)]
 pub struct Settings {
     pub scene: usize,
     pub width: usize,
     pub height: usize,
-    pub chunk_count: u32,
+    pub chunk_ratio_option: usize, // CHUNK_RATIO_OPTIONS
     pub thread_count: u32,
     pub samples_per_pixel: u32,
     pub camera_fov: f32,
@@ -18,13 +26,26 @@ pub struct Settings {
     pub scale_render_to_window: bool,
 }
 
+impl Settings {
+    pub fn chunk_ratio(&self) -> [usize; 2] {
+        CHUNK_RATIO_OPTIONS
+            .get(self.chunk_ratio_option)
+            .map(|o| o.ratio)
+            .unwrap_or([1, 1])
+    }
+
+    pub fn image_size(&self) -> [usize; 2] {
+        [self.width, self.height]
+    }
+}
+
 impl Default for Settings {
     fn default() -> Self {
         Settings {
             scene: Default::default(),
             width: 1024,
             height: 768,
-            chunk_count: 128,
+            chunk_ratio_option: 2, // 256
             thread_count: 4,
             samples_per_pixel: 1,
             camera_fov: 45.0,
@@ -56,10 +77,10 @@ impl<'a> egui::Widget for SettingsWidget<'a> {
             .spacing([10.0, 4.0])
             .striped(true)
             .show(ui, |ui| {
-                
+
                 let st = self.settings;
                 let configs = self.scene_configs;
-                
+
                 // Scene
                 ui.label("Scene");
                 egui::ComboBox::from_id_salt("scene_combo")
@@ -115,7 +136,7 @@ impl<'a> egui::Widget for SettingsWidget<'a> {
                         Toggle => {
                             let mut checked = *value != 0.0;
                             ui.add(egui::Checkbox::new(&mut checked, ""));
-                            *value = if checked { 1.0 } else { 0.0 }; 
+                            *value = if checked { 1.0 } else { 0.0 };
                         },
                     };
                     ui.end_row();
@@ -128,38 +149,45 @@ impl<'a> egui::Widget for SettingsWidget<'a> {
                     ui.add(egui::DragValue::new(&mut st.height).range(0..=2048).suffix("px"));
                 });
                 ui.end_row();
-                
+
                 // Render threads
                 ui.label("Render threads");
                 ui.add(egui::DragValue::new(&mut st.thread_count).range(1..=16));
                 ui.end_row();
-                
+
                 // Render chunks
                 ui.label("Render chunks");
-                ui.add(egui::DragValue::new(&mut st.chunk_count).range(1..=256));
+                egui::ComboBox::from_id_salt("chunks")
+                    .selected_text(CHUNK_RATIO_OPTIONS.get(st.chunk_ratio_option).map(|o| o.label).unwrap_or("???"))
+                    .width(120.0)
+                    .show_ui(ui, |ui| {
+                        for (i, opt) in CHUNK_RATIO_OPTIONS.iter().enumerate() {
+                            ui.selectable_value(&mut st.chunk_ratio_option, i, opt.label);
+                        }
+                    });
                 ui.end_row();
-                
+
                 // Samples per pixel
                 ui.label("Samples per pixel");
                 ui.add(egui::DragValue::new(&mut st.samples_per_pixel).range(1..=1000));
                 ui.end_row();
-                
+
                 // Camera aperture
                 ui.label("Camera FOV");
                 ui.horizontal(|ui| {
                     ui.add(egui::DragValue::new(&mut st.camera_fov)
-                        .range(1.0..=100.0)
+                        .range(1.0..=180.0)
                         .speed(0.05)
                         .max_decimals(2)
                         .suffix("°"));
                 });
                 ui.end_row();
-                
+
                 // Camera aperture
                 ui.label("Camera lens radius");
                 ui.horizontal(|ui| {
                     ui.add(egui::DragValue::new(&mut st.camera_lens_radius)
-                        .range(0.0..=1.5)
+                        .range(0.0..=2.5)
                         .speed(0.005)
                         .max_decimals(3));
 
@@ -169,17 +197,17 @@ impl<'a> egui::Widget for SettingsWidget<'a> {
                     }
                 });
                 ui.end_row();
-                
+
                 // Camera focus
                 ui.label("Camera focus");
                 ui.horizontal(|ui| {
                     ui.add(egui::DragValue::new(&mut st.camera_focus_dist_adjust)
-                        .range(-10.0..=10.0)
+                        .range(-1000.0..=1000.0)
                         .speed(0.05)
                         .max_decimals(3));
                 });
                 ui.end_row();
-                
+
                 // Camera angle
                 ui.label("Camera angle");
                 ui.horizontal(|ui| {
@@ -207,7 +235,7 @@ impl<'a> egui::Widget for SettingsWidget<'a> {
                 ui.label("Scaling");
                 ui.add(egui::Checkbox::new(&mut st.scale_render_to_window, "Scale to window"));
                 ui.end_row();
-                
+
                 // Reset button
                 ui.label("Reset");
                 ui.with_layout(egui::Layout::top_down_justified(egui::Align::Center), |ui| {

@@ -29,14 +29,13 @@ impl RenderChunk {
     }
 }
 
-pub fn create_render_chunks(chunk_count: u32, width: usize, height: usize) -> Vec<RenderChunk> {
-    let divisions = (chunk_count as f32).sqrt();
-    let h_divisions = divisions.ceil() as usize;
-    let v_divisions = divisions.floor() as usize;
-    let chunk_width = width / h_divisions;
-    let chunk_height = height / v_divisions;
-    (0..v_divisions)
-        .flat_map(|y| (0..h_divisions).map(move |x| (x, y)))
+pub fn create_render_chunks(size: [usize; 2], counts: [usize; 2]) -> Vec<RenderChunk> {
+    let [horiz, vert] = counts;
+    let [width, height] = size;
+    let chunk_width = width / horiz;
+    let chunk_height = height / vert;
+    (0..vert)
+        .flat_map(|y| (0..horiz).map(move |x| (x, y)))
         .enumerate()
         .map(|(id, (x, y))| {
             RenderChunk {

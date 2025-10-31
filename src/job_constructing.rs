@@ -100,7 +100,7 @@ pub fn start_render_job_construction(
             samples_per_pixel: settings.samples_per_pixel,
         };
 
-        let chunks = create_render_chunks(settings.chunk_count, settings.width, settings.height);
+        let chunks = create_render_chunks(settings.image_size(), settings.chunk_ratio());
 
         Ok(RenderJob {
             render_args: Arc::new((scene, render_settings)),
