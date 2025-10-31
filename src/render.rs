@@ -182,7 +182,7 @@ pub struct RenderJobWorkerHandle {
 
 pub fn start_background_render_threads(render_thread_count: u32) -> RenderJobWorkerHandle {
     let cts = CancellationTokenSource::new();
-    let (work_sender, work_receiver) = flume::bounded(render_thread_count as usize);
+    let (work_sender, work_receiver) = flume::bounded(render_thread_count as usize * 3);
     let (result_sender, result_receiver) = flume::unbounded();
 
     let thread_handles = (0..render_thread_count)
