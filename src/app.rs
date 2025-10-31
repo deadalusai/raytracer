@@ -167,7 +167,10 @@ impl eframe::App for App {
                         ui.add(SettingsWidget::new(&mut self.settings, &mut self.scene_configs));
                         ui.separator();
                         ui.with_layout(egui::Layout::top_down_justified(egui::Align::Center), |ui| {
-                            if ui.button("Start render").clicked() {
+                            let button = egui::Button::new("Start render")
+                                .min_size(egui::Vec2::from([40.0, 40.0]));
+
+                            if ui.add(button).clicked() {
                                 self.start_new_job();
                             }
                         });
