@@ -12,10 +12,10 @@ impl Display for FormattedDuration {
         let ms = self.0.subsec_millis();
         match (d, h % 24, m % 60, s % 60) {
             (0, 0, 0, 0) => write!(f, "{ms}ms"),
-            (0, 0, 0, s) => write!(f, "{}s", secs(s, ms)),
-            (0, 0, m, s) => write!(f, "{m}m {}s", secs(s, ms)),
-            (0, h, m, s) => write!(f, "{h}h {m}m {}s", secs(s, ms)),
-            (d, h, m, s) => write!(f, "{d}d {h}h {m}m {}s", secs(s, ms)),
+            (0, 0, 0, s) => write!(f, "{:.3}s", secs(s, ms)),
+            (0, 0, m, s) => write!(f, "{m}m {:.3}s", secs(s, ms)),
+            (0, h, m, s) => write!(f, "{h}h {m}m {:.3}s", secs(s, ms)),
+            (d, h, m, s) => write!(f, "{d}d {h}h {m}m {:.3}s", secs(s, ms)),
         }?;
         Ok(())
     }
