@@ -2,11 +2,10 @@
 // Chunk primitives
 //
 
-#[derive(Clone)]
+#[derive(Clone, Eq, PartialEq, Debug)]
 pub struct RenderChunk {
-    pub id: usize,
-    pub top: usize,
     pub left: usize,
+    pub top: usize,
     pub width: usize,
     pub height: usize,
 }
@@ -28,22 +27,49 @@ impl RenderChunk {
     }
 }
 
-pub fn create_render_chunks(size: [usize; 2], counts: [usize; 2]) -> Vec<RenderChunk> {
-    let [horiz, vert] = counts;
-    let [width, height] = size;
-    let chunk_width = width / horiz;
-    let chunk_height = height / vert;
-    (0..vert)
-        .flat_map(|y| (0..horiz).map(move |x| (x, y)))
-        .enumerate()
-        .map(|(id, (x, y))| {
-            RenderChunk {
-                id,
-                top: y * chunk_height,
-                left: x * chunk_width,
-                width: chunk_width,
-                height: chunk_height,
-            }
+pub fn create_render_chunks(size: [usize; 2], count: [usize; 2]) -> Vec<RenderChunk> {
+    #[derive(Copy, Clone)]
+    struct Segment { offset: usize, size: usize }
+
+    // Divide one dimension into segments
+    fn dim_segments(length: usize, count: usize) -> impl Iterator<Item=Segment> {
+        let size = length / count;
+        let remainder = length % count;
+        (0..count).map(move |i| Segment {
+            offset: i * size,
+            // The last segment may be larger, to account for remainder of integer division
+            size: if i == count - 1 { size + remainder } else { size }
         })
-        .collect::<Vec<_>>()
+    }
+
+    dim_segments(size[1], count[1])
+        .flat_map(|v| dim_segments(size[0], count[0]).map(move |h| (h, v)))
+        .map(|(h, v)| RenderChunk {
+            left: h.offset,
+            top: v.offset,
+            width: h.size,
+            height: v.size,
+        })
+        .collect()
+}
+
+#[cfg(test)]
+mod test {
+    use super::{RenderChunk, create_render_chunks};
+
+    #[test]
+    fn create_render_chunks_test() {
+        let chunks = create_render_chunks([10, 10], [3, 3]);
+        assert_eq!(chunks, [
+            RenderChunk { left: 0, top: 0, width: 3, height: 3 },
+            RenderChunk { left: 3, top: 0, width: 3, height: 3 },
+            RenderChunk { left: 6, top: 0, width: 4, height: 3 },
+            RenderChunk { left: 0, top: 3, width: 3, height: 3 },
+            RenderChunk { left: 3, top: 3, width: 3, height: 3 },
+            RenderChunk { left: 6, top: 3, width: 4, height: 3 },
+            RenderChunk { left: 0, top: 6, width: 3, height: 4 },
+            RenderChunk { left: 3, top: 6, width: 3, height: 4 },
+            RenderChunk { left: 6, top: 6, width: 4, height: 4 },
+        ]);
+    }
 }
