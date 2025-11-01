@@ -1,20 +1,66 @@
+use std::sync::LazyLock;
+
 use eframe::egui::{self, WidgetText};
 use raytracer_samples::scene::SceneControlCollection;
 
-struct ChunkRatio { label: &'static str, ratio: [usize; 2] }
-const CHUNK_RATIO_OPTIONS: [ChunkRatio; 4] = [
-    ChunkRatio { label: "One chunk", ratio: [1, 1] },
-    ChunkRatio { label: "16 chunks", ratio: [4, 4] },
-    ChunkRatio { label: "256 chunks", ratio: [16, 16] },
-    ChunkRatio { label: "1024 chunks", ratio: [32, 32] },
-];
+//
+// Chunk configuration
+//
+
+enum CDim {
+    Fixed(usize),
+    Threads
+}
+
+impl std::fmt::Display for CDim {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        match self {
+            CDim::Fixed(n) => write!(f, "{}", n),
+            CDim::Threads => write!(f, "Threads"),
+        }
+    }
+}
+
+struct CRatio(CDim, CDim);
+
+impl CRatio {
+    fn to_setting(&self, thread_count: u32) -> [usize; 2] {
+        let inner = |dim: &CDim| match dim {
+            CDim::Fixed(f) => *f,
+            CDim::Threads => thread_count as usize,
+        };
+        [ inner(&self.0), inner(&self.1) ]
+    }
+}
+
+impl std::fmt::Display for CRatio {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        write!(f, "{}×{}", self.0, self.1)
+    }
+}
+
+static CHUNK_RATIO_OPTIONS: LazyLock<Vec<CRatio>> = LazyLock::new(|| {
+    use CDim::*;
+    vec![
+        CRatio(Fixed(1), Fixed(1)),
+        CRatio(Fixed(4), Fixed(4)),
+        CRatio(Fixed(16), Fixed(16)),
+        CRatio(Fixed(32), Fixed(32)),
+        CRatio(Threads, Fixed(1)),
+        CRatio(Threads, Threads),
+    ]
+});
+
+//
+// Settings
+//
 
 #[derive(Debug, Clone, serde::Deserialize, serde::Serialize)]
 pub struct Settings {
     pub scene: usize,
     pub width: usize,
     pub height: usize,
-    pub chunk_ratio_option: usize, // CHUNK_RATIO_OPTIONS
+    pub chunk_ratio_option: usize,
     pub thread_count: u32,
     pub samples_per_pixel: u32,
     pub camera_fov: f32,
@@ -30,7 +76,7 @@ impl Settings {
     pub fn chunk_ratio(&self) -> [usize; 2] {
         CHUNK_RATIO_OPTIONS
             .get(self.chunk_ratio_option)
-            .map(|o| o.ratio)
+            .map(|o| o.to_setting(self.thread_count))
             .unwrap_or([1, 1])
     }
 
@@ -45,7 +91,7 @@ impl Default for Settings {
             scene: Default::default(),
             width: 1024,
             height: 768,
-            chunk_ratio_option: 2, // 256
+            chunk_ratio_option: CHUNK_RATIO_OPTIONS.len() - 1,
             thread_count: 4,
             samples_per_pixel: 1,
             camera_fov: 45.0,
@@ -158,11 +204,16 @@ impl<'a> egui::Widget for SettingsWidget<'a> {
                 // Render chunks
                 ui.label("Render chunks");
                 egui::ComboBox::from_id_salt("chunks")
-                    .selected_text(CHUNK_RATIO_OPTIONS.get(st.chunk_ratio_option).map(|o| o.label).unwrap_or("???"))
+                    .selected_text(
+                        CHUNK_RATIO_OPTIONS
+                            .get(st.chunk_ratio_option)
+                            .map(|o| format!("{}", o))
+                            .unwrap_or_else(|| "???".to_string())
+                    )
                     .width(120.0)
                     .show_ui(ui, |ui| {
                         for (i, opt) in CHUNK_RATIO_OPTIONS.iter().enumerate() {
-                            ui.selectable_value(&mut st.chunk_ratio_option, i, opt.label);
+                            ui.selectable_value(&mut st.chunk_ratio_option, i, format!("{}", opt));
                         }
                     });
                 ui.end_row();
