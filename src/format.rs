@@ -44,7 +44,7 @@ mod test_formatted_duration {
 
     #[test]
     fn seconds() {
-        test(1.0, "1s");
+        test(1.0, "1.000s");
         test(1.015, "1.015s");
         test(2.115, "2.115s");
         test(15.915, "15.915s");
@@ -52,19 +52,19 @@ mod test_formatted_duration {
 
     #[test]
     fn minutes() {
-        test(600.0, "10m 0s");
+        test(600.0, "10m 0.000s");
         test(915.015, "15m 15.015s");
     }
 
     #[test]
     fn hours() {
-        test(3600.0, "1h 0m 0s");
+        test(3600.0, "1h 0m 0.000s");
         test(54915.015, "15h 15m 15.015s");
     }
 
     #[test]
     fn days() {
-        test(86400.0, "1d 0h 0m 0s");
+        test(86400.0, "1d 0h 0m 0.000s");
         test(1350915.015, "15d 15h 15m 15.015s");
     }
 }
