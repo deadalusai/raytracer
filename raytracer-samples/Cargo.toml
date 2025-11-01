@@ -1,11 +1,11 @@
 [package]
 name = "raytracer-samples"
-version = "0.1.0"
-authors = ["Benjamin Fox <deadalus.ai@gmail.com>"]
-edition = "2024"
+version.workspace = true
+edition.workspace = true
+authors.workspace = true
 
 [dependencies]
-rand = "0.9"
-rand_xorshift = "0.4"
+rand.workspace = true
 raytracer-impl = { path = "../raytracer-impl" }
 raytracer-obj = { path = "../raytracer-obj" }
+rand_xorshift = "0.4"

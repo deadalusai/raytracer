@@ -1,11 +1,11 @@
 [package]
 name = "raytracer-obj"
-version = "0.1.0"
-authors = ["Benjamin Fox <deadalus.ai@gmail.com>"]
-edition = "2024"
+version.workspace = true
+edition.workspace = true
+authors.workspace = true
 
 [dependencies]
+log.workspace = true
 raytracer-impl = { path = "../raytracer-impl" }
 thiserror = "1.0"
 image = "0.24.7"
-log = "0.4"
