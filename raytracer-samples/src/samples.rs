@@ -533,14 +533,14 @@ pub fn spaceships(config: &CameraConfiguration) -> Result<Scene, CreateSceneErro
     let dest_mat = scene.add_material(MatLambertian::default());
     let dest_tex = scene.add_texture(dest_mesh_data.texture_set);
     // NOTE: Destroyer model is facing +Z rotated on its side (X UP)
-    let dest_mesh = Entity::new(MeshObject::new(dest_mesh_data.mesh, dest_mat, dest_tex)).rotate(V3::POS_Z, -deg_to_rad(90.0));
+    let dest_mesh = Entity::new(MeshObject::new(dest_mesh_data.mesh, dest_mat, dest_tex)).rotate(V3::POS_Z, deg_to_rad(90.0));
 
     // Interceptor (facing EAST)
     let int_mesh_data = load_obj_builder(crate::mesh_path!("Interceptor-T/Heavyinterceptor.obj"))?.build_mesh();
     let int_mat = scene.add_material(MatLambertian::default());
     let int_tex = scene.add_texture(int_mesh_data.texture_set);
     // NOTE: Interceptor model is facing +Z rotated on its side (X UP)
-    let int_mesh = Entity::new(MeshObject::new(int_mesh_data.mesh, int_mat, int_tex)).rotate(V3::POS_Z, -deg_to_rad(90.0));
+    let int_mesh = Entity::new(MeshObject::new(int_mesh_data.mesh, int_mat, int_tex)).rotate(V3::POS_Z, deg_to_rad(90.0));
 
     // Spawn a few interceptors across the bow of the Destroyer
     let int_origin = look_to + position!(Up(200.0), East(300.0), South(30.0));
@@ -648,7 +648,7 @@ pub fn fleet(config: &CameraConfiguration) -> Result<Scene, CreateSceneError> {
     let int_tex = scene.add_texture(int_mesh_data.texture_set);
     let int_mesh = Entity::new(MeshObject::new(int_mesh_data.mesh, int_mat, int_tex))
         // Interceptor model is facing +Z rotated on its side (X UP?)
-        .rotate(V3::POS_Z, -deg_to_rad(90.0));
+        .rotate(V3::POS_Z, deg_to_rad(90.0));
 
     let range = (-600..=0).step_by(60);
 

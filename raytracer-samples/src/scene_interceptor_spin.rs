@@ -23,7 +23,7 @@ impl SceneFactory for SceneInterceptorSpin {
                 SceneControl::range("Camera Distance", 1.0, 1500.0).with_default(100.0),
                 SceneControl::range("Seconds Per Rotation",  1.0, 1000.0).with_default(10.0),
                 SceneControl::range("Global Light Intensity", 1.0, 800.0).with_default(20.0),
-                SceneControl::range("Spotlight Intensity", 0.0, 2000.0).with_default(700.0),
+                SceneControl::range("Spotlight Intensity", 0.0, 2000.0).with_default(1200.0),
                 SceneControl::range("Spotlight Beam Angle", 1.0, 90.0).with_default(60.0),
             ],
         }
@@ -69,7 +69,7 @@ impl SceneFactory for SceneInterceptorSpin {
             // Interceptor model spins as time passes
             .rotate(V3::POS_Y, rot_rads)
             // Interceptor model is facing +Z rotated on its side
-            .rotate(V3::POS_Z, -deg_to_rad(90.0));
+            .rotate(V3::POS_Z, deg_to_rad(90.0));
 
         scene.add_entity(int_mesh);
 

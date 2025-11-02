@@ -262,7 +262,7 @@ impl Entity {
         let mut corners = aabb.corners();
         // HACK: don't try to rotate infinite bounds.
         if !aabb.is_infinite() {
-            for t in self.rotations.iter() {
+            for t in self.rotations.iter().rev() {
                 // Rotates about 0,0,0
                 for c in corners.iter_mut() {
                     *c = (*c).rotate_about_axis(t.axis, t.theta);
@@ -289,8 +289,8 @@ impl Entity {
             ray.origin = ray.origin - t.offset;
         }
         for t in self.rotations.iter() {
-            ray.origin = ray.origin.rotate_about_axis(t.axis, t.theta);
-            ray.direction = ray.direction.rotate_about_axis(t.axis, t.theta);
+            ray.origin = ray.origin.rotate_about_axis(t.axis, -t.theta);
+            ray.direction = ray.direction.rotate_about_axis(t.axis, -t.theta);
         }
 
         // Hit entity
@@ -298,8 +298,8 @@ impl Entity {
 
         // Reverse transforms on result
         for t in self.rotations.iter().rev() {
-            hit.p = hit.p.rotate_about_axis(t.axis, -t.theta);
-            hit.normal = hit.normal.rotate_about_axis(t.axis, -t.theta);
+            hit.p = hit.p.rotate_about_axis(t.axis, t.theta);
+            hit.normal = hit.normal.rotate_about_axis(t.axis, t.theta);
         }
         for t in self.translations.iter().rev() {
             hit.p = hit.p + t.offset;
