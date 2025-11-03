@@ -1,5 +1,6 @@
 extern crate rand;
 
+pub mod matrix;
 pub mod types;
 pub mod materials;
 pub mod texture;
