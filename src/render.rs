@@ -98,7 +98,10 @@ impl RenderJob {
 
 // A message from the master thread to a worker
 #[derive(Clone)]
-pub struct RenderWork(pub RenderChunk, pub Arc<(Scene, RenderSettings)>);
+pub struct RenderWork(
+    pub RenderChunk,
+    pub Arc<(Scene, RenderSettings)>,
+);
 
 // A message from a worker thread to the master thread
 #[derive(Clone)]

@@ -19,12 +19,13 @@ impl SceneFactory for SceneUvTest {
         SceneControlCollection {
             name: self.name().into(),
             controls: vec![
-                SceneControl::range("Mesh Rotation X Deg", -180.0, 180.0).with_default(0.0),
+                SceneControl::range("Mesh Rotation X Deg", -180.0, 180.0).with_default(-40.0),
                 SceneControl::range("Mesh Rotation Y Deg", -180.0, 180.0).with_default(0.0),
                 SceneControl::range("Plane Rotation Deg", -180.0, 180.0).with_default(0.0),
                 SceneControl::range("Plane Checker Scale",0.0, 50.0).with_default(1.0),
-                SceneControl::range("Plane Offset X", -10.0, 10.0).with_default(0.5),
+                SceneControl::range("Plane Offset X", -10.0, 10.0).with_default(0.0),
                 SceneControl::range("Plane Offset Y", -10.0, 10.0).with_default(-0.5),
+                SceneControl::range("Plane Offset Z", -10.0, 10.0).with_default(0.0),
             ],
         }
     }
@@ -40,11 +41,11 @@ impl SceneFactory for SceneUvTest {
         let lambertian = scene.add_material(MatLambertian::default());
 
         // Lights
-        let lamp_pos = look_from; // V3::POS_Y * 70.0;
+        let lamp_pos = look_from + V3::POS_Y * 5.0;
         let lamp_direction = look_to - lamp_pos;
         scene.add_light(
             LampLight::with_origin_and_direction(lamp_pos, lamp_direction)
-                .with_intensity(30.0)
+                .with_intensity(80.0)
                 .with_angle(60.0)
         );
 
@@ -57,7 +58,8 @@ impl SceneFactory for SceneUvTest {
         let plane_origin =
             look_to +
             (V3::POS_Y * config.get("Plane Offset Y")?) +
-            (V3::POS_X * config.get("Plane Offset X")?);
+            (V3::POS_X * config.get("Plane Offset X")?) +
+            (V3::POS_Z * config.get("Plane Offset Z")?);
 
         scene.add_entity(
             Entity::new(Plane::new(V3::POS_Y, lambertian, plane_tex))
@@ -82,12 +84,22 @@ impl SceneFactory for SceneUvTest {
         let mesh_uv_tex = scene.add_texture(UvTestTexture);
         let mesh_origin = look_to + (V3::POS_Y * 0.5) + (V3::POS_X * 1.0) + (V3::NEG_Z * 0.5);
         scene.add_entity(
+            Entity::new(MeshObject::new(mesh_mesh_data.mesh.clone(), lambertian, mesh_uv_tex))
+                .translate(mesh_origin)
+                .rotate(V3::POS_Y, deg_to_rad(180.0 + 45.0)) // Face front to camera, rotate slightly
+                .rotate(V3::POS_Y, deg_to_rad(config.get("Mesh Rotation Y Deg")?))
+                .rotate(V3::POS_X, deg_to_rad(config.get("Mesh Rotation X Deg")?))
+                .id(3)
+        );
+
+        let mesh_origin = look_to + (V3::POS_Y * 0.5) + (V3::NEG_X * 1.0) + (V3::NEG_Z * 0.5);
+        scene.add_entity(
             Entity::new(MeshObject::new(mesh_mesh_data.mesh, lambertian, mesh_uv_tex))
                 .translate(mesh_origin)
                 .rotate(V3::POS_Y, deg_to_rad(180.0 - 45.0)) // Face front to camera, rotate slightly
                 .rotate(V3::POS_Y, deg_to_rad(config.get("Mesh Rotation Y Deg")?))
                 .rotate(V3::POS_X, deg_to_rad(config.get("Mesh Rotation X Deg")?))
-                .id(3)
+                .id(4)
         );
 
         Ok(scene)
